@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  --color-background: #fff8e7;
+  --color-surface: #ffffff;
+  --color-text-primary: #2d2d2d;
+  --color-carrot-orange: #ff6b35;
+  --color-leafy-green: #4caf50;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  color: var(--color-text-primary);
+  background-color: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.react-flow__node {
+  cursor: pointer !important;
+}

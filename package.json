@@ -1,0 +1,47 @@
+{
+  "name": "karet-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1009.0",
+    "@tailwindcss/postcss": "^4.2.1",
+    "@xyflow/react": "^12.3.5",
+    "alasql": "^4.17.2",
+    "chart.js": "^4.5.1",
+    "chartjs-chart-geo": "^4.3.6",
+    "dagre": "^0.8.5",
+    "html-to-image": "^1.11.13",
+    "hyparquet": "^1.25.1",
+    "hyparquet-compressors": "^1.1.1",
+    "jszip": "^3.10.1",
+    "next": "^15.5.7",
+    "react": "^19.2.3",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^19.2.3",
+    "tailwindcss": "^4.2.1",
+    "topojson-client": "^3.1.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@testing-library/react": "^16.3.2",
+    "@types/dagre": "^0.7.53",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "fast-check": "^4.6.0",
+    "jsdom": "^28.1.0",
+    "typescript": "^5",
+    "vitest": "^4.1.0"
+  }
+}
