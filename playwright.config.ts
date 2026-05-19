@@ -1,4 +1,4 @@
-// Playwright configuration for the karet-web end-to-end smoke tests.
+// Playwright configuration for the karet end-to-end smoke tests.
 // These tests drive the dashboard and graph pages against a live Worker +
 // RustFS stack from the top-level docker-compose.yaml.
 //

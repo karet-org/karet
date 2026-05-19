@@ -10,13 +10,45 @@ export interface DashboardFilter {
 
 export type Aggregation = "sum" | "count" | "avg" | "min" | "max";
 
-/** Per-panel CSS grid placement. */
+/** Per-panel CSS grid placement and chart-area sizing. */
 export interface PanelGrid {
   gridColumn?: string;
   gridRow?: string;
+  /**
+   * Chart-area aspect ratio. `"square"` makes the chart inscribe a circle
+   * (right shape for doughnuts), `"video"` is 16:9 (good for maps), and
+   * `"auto"` (default) lets the chart fill whatever rectangle the row gives.
+   * The chart still respects `maxHeight` as a ceiling so a square doughnut
+   * doesn't blow up to column width on wide screens.
+   */
+  aspect?: "square" | "video" | "auto";
+  /** CSS max-height for the chart area, e.g. `"20rem"`, `"320px"`. */
+  maxHeight?: string;
 }
 
+/** Single tiled KPI: icon + label + one big aggregated value. */
+export type KpiAgg = "sum" | "count" | "avg" | "min" | "max" | "mode";
+export type KpiFormat = "number" | "currency" | "raw";
+export type KpiIcon = "dollar" | "chart" | "shapes" | "calendar";
+
 export type Panel =
+  | {
+      kind: "kpi";
+      title: string;
+      column: string;
+      agg: KpiAgg;
+      format?: KpiFormat;
+      /** ISO 4217 currency code used when `format: "currency"`. Defaults to USD. */
+      currency?: string;
+      icon?: KpiIcon;
+      /**
+       * For `agg: "mode"`, the column whose values are summed for the
+       * dominant `column` group. The result reads like
+       * `Food ($7,632.01)`. Ignored for other aggs.
+       */
+      value_column?: string;
+      grid?: PanelGrid;
+    }
   | {
       kind: "summary";
       title: string;

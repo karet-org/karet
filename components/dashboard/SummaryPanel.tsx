@@ -49,9 +49,9 @@ export function SummaryPanel({ config, rows }: PanelProps<SummaryPanelConfig>) {
   return (
     <div
       data-testid="summary-panel"
-      className="rounded-md border border-gray-200 bg-white p-4"
+      className="flex flex-1 flex-col rounded-lg border border-orange-100 bg-white p-4 shadow-sm"
     >
-      <h3 className="text-sm font-semibold text-gray-800">{config.title}</h3>
+      <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <div className="rounded bg-gray-50 p-2">
           <div className="text-xs text-gray-500">Rows</div>

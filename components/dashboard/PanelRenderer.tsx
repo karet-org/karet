@@ -5,6 +5,7 @@ import BarPanel from "./BarPanel";
 import ChoroplethMapPanel from "./ChoroplethMapPanel";
 import DoughnutPanel from "./DoughnutPanel";
 import ErrorPanel from "./ErrorPanel";
+import KpiPanel from "./KpiPanel";
 import LinePanel from "./LinePanel";
 import SummaryPanel from "./SummaryPanel";
 import SymbolMapPanel from "./SymbolMapPanel";
@@ -23,6 +24,8 @@ export function PanelRenderer({
     return <ErrorPanel title={config.title} missingColumns={missing} />;
   }
   switch (config.kind) {
+    case "kpi":
+      return <KpiPanel config={config} rows={rows} schema={schema} />;
     case "summary":
       return <SummaryPanel config={config} rows={rows} schema={schema} />;
     case "doughnut":

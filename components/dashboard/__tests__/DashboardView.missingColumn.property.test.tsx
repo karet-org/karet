@@ -39,6 +39,8 @@ function expectedTestId(panel: Panel): string {
  */
 function breakPanel(panel: Panel): Panel {
   switch (panel.kind) {
+    case "kpi":
+      return { ...panel, column: MISSING };
     case "summary":
       return { ...panel, columns: [MISSING, ...panel.columns.slice(1)] };
     case "doughnut":

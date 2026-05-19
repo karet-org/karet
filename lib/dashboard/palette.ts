@@ -7,14 +7,14 @@
  * count; distinguishability just drops off past ~8.
  */
 export const CHART_PALETTE = [
-  "#ff6b35",
-  "#4caf50",
-  "#2196f3",
-  "#ffc107",
-  "#9c27b0",
-  "#00bcd4",
-  "#ff5722",
-  "#795548",
+  "#ff6b35", // carrot orange
+  "#22c55e", // leafy green
+  "#fb923c", // soft orange
+  "#16a34a", // deep green
+  "#fdba74", // pale orange
+  "#86efac", // pale green
+  "#dc2626", // tomato red (rare accent)
+  "#15803d", // forest green
 ] as const;
 
 /** Accent used for the "active filter" ring in interactive panels. */

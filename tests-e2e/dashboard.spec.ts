@@ -16,7 +16,7 @@
 //
 // Seed S3 with at least two dashboard JSON configs under the configured
 // `dashboards/` prefix and a Pipeline_Config under `config/pipeline.json`.
-// Then from `src/karet-web/` run:
+// Then from `src/karet/` run:
 //
 //     npm run test:e2e
 //

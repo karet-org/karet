@@ -67,7 +67,7 @@ const spendingPipeline: PipelineConfig = {
       columns: [
         { name: "date", expr: { kind: "parse_date", input: { kind: "col", name: "date" }, format: "%Y-%m-%d" } },
         { name: "description", expr: { kind: "upper", input: { kind: "col", name: "description" } } },
-        { name: "amount", expr: { kind: "cast", input: { kind: "mul", left: { kind: "col", name: "amount" }, right: { kind: "num", value: 100 } }, to: "int64" } },
+        { name: "amount", expr: { kind: "cast", input: { kind: "col", name: "amount" }, to: "float64" } },
         { name: "account", expr: { kind: "col", name: "account" } },
         { name: "category", expr: { kind: "lookup_ref", lookup_id: "categories", input: { kind: "upper", input: { kind: "col", name: "description" } } } },
       ],
@@ -81,7 +81,7 @@ const spendingPipeline: PipelineConfig = {
       schema: [
         { name: "date", type: "date" },
         { name: "description", type: "string" },
-        { name: "amount", type: "int64" },
+        { name: "amount", type: "float64" },
         { name: "account", type: "string" },
         { name: "category", type: "string" },
       ],
@@ -98,13 +98,15 @@ const spendingDashboard: DashboardConfig = {
     { kind: "date_range", column: "date", label: "Date range" },
   ],
   panels: [
-    { kind: "summary", title: "Summary", columns: ["amount", "category"], grid: { gridColumn: "1 / -1" } },
-    { kind: "doughnut", title: "By Category", group_by: "category", value: "amount", agg: "sum" },
-    { kind: "bar", title: "Top Merchants", group_by: "description", value: "amount", agg: "sum", limit: 5 },
-    { kind: "line", title: "Monthly Trend", x: "date", x_bin: "month", y: "amount", agg: "sum" },
+    { kind: "kpi", title: "Total Spending", column: "amount", agg: "sum", format: "currency", currency: "CAD", icon: "dollar" },
+    { kind: "kpi", title: "Transactions", column: "amount", agg: "count", format: "number", icon: "chart" },
+    { kind: "kpi", title: "Top Category", column: "category", agg: "mode", value_column: "amount", format: "currency", currency: "CAD", icon: "shapes" },
+    { kind: "doughnut", title: "By Category", group_by: "category", value: "amount", agg: "sum", grid: { aspect: "square", maxHeight: "20rem" } },
+    { kind: "line", title: "Monthly Trend", x: "date", x_bin: "month", y: "amount", agg: "sum", grid: { gridColumn: "span 2" } },
+    { kind: "bar", title: "Top Merchants", group_by: "description", value: "amount", agg: "sum", limit: 5, grid: { gridColumn: "1 / -1" } },
     { kind: "table", title: "Transactions", columns: ["date", "description", "amount", "account", "category"], page_size: 8, grid: { gridColumn: "1 / -1" } },
   ],
-  layout: { gridTemplateColumns: "1fr 1fr 1fr", gap: "1rem" },
+  layout: { gridTemplateColumns: "repeat(auto-fit, minmax(max(18rem, calc((100% - 2rem) / 3)), 1fr))", gap: "1rem" },
 } as DashboardConfig;
 
 export const TEMPLATES: Record<TemplateId, Template> = {

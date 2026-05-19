@@ -77,7 +77,7 @@ export function FilterBar({
   return (
     <div
       data-testid="filter-bar"
-      className="flex flex-wrap items-end gap-3 rounded-md border border-gray-200 bg-white p-3"
+      className="flex flex-wrap items-end gap-3 rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
     >
       {filters.map((f) => {
         if (f.kind === "dropdown") {
@@ -90,7 +90,7 @@ export function FilterBar({
             >
               <span className="mb-1 font-semibold">{f.label}</span>
               <select
-                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                className="rounded border border-orange-200 px-2 py-1 text-sm focus:border-orange-400 focus:outline-none"
                 value={value}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -126,7 +126,7 @@ export function FilterBar({
                 type="date"
                 aria-label={`${f.label} start`}
                 value={range.start ?? ""}
-                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                className="rounded border border-orange-200 px-2 py-1 text-sm focus:border-orange-400 focus:outline-none"
                 onChange={(e) => {
                   const v = e.target.value;
                   onChange({
@@ -142,7 +142,7 @@ export function FilterBar({
                 type="date"
                 aria-label={`${f.label} end`}
                 value={range.end ?? ""}
-                className="rounded border border-gray-300 px-2 py-1 text-sm"
+                className="rounded border border-orange-200 px-2 py-1 text-sm focus:border-orange-400 focus:outline-none"
                 onChange={(e) => {
                   const v = e.target.value;
                   onChange({

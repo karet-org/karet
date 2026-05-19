@@ -15,7 +15,7 @@
 //
 // Seed S3 with a valid Pipeline_Config under `config/pipeline.json` that
 // contains at least one editable node (Source_Container, Lookup_Mapping,
-// or Mapping). Then from `src/karet-web/` run:
+// or Mapping). Then from `src/karet/` run:
 //
 //     npm run test:e2e
 

@@ -65,9 +65,9 @@ export default async function PipelineDashboardPage({
   }
 
   return (
-    <main className="min-h-screen space-y-4 bg-gray-50 p-6">
-      <header>
-        <h1 className="text-2xl font-semibold">{dashboard.name}</h1>
+    <main className="mx-auto min-h-screen max-w-[1400px] space-y-3 p-3 sm:space-y-4 sm:p-4 lg:p-6">
+      <header className="rounded-lg border border-orange-100 bg-white px-3 py-2 shadow-sm sm:px-4 sm:py-3">
+        <h1 className="text-base font-semibold text-orange-600 sm:text-lg">{dashboard.name}</h1>
         <p className="text-xs text-gray-500">
           Table: {dashboard.analytic_table_id} · {rows.length} rows
         </p>

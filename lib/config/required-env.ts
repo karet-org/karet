@@ -19,6 +19,7 @@ export const REQUIRED_ENV_VARS = [
   "AWS_ACCESS_KEY_ID",
   "AWS_SECRET_ACCESS_KEY",
   "AWS_REGION",
+  "KARET_SESSION_SECRET",
 ] as const;
 
 /** Minimal environment shape the check reads from. Parameterizing lets tests
@@ -53,7 +54,7 @@ export function assertRequiredEnvVars(
   const missing = missingRequiredEnvVars(env, required);
   if (missing.length === 0) return;
   throw new Error(
-    `karet-web: missing required environment variable(s): ${missing.join(", ")}. ` +
+    `karet: missing required environment variable(s): ${missing.join(", ")}. ` +
       `Set them before starting the server (see docker-compose.yaml).`,
   );
 }

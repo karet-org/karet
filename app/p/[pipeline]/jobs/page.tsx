@@ -80,12 +80,17 @@ export default function JobsPage() {
 
   return (
     <main
-      className="mx-auto max-w-4xl px-6 py-8"
+      className="mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8"
       style={{ minHeight: `calc(100vh - ${TOP_NAV_HEIGHT_PX}px)` }}
     >
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Jobs</h1>
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Jobs</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Run the pipeline and watch its progress. Each run reads raw CSVs, applies the configured mappings, and writes Parquet output.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
           <button
             type="button"
             onClick={() => loadJobs()}
@@ -134,6 +139,14 @@ export default function JobsPage() {
                         >
                           {job.status}
                         </span>
+                        {job.trigger === "webhook" && (
+                          <span
+                            className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700"
+                            title="Auto-triggered by an upload to S3"
+                          >
+                            auto
+                          </span>
+                        )}
                       </div>
                       <div className="mt-1 text-xs text-gray-400">
                         Started: {new Date(job.startedAt).toLocaleString()}

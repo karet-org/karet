@@ -5,6 +5,7 @@
 
 import { S3Client, S3ServiceException } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
+import { sanitizeSlug } from "./slug";
 
 export interface S3Config {
   bucket: string;
@@ -105,4 +106,39 @@ export async function wrapS3Error<T>(
       { status: 503 },
     );
   }
+}
+
+/**
+ * Convenience wrapper around `loadS3Config()` + `createS3Client()` +
+ * `wrapS3Error()`. Use from API route handlers that don't need to scope
+ * the config to a specific pipeline slug.
+ */
+export function withS3<T>(
+  label: string,
+  fn: (client: S3Client, config: S3Config) => Promise<T>,
+): Promise<T | NextResponse> {
+  const config = loadS3Config();
+  const client = createS3Client(config);
+  return wrapS3Error(() => fn(client, config), label);
+}
+
+/**
+ * Like `withS3`, but scopes the config to a single pipeline. Returns a
+ * 422 `invalid_slug` response if the slug fails sanitization, so handlers
+ * can rely on receiving a non-empty slug.
+ */
+export function withPipelineS3<T>(
+  rawSlug: string,
+  label: (slug: string) => string,
+  fn: (client: S3Client, config: S3Config, slug: string) => Promise<T>,
+): Promise<T | NextResponse> {
+  const slug = sanitizeSlug(rawSlug);
+  if (!slug) {
+    return Promise.resolve(
+      NextResponse.json({ error: "invalid_slug" }, { status: 422 }),
+    );
+  }
+  const config = pipelineS3Config(loadS3Config(), slug);
+  const client = createS3Client(config);
+  return wrapS3Error(() => fn(client, config, slug), label(slug));
 }

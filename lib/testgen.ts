@@ -398,8 +398,19 @@ export const arbDashboardFilter: fc.Arbitrary<DashboardFilter> = fc.record({
   label: arbName,
 });
 
-/** {@link Panel} — uniform choice over the five panel kinds. */
+/** {@link Panel} — uniform choice over the supported panel kinds. */
 export const arbPanel: fc.Arbitrary<Panel> = fc.oneof(
+  fc.record(
+    {
+      kind: fc.constant("kpi" as const),
+      title: arbName,
+      column: arbName,
+      agg: fc.constantFrom("sum", "count", "avg", "min", "max", "mode"),
+      format: fc.option(fc.constantFrom("number", "currency", "raw"), { nil: undefined }),
+      icon: fc.option(fc.constantFrom("dollar", "chart", "shapes", "calendar"), { nil: undefined }),
+    },
+    { requiredKeys: ["kind", "title", "column", "agg"] },
+  ),
   fc.record({
     kind: fc.constant("summary" as const),
     title: arbName,

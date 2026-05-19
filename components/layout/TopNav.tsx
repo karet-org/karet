@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { KaretLogo, IconChevronDown, IconDownload, IconExternal } from "@/components/icons";
 import { sanitizeSlug } from "@/lib/config/slug";
 import Modal from "@/components/ui/Modal";
+import UserMenu from "@/components/layout/UserMenu";
 
 const NAV_HEIGHT_PX = 48;
 
@@ -24,6 +25,9 @@ export default function TopNav({ pipeline }: { pipeline: string }) {
   const [dashboards, setDashboards] = useState<string[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [renaming, setRenaming] = useState(false);
@@ -81,7 +85,7 @@ export default function TopNav({ pipeline }: { pipeline: string }) {
   return (
     <nav
       data-testid="top-nav"
-      className="sticky top-0 z-20 flex items-center gap-1 border-b border-gray-200 bg-white px-4"
+      className="sticky top-0 z-20 flex flex-wrap items-center gap-1 border-b border-gray-200 bg-white px-2 sm:flex-nowrap sm:px-4"
       style={{ height: NAV_HEIGHT_PX }}
     >
       <Link
@@ -167,29 +171,10 @@ export default function TopNav({ pipeline }: { pipeline: string }) {
         </button>
         <button
           type="button"
-          onClick={async () => {
-            const ok = window.confirm(
-              `Delete pipeline "${pipeline}"?\n\nThis permanently removes its config, dashboards, raw CSVs, Parquet output, and job history. Cannot be undone.`,
-            );
-            if (!ok) return;
-            setDeleting(true);
-            try {
-              const res = await fetch(
-                `/api/pipelines/${encodeURIComponent(pipeline)}`,
-                { method: "DELETE" },
-              );
-              if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                alert(
-                  `Delete failed: ${body.message ?? body.error ?? res.statusText}`,
-                );
-                return;
-              }
-              router.push("/");
-              router.refresh();
-            } finally {
-              setDeleting(false);
-            }
+          onClick={() => {
+            setDeleteConfirm("");
+            setDeleteError(null);
+            setDeleteOpen(true);
           }}
           disabled={deleting}
           data-testid="top-nav-delete-pipeline"
@@ -207,7 +192,116 @@ export default function TopNav({ pipeline }: { pipeline: string }) {
         >
           S3 console <IconExternal size={12} />
         </a>
+        <span className="mx-1 h-4 w-px bg-gray-200" aria-hidden />
+        <UserMenu />
       </div>
+
+      {deleteOpen ? (
+        <Modal
+          open={deleteOpen}
+          onClose={() => {
+            if (!deleting) setDeleteOpen(false);
+          }}
+        >
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (sanitizeSlug(deleteConfirm) !== pipeline) {
+                setDeleteError(
+                  `Type "${pipeline}" exactly to confirm deletion.`,
+                );
+                return;
+              }
+              setDeleting(true);
+              setDeleteError(null);
+              try {
+                const res = await fetch(
+                  `/api/pipelines/${encodeURIComponent(pipeline)}`,
+                  { method: "DELETE" },
+                );
+                if (!res.ok) {
+                  const body = await res.json().catch(() => ({}));
+                  setDeleteError(
+                    `Delete failed: ${body.message ?? body.error ?? res.statusText}`,
+                  );
+                  return;
+                }
+                setDeleteOpen(false);
+                router.push("/");
+                router.refresh();
+              } catch (err) {
+                setDeleteError((err as Error).message);
+              } finally {
+                setDeleting(false);
+              }
+            }}
+          >
+            <h2 className="text-lg font-semibold text-red-700">Delete pipeline</h2>
+            <p className="mt-1 text-xs text-gray-500">
+              This permanently removes the config, dashboards, raw CSVs,
+              Parquet output, and job history for{" "}
+              <code className="rounded bg-gray-100 px-1 text-[11px]">
+                {pipeline}
+              </code>
+              . Cannot be undone.
+            </p>
+
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Want a backup first?{" "}
+              <a
+                href={`/api/p/${pipeline}/export`}
+                download
+                className="font-medium underline hover:text-amber-900"
+              >
+                Download a .zip
+              </a>{" "}
+              of this pipeline before deleting.
+            </div>
+
+            <label className="mt-4 block text-sm font-medium text-gray-700">
+              Type{" "}
+              <code className="rounded bg-gray-100 px-1 text-[11px]">
+                {pipeline}
+              </code>{" "}
+              to confirm
+            </label>
+            <input
+              autoFocus
+              type="text"
+              data-testid="delete-pipeline-confirm"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              autoComplete="off"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-red-400 focus:outline-none"
+            />
+
+            {deleteError ? (
+              <p className="mt-3 text-sm text-red-600" role="alert">
+                {deleteError}
+              </p>
+            ) : null}
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteOpen(false)}
+                disabled={deleting}
+                className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={deleting || sanitizeSlug(deleteConfirm) !== pipeline}
+                data-testid="delete-pipeline-submit"
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? "Deleting…" : "Delete pipeline"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
 
       {renameOpen ? (
         <Modal

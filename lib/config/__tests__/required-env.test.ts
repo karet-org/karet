@@ -55,7 +55,7 @@ describe("required-env", () => {
     }
     expect(thrown).toBeInstanceOf(Error);
     const message = (thrown as Error).message;
-    expect(message).toContain("karet-web");
+    expect(message).toContain("karet");
     expect(message).toContain("S3_BUCKET");
     expect(message).toContain("docker-compose.yaml");
   });

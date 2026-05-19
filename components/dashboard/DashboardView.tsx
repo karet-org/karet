@@ -83,6 +83,7 @@ export function DashboardView({ config, rows, schema }: DashboardViewProps) {
             <div
               key={i}
               style={panelStyle}
+              className="flex"
               data-testid="panel-slot"
               data-panel-index={i}
               data-panel-title={panel.title}

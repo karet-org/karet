@@ -28,7 +28,7 @@ import { resolveCountry } from "@/lib/dashboard/iso3166";
 import { useWorldAtlas } from "@/lib/dashboard/worldAtlas";
 import { formatValue, toNum } from "@/lib/dashboard/format";
 import { aggregateValues } from "./aggregate";
-import type { PanelProps, CrossFilterProps } from "./types";
+import { chartAreaProps, type PanelProps, type CrossFilterProps } from "./types";
 
 ChartJS.register(
   ChoroplethController,
@@ -197,9 +197,9 @@ export function ChoroplethMapPanel({
   ]);
 
   return (
-    <div className="rounded-md border border-gray-200 bg-white p-4">
-      <h3 className="text-sm font-semibold text-gray-800">{config.title}</h3>
-      <div className="relative mt-3 h-64">
+    <div className="flex flex-1 flex-col rounded-lg border border-orange-100 bg-white p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
+      <div {...chartAreaProps(config)}>
         {!atlas ? (
           <div className="flex h-full items-center justify-center text-xs text-gray-400">
             Loading map…

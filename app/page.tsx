@@ -4,6 +4,7 @@ import { isNoSuchBucket } from "@/lib/config/s3-client";
 import { listPipelines } from "@/lib/services/config-service";
 import ImportButton from "@/components/layout/ImportButton";
 import CreatePipelineButton from "@/components/layout/CreatePipelineButton";
+import UserMenu from "@/components/layout/UserMenu";
 import { KaretLogo, IconPackage } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -39,10 +40,13 @@ export default async function Home() {
   const { pipelines, bucketError } = await getPipelines();
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <div className="flex items-center gap-3">
-        <KaretLogo size={36} />
-        <h1 className="text-2xl font-bold text-gray-900">Karet</h1>
+    <main className="mx-auto max-w-5xl px-3 py-6 sm:px-4 sm:py-8 lg:px-6 lg:py-12">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <KaretLogo size={36} />
+          <h1 className="text-2xl font-bold text-gray-900">Karet</h1>
+        </div>
+        <UserMenu />
       </div>
       <div className="mt-2 flex items-center justify-between">
         <p className="text-sm text-gray-500">Your ETL pipelines</p>

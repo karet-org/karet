@@ -28,9 +28,9 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
   return (
     <div
       data-testid="table-panel"
-      className="rounded-md border border-gray-200 bg-white p-4"
+      className="flex flex-1 flex-col rounded-lg border border-orange-100 bg-white p-4 shadow-sm"
     >
-      <h3 className="text-sm font-semibold text-gray-800">{config.title}</h3>
+      <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-xs uppercase text-gray-600">

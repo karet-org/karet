@@ -116,6 +116,7 @@ describe("fast-check generators smoke", () => {
         expect(dash.panels.length).toBeGreaterThanOrEqual(1);
         for (const p of dash.panels) {
           expect([
+            "kpi",
             "summary",
             "doughnut",
             "line",
