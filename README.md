@@ -1,5 +1,7 @@
 # karet
 
+[![Publish Docker image](https://github.com/karet-org/karet/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/karet-org/karet/actions/workflows/docker-publish.yml)
+
 Next.js frontend for the Karet analytics platform. Renders
 configurable dashboards and the React Flow Data Flow Graph editor over an
 ETL pipeline configuration stored in S3.
