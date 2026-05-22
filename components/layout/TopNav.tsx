@@ -299,18 +299,20 @@ export default function TopNav({ pipeline }: { pipeline: string }) {
               >
                 Rename pipeline
               </button>
-              <a
-                href="http://localhost:9001"
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setSettingsOpen(false)}
-                className="flex items-center justify-between gap-2 px-3 py-2 text-[13px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
-                role="menuitem"
-                title="Open the rustfs admin console"
-              >
-                <span>S3 console</span>
-                <IconExternal size={13} className="text-[color:var(--color-ink-4)]" />
-              </a>
+              {process.env.NEXT_PUBLIC_S3_CONSOLE_URL ? (
+                <a
+                  href={process.env.NEXT_PUBLIC_S3_CONSOLE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setSettingsOpen(false)}
+                  className="flex items-center justify-between gap-2 px-3 py-2 text-[13px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
+                  role="menuitem"
+                  title="Open the S3 admin console"
+                >
+                  <span>S3 console</span>
+                  <IconExternal size={13} className="text-[color:var(--color-ink-4)]" />
+                </a>
+              ) : null}
               <div className="my-1 border-t border-[color:var(--color-rule)]" />
               <button
                 type="button"

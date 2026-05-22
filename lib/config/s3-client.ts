@@ -37,7 +37,7 @@ export function loadS3Config(): S3Config {
   return {
     bucket: envOr("S3_BUCKET", "karet-data"),
     region: envOr("AWS_REGION", "us-east-1"),
-    endpoint: process.env.S3_ENDPOINT || undefined,
+    endpoint: process.env.AWS_ENDPOINT_URL || undefined,
     forcePathStyle:
       process.env.S3_FORCE_PATH_STYLE === undefined ||
       process.env.S3_FORCE_PATH_STYLE === "true",

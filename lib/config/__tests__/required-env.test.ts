@@ -38,9 +38,9 @@ describe("required-env", () => {
 
   it("assertRequiredEnvVars throws naming every missing var", () => {
     const env = completeEnv();
-    delete env.S3_ENDPOINT;
+    delete env.AWS_ENDPOINT_URL;
     delete env.AWS_SECRET_ACCESS_KEY;
-    expect(() => assertRequiredEnvVars(env)).toThrow(/S3_ENDPOINT/);
+    expect(() => assertRequiredEnvVars(env)).toThrow(/AWS_ENDPOINT_URL/);
     expect(() => assertRequiredEnvVars(env)).toThrow(/AWS_SECRET_ACCESS_KEY/);
   });
 

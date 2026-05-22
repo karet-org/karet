@@ -3,9 +3,12 @@
 // Behavior:
 //   - Browser routes (anything except /login, public assets, /api/*): if no
 //     valid session cookie, 302 to /login?next=<original-path>.
-//   - /api/* (except /api/auth/*): require a valid session cookie OR a valid
-//     `KARET_API_KEY` shared secret. Otherwise 401 JSON.
+//   - /api/* (except /api/auth/* and /api/events/*): require a valid session
+//     cookie. Otherwise 401 JSON.
 //   - /api/auth/* and /login are always reachable so the user can sign in.
+//   - /api/events/* is reachable without a session cookie so non-browser
+//     clients (RustFS webhooks) can post; those handlers enforce their own
+//     shared-secret check.
 //
 // Session cookies are HMAC-signed. Verification uses Web Crypto so it works
 // in the Edge runtime; password hashing (which needs Node `crypto.scrypt`)
@@ -64,13 +67,6 @@ export async function middleware(request: NextRequest) {
   if (await verifySession(cookie, secret)) return NextResponse.next();
 
   if (isApi) {
-    const apiKey = process.env.KARET_API_KEY;
-    if (apiKey && apiKey.length > 0) {
-      const supplied =
-        request.headers.get("x-api-key") ??
-        extractBearer(request.headers.get("authorization"));
-      if (supplied === apiKey) return NextResponse.next();
-    }
     return NextResponse.json(
       { error: "unauthorized", message: "missing or invalid session" },
       { status: 401 },
@@ -89,10 +85,4 @@ export async function middleware(request: NextRequest) {
     );
   }
   return NextResponse.redirect(loginUrl);
-}
-
-function extractBearer(header: string | null): string | null {
-  if (!header) return null;
-  const m = /^Bearer\s+(.+)$/i.exec(header);
-  return m ? m[1] : null;
 }
