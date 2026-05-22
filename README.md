@@ -16,7 +16,7 @@ worker + web).
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | S3 credentials |
 | `KARET_SESSION_SECRET` | **Required.** HMAC key used to sign user session cookies. Generate with `openssl rand -base64 48`. |
 | `KARET_WEBHOOK_SECRET` | Optional shared secret for `/api/events/s3` (RustFS webhooks). Empty disables it. |
-| `NEXT_PUBLIC_S3_CONSOLE_URL` | If set, the UI shows a Settings &rarr; S3 console link. Empty hides the link. |
+| `S3_CONSOLE_URL` | If set, the UI shows a Settings &rarr; S3 console link. Empty hides the link. |
 | `PORT` | Dev server port (default `3000`) |
 
 The first request to `/login` shows a "Set admin password" form when no

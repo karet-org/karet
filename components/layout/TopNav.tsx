@@ -31,7 +31,13 @@ const NAV_HEIGHT_PX = 52;
 /** Exported so pages can offset full-viewport content (e.g. the graph canvas). */
 export const TOP_NAV_HEIGHT_PX = NAV_HEIGHT_PX;
 
-export default function TopNav({ pipeline }: { pipeline: string }) {
+export default function TopNav({
+  pipeline,
+  s3ConsoleUrl,
+}: {
+  pipeline: string;
+  s3ConsoleUrl?: string | null;
+}) {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   const [dashboards, setDashboards] = useState<string[]>([]);
@@ -299,9 +305,9 @@ export default function TopNav({ pipeline }: { pipeline: string }) {
               >
                 Rename pipeline
               </button>
-              {process.env.NEXT_PUBLIC_S3_CONSOLE_URL ? (
+              {s3ConsoleUrl ? (
                 <a
-                  href={process.env.NEXT_PUBLIC_S3_CONSOLE_URL}
+                  href={s3ConsoleUrl}
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => setSettingsOpen(false)}
