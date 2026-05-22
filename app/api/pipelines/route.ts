@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       await client.send(new HeadObjectCommand({ Bucket: config.bucket, Key: pipelineKey }));
       return NextResponse.json({ error: "already_exists", pipeline: slug }, { status: 409 });
     } catch {
-      // not found — ok to create
+      // not found -- ok to create
     }
 
     for (const [relPath, content] of Object.entries(template.files)) {

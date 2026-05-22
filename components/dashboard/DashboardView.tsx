@@ -3,7 +3,7 @@
 // DashboardView renders a full dashboard: a FilterBar, followed by each
 // Panel in the configured order. Panels whose `columns`/`group_by`/etc.
 // reference a column missing from the Analytic_Table schema render as an
-// ErrorPanel — the rest of the dashboard continues to render.
+// ErrorPanel -- the rest of the dashboard continues to render.
 //
 // The component is pure in its inputs: given a config, rows, and schema,
 // it deterministically produces the same DOM tree. That purity is what

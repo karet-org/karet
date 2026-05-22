@@ -13,6 +13,7 @@ import type {
   ColumnAssertions,
   ColumnSchema,
 } from "@/lib/types/config";
+import Modal from "@/components/ui/Modal";
 import {
   EditorField,
   InlineErrorList,
@@ -44,6 +45,10 @@ export function AnalyticTableEditor({
   );
   if (onValidate) onValidate(result);
 
+  // Track which column the user is asking to remove. The Modal opens
+  // when this is non-null and closes back to null on cancel/confirm.
+  const [columnToRemove, setColumnToRemove] = useState<number | null>(null);
+
   const setName = (name: string) => onChange({ ...value, name });
   const setOutputPrefix = (output_prefix: string) =>
     onChange({ ...value, output_prefix });
@@ -63,7 +68,7 @@ export function AnalyticTableEditor({
         return rest;
       }
       const next: ColumnAssertions = { ...(c.assertions ?? {}), ...patch };
-      // If every field is unset, drop the object — the worker treats
+      // If every field is unset, drop the object -- the worker treats
       // missing and all-empty the same, but omitting keeps pipeline.json
       // tidy.
       const cleaned = pruneEmptyAssertions(next);
@@ -78,8 +83,20 @@ export function AnalyticTableEditor({
       schema: [...value.schema, { name: "", type: "string" }],
     });
   };
+  // Open the confirm modal. The actual removal happens in
+  // `confirmRemoveColumn` once the user accepts, and is also responsible
+  // for dropping the same-named column from every connected Mapping
+  // (cross-entity sync lives in `NodeDetailPanel.updateEntity`).
   const removeColumn = (index: number) => {
-    onChange({ ...value, schema: value.schema.filter((_, i) => i !== index) });
+    setColumnToRemove(index);
+  };
+  const confirmRemoveColumn = () => {
+    if (columnToRemove === null) return;
+    onChange({
+      ...value,
+      schema: value.schema.filter((_, i) => i !== columnToRemove),
+    });
+    setColumnToRemove(null);
   };
 
   return (
@@ -172,6 +189,45 @@ export function AnalyticTableEditor({
         errors={result.errors}
         testId={ANALYTIC_TABLE_EDITOR_ERROR_TESTID}
       />
+
+      {columnToRemove !== null ? (
+        <Modal
+          open
+          onClose={() => setColumnToRemove(null)}
+        >
+          <h2 className="text-lg font-semibold text-gray-900">Remove column</h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Remove{" "}
+            <code className="rounded bg-gray-100 px-1 font-mono text-[12px]">
+              {value.schema[columnToRemove]?.name ||
+                `column ${columnToRemove + 1}`}
+            </code>{" "}
+            from <span className="font-medium">{value.name || "this table"}</span>?
+          </p>
+          <p className="mt-2 text-xs text-gray-500">
+            It will also be removed from any Mapping that writes to this
+            table. The change is staged in the editor; Save &amp; Publish
+            commits it.
+          </p>
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setColumnToRemove(null)}
+              className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmRemoveColumn}
+              data-testid="analytic-table-editor-confirm-remove-column"
+              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            >
+              Remove column
+            </button>
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 }

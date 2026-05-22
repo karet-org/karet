@@ -16,17 +16,40 @@ function jobsPrefix(pipeline: string): string {
  */
 const ORPHAN_JOB_TIMEOUT_MS = 10 * 60 * 1000;
 
+/**
+ * A `scheduled` job whose `nextRunAt` is this far past the wall clock is
+ * treated as orphaned. Happens when the web container restarts during
+ * the debounce window: the in-memory timer is gone but the S3 record
+ * remains. Generous compared to the 30s max debounce so we don't race
+ * a real promotion.
+ */
+const ORPHAN_SCHEDULED_TIMEOUT_MS = 2 * 60 * 1000;
+
 function reconcileOrphans(jobs: JobRecord[]): JobRecord[] {
-  const cutoff = Date.now() - ORPHAN_JOB_TIMEOUT_MS;
+  const now = Date.now();
+  const runningCutoff = now - ORPHAN_JOB_TIMEOUT_MS;
+  const scheduledCutoff = now - ORPHAN_SCHEDULED_TIMEOUT_MS;
   return jobs.map((job) => {
-    if (job.status !== "running") return job;
-    if (Date.parse(job.startedAt) > cutoff) return job;
-    return {
-      ...job,
-      status: "failed",
-      completedAt: new Date().toISOString(),
-      error: `job abandoned (stuck in running for > ${ORPHAN_JOB_TIMEOUT_MS / 60000} min)`,
-    };
+    if (job.status === "running") {
+      if (Date.parse(job.startedAt) > runningCutoff) return job;
+      return {
+        ...job,
+        status: "failed",
+        completedAt: new Date().toISOString(),
+        error: `job abandoned (stuck in running for > ${ORPHAN_JOB_TIMEOUT_MS / 60000} min)`,
+      };
+    }
+    if (job.status === "scheduled") {
+      const target = job.nextRunAt ? Date.parse(job.nextRunAt) : Date.parse(job.startedAt);
+      if (target > scheduledCutoff) return job;
+      return {
+        ...job,
+        status: "failed",
+        completedAt: new Date().toISOString(),
+        error: "scheduled run never fired (web container likely restarted during debounce)",
+      };
+    }
+    return job;
   });
 }
 
@@ -44,7 +67,7 @@ async function fetchJobRecord(
   }
 }
 
-/** GET — list job history. */
+/** GET -- list job history. */
 export async function GET(
   _request: Request,
   context: { params: Promise<{ pipeline: string }> },
@@ -68,7 +91,7 @@ export async function GET(
 }
 
 /**
- * POST — trigger a new job. Returns immediately with the initial
+ * POST -- trigger a new job. Returns immediately with the initial
  * `running` record; the pipeline runs in the background of this Node
  * process. Poll GET `/jobs` to watch the status transition to
  * `completed` | `failed`.

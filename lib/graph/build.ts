@@ -44,7 +44,7 @@ export interface Graph {
   edges: GraphEdge[];
 }
 
-/** Node type tag strings (stable — wired to React Flow custom node registry). */
+/** Node type tag strings (stable -- wired to React Flow custom node registry). */
 export const NODE_TYPE = {
   sourceContainer: "source-container",
   lookupMapping: "lookup-mapping",
@@ -58,7 +58,7 @@ export const NODE_TYPE = {
  * (e.g. `categories.merchants`); the root (before the first dot) identifies
  * the Lookup_Mapping node in the graph.
  */
-export function collectLookupRootIds(node: AstNode, out: Set<string>): void {
+function collectLookupRootIds(node: AstNode, out: Set<string>): void {
   switch (node.kind) {
     case "col":
     case "str":

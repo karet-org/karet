@@ -5,7 +5,6 @@
 
 import { S3Client, S3ServiceException } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
-import { sanitizeSlug } from "./slug";
 
 export interface S3Config {
   bucket: string;
@@ -14,7 +13,7 @@ export interface S3Config {
   forcePathStyle: boolean;
   /**
    * S3 key for the Pipeline_Config JSON. The base config left by
-   * `loadS3Config()` is a placeholder — always run it through
+   * `loadS3Config()` is a placeholder -- always run it through
    * `pipelineS3Config(base, slug)` before calling `getPipelineConfig` /
    * `putPipelineConfig`, which is what fills this in with the real
    * per-pipeline path.
@@ -42,7 +41,7 @@ export function loadS3Config(): S3Config {
     forcePathStyle:
       process.env.S3_FORCE_PATH_STYLE === undefined ||
       process.env.S3_FORCE_PATH_STYLE === "true",
-    // Placeholder — callers that read/write pipeline.json must scope via
+    // Placeholder -- callers that read/write pipeline.json must scope via
     // `pipelineS3Config(base, slug)` first.
     pipelineConfigKey: "",
     dashboardsPrefix: envOr("DASHBOARDS_PREFIX", "dashboards/"),
@@ -122,23 +121,3 @@ export function withS3<T>(
   return wrapS3Error(() => fn(client, config), label);
 }
 
-/**
- * Like `withS3`, but scopes the config to a single pipeline. Returns a
- * 422 `invalid_slug` response if the slug fails sanitization, so handlers
- * can rely on receiving a non-empty slug.
- */
-export function withPipelineS3<T>(
-  rawSlug: string,
-  label: (slug: string) => string,
-  fn: (client: S3Client, config: S3Config, slug: string) => Promise<T>,
-): Promise<T | NextResponse> {
-  const slug = sanitizeSlug(rawSlug);
-  if (!slug) {
-    return Promise.resolve(
-      NextResponse.json({ error: "invalid_slug" }, { status: 422 }),
-    );
-  }
-  const config = pipelineS3Config(loadS3Config(), slug);
-  const client = createS3Client(config);
-  return wrapS3Error(() => fn(client, config, slug), label(slug));
-}

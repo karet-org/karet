@@ -1,9 +1,4 @@
-// Single-admin store — one S3 object at `_auth/admin.json`.
-//
-// Lazily migrates the legacy multi-user file at `_auth/users.json` (the
-// project shipped with that shape originally — it carried at most one
-// admin in practice). Migration preserves the existing password hash so
-// already-deployed installs don't have to re-set their password.
+// Single-admin store -- one S3 object at `_auth/admin.json`.
 
 import { randomBytes } from "node:crypto";
 import {
@@ -16,23 +11,12 @@ import {
 import { readBodyToBuffer } from "@/lib/services/s3-helpers";
 import { hashPassword, verifyPassword } from "./password";
 
-export const ADMIN_KEY = "_auth/admin.json";
-const LEGACY_USERS_KEY = "_auth/users.json";
+const ADMIN_KEY = "_auth/admin.json";
 
 interface AdminFile {
   version: 1;
   password_hash: string;
   created_at: string;
-}
-
-interface LegacyUserRecord {
-  username: string;
-  password_hash: string;
-  created_at: string;
-}
-interface LegacyUsersFile {
-  version: 1;
-  users: LegacyUserRecord[];
 }
 
 function isNotFound(err: unknown): boolean {
@@ -43,15 +27,20 @@ function isNotFound(err: unknown): boolean {
   return false;
 }
 
-async function readJsonObject<T>(
+async function readAdminFile(
   client: S3Client,
   bucket: string,
-  key: string,
-): Promise<T | null> {
+): Promise<AdminFile | null> {
   try {
-    const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    const res = await client.send(
+      new GetObjectCommand({ Bucket: bucket, Key: ADMIN_KEY }),
+    );
     const body = (await readBodyToBuffer(res.Body)).toString("utf-8");
-    return JSON.parse(body) as T;
+    const parsed = JSON.parse(body) as AdminFile;
+    if (parsed.version !== 1 || typeof parsed.password_hash !== "string") {
+      return null;
+    }
+    return parsed;
   } catch (err) {
     if (isNotFound(err)) return null;
     throw err;
@@ -71,34 +60,6 @@ async function writeAdminFile(
       ContentType: "application/json",
     }),
   );
-}
-
-/**
- * Read the admin record. If `_auth/admin.json` is missing but the legacy
- * `_auth/users.json` is present with at least one user, migrate the first
- * user's hash into the new shape and persist. Returns null when no admin
- * has been provisioned at all (drives the first-run flow).
- */
-async function readAdminFile(
-  client: S3Client,
-  bucket: string,
-): Promise<AdminFile | null> {
-  const current = await readJsonObject<AdminFile>(client, bucket, ADMIN_KEY);
-  if (current && current.version === 1 && typeof current.password_hash === "string") {
-    return current;
-  }
-  const legacy = await readJsonObject<LegacyUsersFile>(client, bucket, LEGACY_USERS_KEY);
-  if (legacy && Array.isArray(legacy.users) && legacy.users.length > 0) {
-    const first = legacy.users[0];
-    const migrated: AdminFile = {
-      version: 1,
-      password_hash: first.password_hash,
-      created_at: first.created_at,
-    };
-    await writeAdminFile(client, bucket, migrated);
-    return migrated;
-  }
-  return null;
 }
 
 /**
@@ -134,7 +95,7 @@ export type UpdateAdminResult =
   | { ok: false; reason: "wrong_password" | "no_admin" | "invalid_password" };
 
 /**
- * Change the admin password. Always requires the current password —
+ * Change the admin password. Always requires the current password --
  * relying solely on the session cookie would let a stolen cookie reset
  * credentials silently. Password rule (≥8 chars) matches the setup endpoint.
  */
@@ -168,7 +129,7 @@ const SENTINEL_HASH_PROMISE: Promise<string> = hashPassword(
 
 /**
  * Verify a password against the stored admin hash. Returns true on match.
- * Always runs `verifyPassword` once — even when no admin exists — so
+ * Always runs `verifyPassword` once -- even when no admin exists -- so
  * timing doesn't leak the unprovisioned state.
  */
 export async function verifyAdminPassword(

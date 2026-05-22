@@ -55,13 +55,13 @@ function timingSafeEqual(a: string, b: string): boolean {
  * Verifies the shared-secret. Accepts the value via three channels so
  * different webhook clients can use whichever they support:
  *
- *   - `Authorization: Bearer <secret>` (preferred — what most clients send)
+ *   - `Authorization: Bearer <secret>` (preferred -- what most clients send)
  *   - `X-Webhook-Secret: <secret>`     (fallback header)
  *   - `?secret=<secret>` query param   (last resort for clients that
  *     can't customize headers; safe when the receiver is on a private
  *     compose network)
  *
- * Returns false if no secret is configured — fail closed.
+ * Returns false if no secret is configured -- fail closed.
  */
 function isAuthorized(request: Request): boolean {
   const expected = process.env.KARET_WEBHOOK_SECRET;

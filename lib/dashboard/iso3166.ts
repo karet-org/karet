@@ -192,7 +192,7 @@ export const COUNTRIES: CountryEntry[] = [
   { numeric: "894", alpha2: "ZM", alpha3: "ZMB", name: "Zambia" },
   { numeric: "716", alpha2: "ZW", alpha3: "ZWE", name: "Zimbabwe" },
   { numeric: "732", alpha2: "EH", alpha3: "ESH", name: "W. Sahara" },
-  // Common English aliases — mapped via the name index below to the
+  // Common English aliases -- mapped via the name index below to the
   // atlas's canonical Natural Earth names above.
 ];
 

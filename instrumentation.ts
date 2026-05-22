@@ -1,4 +1,4 @@
-// Next.js instrumentation hook — runs once at server start before any
+// Next.js instrumentation hook -- runs once at server start before any
 // request is served. See https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
 //
 // We use it to assert every required S3/pipeline env var is set so the

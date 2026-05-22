@@ -196,7 +196,7 @@ interface CatchAllEditorProps {
 /**
  * Collapsible catch-all section. When the checkbox is off, the field is
  * absent from the persisted JSON and the worker's matcher returns `None`
- * (null in the output column) on a miss — the original behavior. When
+ * (null in the output column) on a miss -- the original behavior. When
  * on, the user supplies an `output` value that fires whenever no row
  * matched; `parent_output` is optional for child lookups that need it.
  */

@@ -1,4 +1,4 @@
-// Node Detail Panel — 420px right-hand drawer that mounts the structural
+// Node Detail Panel -- 420px right-hand drawer that mounts the structural
 // editor for the selected graph node. Edits flow through the parent via
 // `onEdit` which the graph page uses to rebuild the canvas and mark the
 // config dirty; persistence is handled by the page's Save & Publish button.
@@ -6,6 +6,7 @@
 import { useCallback } from "react";
 import type { GraphNode } from "@/lib/graph/build";
 import { useGraphStore } from "@/lib/graph/store";
+import { syncMappingColumnsToSchema } from "@/lib/graph/nodeDefaults";
 import type {
   AnalyticTable,
   LookupMapping,
@@ -33,15 +34,53 @@ export const NODE_DETAIL_PANEL_WIDTH_PX = 420;
 
 type EditableEntity = SourceContainer | LookupMapping | Mapping | AnalyticTable;
 
+/**
+ * Distinguish AnalyticTable from the other editable shapes by its
+ * `schema` field. Source containers also have `schema`, so we additionally
+ * check for `output_prefix`, which is unique to analytic tables.
+ */
+function isAnalyticTable(entity: EditableEntity): entity is AnalyticTable {
+  return (
+    "schema" in entity &&
+    "output_prefix" in entity &&
+    typeof (entity as AnalyticTable).output_prefix === "string"
+  );
+}
+
 export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps) {
   const updateEntity = useCallback((next: EditableEntity) => {
     const cfg = useGraphStore.getState().config;
     if (!cfg) return;
+
+    // Cross-entity sync: when an analytic_table's schema changes, push
+    // the same shape into every Mapping that writes to it. Adds become
+    // placeholder mapping columns (`null` expr), renames keep the
+    // authored expr, deletes are dropped. Without this, mappings drift
+    // from their target table and produce empty output for new columns.
+    let mappings = cfg.mappings;
+    const previousTable = cfg.analytic_tables.find((t) => t.id === next.id);
+    if (previousTable && isAnalyticTable(next)) {
+      const previousSchema = previousTable.schema;
+      const schemaChanged =
+        previousSchema.length !== next.schema.length ||
+        previousSchema.some(
+          (c, i) =>
+            c.name !== next.schema[i]?.name || c.type !== next.schema[i]?.type,
+        );
+      if (schemaChanged) {
+        mappings = mappings.map((m) =>
+          m.analytic_table_id === next.id
+            ? syncMappingColumnsToSchema(m, previousSchema, next.schema)
+            : m,
+        );
+      }
+    }
+
     const updated = {
       ...cfg,
       source_containers: cfg.source_containers.map((sc) => sc.id === next.id ? next as SourceContainer : sc),
       lookup_mappings: cfg.lookup_mappings.map((lm) => lm.id === next.id ? next as LookupMapping : lm),
-      mappings: cfg.mappings.map((m) => m.id === next.id ? next as Mapping : m),
+      mappings: mappings.map((m) => m.id === next.id ? next as Mapping : m),
       analytic_tables: cfg.analytic_tables.map((t) => t.id === next.id ? next as AnalyticTable : t),
     };
     useGraphStore.setState({ config: updated });

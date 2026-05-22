@@ -19,7 +19,7 @@ import type { AstNode, CastType } from "@/lib/types/config";
 type TokenKind = "num" | "str" | "ident" | "op" | "paren" | "comma" | "eof";
 interface Token { kind: TokenKind; value: string; pos: number }
 
-export class ParseError extends Error {
+class ParseError extends Error {
   constructor(message: string, public pos: number) {
     super(message);
     this.name = "ParseError";

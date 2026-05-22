@@ -1,4 +1,4 @@
-// Lookup_Mapping node — rounded card with a small table icon, "LOOKUP"
+// Lookup_Mapping node -- rounded card with a small table icon, "LOOKUP"
 // header, and a preview of the first N keywords. Design: right handle only.
 
 import { Handle, Position, type NodeProps } from "@xyflow/react";

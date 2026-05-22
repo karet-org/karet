@@ -11,7 +11,7 @@ const RANK_SEP = 160;
 const NODE_SEP = 80;
 
 // Content-based width/height estimates so dagre allocates enough space
-// per node — the real cards grow with schema/column/keyword counts, and
+// per node -- the real cards grow with schema/column/keyword counts, and
 // feeding dagre a flat 220x80 produces overlapping cards.
 //
 // Tuned to match the rendered Tailwind cards: ~28px header + ~22px title
@@ -23,7 +23,7 @@ const LIST_VPAD_PX = 16;
 const PILL_ROW_PX = 26;
 const MIN_NODE_HEIGHT = 96;
 
-// Widths per `min-w-[...]` in the custom node components — plus a small
+// Widths per `min-w-[...]` in the custom node components -- plus a small
 // buffer for borders, handles, and wider content.
 const SOURCE_WIDTH = 240;
 const LOOKUP_WIDTH = 240;

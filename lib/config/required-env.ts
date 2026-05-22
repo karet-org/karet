@@ -10,7 +10,7 @@
  * Env vars the Web service cannot start without. Matches the Worker's
  * `REQUIRED_ENV_VARS` list so both services share the same contract.
  *
- * `PORT` and `HOSTNAME` are intentionally excluded — Next.js assigns
+ * `PORT` and `HOSTNAME` are intentionally excluded -- Next.js assigns
  * defaults when they are unset.
  */
 export const REQUIRED_ENV_VARS = [
@@ -24,7 +24,7 @@ export const REQUIRED_ENV_VARS = [
 
 /** Minimal environment shape the check reads from. Parameterizing lets tests
  * inject a fixture without mutating `process.env`. */
-export type EnvSource = Record<string, string | undefined>;
+type EnvSource = Record<string, string | undefined>;
 
 /**
  * Return every required env var that is unset or set to an empty string,
@@ -44,7 +44,7 @@ export function missingRequiredEnvVars(
  * Throw with a descriptive message when any required env var is missing.
  *
  * Called at Web server startup from `instrumentation.ts`. When running in the
- * Edge runtime or browser this is a no-op — env-var assertions only make
+ * Edge runtime or browser this is a no-op -- env-var assertions only make
  * sense in Node.js where the app actually reads `process.env` to talk to S3.
  */
 export function assertRequiredEnvVars(

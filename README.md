@@ -1,7 +1,5 @@
 # karet
 
-[![Publish Docker image](https://github.com/karet-org/karet/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/karet-org/karet/actions/workflows/docker-publish.yml)
-
 Next.js frontend for the Karet analytics platform. Renders
 configurable dashboards and the React Flow Data Flow Graph editor over an
 ETL pipeline configuration stored in S3.
@@ -17,12 +15,12 @@ worker + web).
 | `S3_ENDPOINT` | S3 endpoint URL (e.g. `http://rustfs:9000`) |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | S3 credentials |
 | `KARET_SESSION_SECRET` | **Required.** HMAC key used to sign user session cookies. Generate with `openssl rand -base64 48`. |
-| `KARET_API_KEY` | Optional shared-secret for `/api/*` — alternative to a session cookie for CI/automation. Empty disables it. |
+| `KARET_API_KEY` | Optional shared-secret for `/api/*` -- alternative to a session cookie for CI/automation. Empty disables it. |
 | `PORT` | Dev server port (default `3000`) |
 
-The first request to `/login` shows a "Create admin account" form when no
-users exist yet (`_auth/users.json` missing in the bucket); after that, it
-renders the standard sign-in form.
+The first request to `/login` shows a "Set admin password" form when no
+admin exists yet (`_auth/admin.json` missing in the bucket); after that,
+it renders the standard sign-in form.
 
 ## Development
 

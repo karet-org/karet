@@ -1,5 +1,5 @@
 // Smoke test: each generator produces well-typed values without throwing.
-// Not a property test of semantics — just confirms the generators run.
+// Not a property test of semantics -- just confirms the generators run.
 
 import { describe, it, expect } from "vitest";
 import fc from "fast-check";

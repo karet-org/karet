@@ -95,7 +95,7 @@ export type Panel =
       lat: string;
       /** Column containing the longitude (degrees). */
       lon: string;
-      /** Column whose values are aggregated per point. Optional — omit
+      /** Column whose values are aggregated per point. Optional -- omit
        *  for `count` rows-per-point. */
       value?: string;
       agg: Aggregation;
@@ -107,9 +107,9 @@ export type Panel =
       kind: "choropleth_map";
       title: string;
       /** Column containing the country identifier (alpha-2, alpha-3,
-       *  numeric, or common name — resolved via the ISO-3166 lookup). */
+       *  numeric, or common name -- resolved via the ISO-3166 lookup). */
       country: string;
-      /** Column whose values are aggregated per country. Optional — omit
+      /** Column whose values are aggregated per country. Optional -- omit
        *  for `count` rows-per-country. */
       value?: string;
       agg: Aggregation;

@@ -87,7 +87,7 @@ export function KpiPanel({ config, rows }: PanelProps<KpiPanelConfig>) {
   if (config.agg === "mode") {
     const mode = computeMode(rows, config.column);
     if (!mode) {
-      display = "—";
+      display = "--";
     } else if (config.value_column) {
       const sum = computeNumeric(mode.rows, config.value_column, "sum");
       display = `${mode.key} (${formatNumber(sum, config.format ?? "currency", config.currency)})`;

@@ -109,6 +109,44 @@ const spendingDashboard: DashboardConfig = {
   layout: { gridTemplateColumns: "repeat(auto-fit, minmax(max(18rem, calc((100% - 2rem) / 3)), 1fr))", gap: "1rem" },
 } as DashboardConfig;
 
+// Seed transactions that exercise every category in the spending lookup
+// and span two months so the monthly trend line has movement. Amounts
+// chosen so the doughnut and KPI tiles all read sensibly. Description
+// values match the lookup's substring patterns exactly.
+const SPENDING_SEED_CSV = `date,description,amount,account
+2026-04-02,STARBUCKS,5.75,visa-1234
+2026-04-03,UBER,18.40,visa-1234
+2026-04-04,AMAZON,42.10,visa-9876
+2026-04-05,NETFLIX,15.99,amex-gold
+2026-04-06,RENT,1850.00,visa-1234
+2026-04-07,PG&E,84.20,visa-1234
+2026-04-09,SHELL,52.30,visa-9876
+2026-04-10,CHIPOTLE,14.25,visa-1234
+2026-04-12,TARGET,67.80,visa-9876
+2026-04-14,SPOTIFY,9.99,amex-gold
+2026-04-15,RAMEN,22.50,visa-1234
+2026-04-17,LYFT,11.20,visa-9876
+2026-04-19,WALMART,38.60,visa-1234
+2026-04-22,SUSHI,46.75,amex-gold
+2026-04-25,COMCAST,79.00,visa-1234
+2026-04-28,CAFE,6.40,visa-1234
+2026-05-01,RENT,1850.00,visa-1234
+2026-05-02,PG&E,79.50,visa-1234
+2026-05-03,STARBUCKS,5.75,visa-1234
+2026-05-04,AMAZON,28.95,visa-9876
+2026-05-05,NETFLIX,15.99,amex-gold
+2026-05-07,UBER,22.10,visa-1234
+2026-05-09,CHEVRON,48.80,visa-9876
+2026-05-11,HULU,11.99,amex-gold
+2026-05-13,CHIPOTLE,15.50,visa-1234
+2026-05-15,TARGET,52.40,visa-9876
+2026-05-18,RAMEN,24.25,visa-1234
+2026-05-20,COMCAST,79.00,visa-1234
+2026-05-22,SHELL,55.10,visa-9876
+2026-05-25,WALMART,42.30,visa-1234
+2026-05-28,SUSHI,51.20,amex-gold
+`;
+
 export const TEMPLATES: Record<TemplateId, Template> = {
   blank: {
     id: "blank",
@@ -123,6 +161,14 @@ export const TEMPLATES: Record<TemplateId, Template> = {
     files: {
       "pipeline.json": spendingPipeline,
       "dashboards/spending_overview.json": spendingDashboard,
+    },
+    rawFiles: {
+      // Hand-curated seed CSV so a freshly-created Spending Tracker has
+      // something to chart on first run. ~30 rows across two months,
+      // every category in the lookup, and every account in ACCOUNTS.
+      // Worker partitions by month, so we get two output partitions
+      // and the line chart shows actual movement.
+      "raw/transactions/seed.csv": SPENDING_SEED_CSV,
     },
   },
 };

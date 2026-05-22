@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { TOP_NAV_HEIGHT_PX } from "@/components/layout/TopNav";
 import { IconPlay } from "@/components/icons";
@@ -36,20 +36,32 @@ export default function JobsPage() {
     loadJobs();
   }, [loadJobs]);
 
-  // Adaptive polling: 3s while any job is running, 15s otherwise.
+  // Adaptive polling: 2s while a run is scheduled or running so the
+  // countdown stays live and the row transitions are caught quickly,
+  // 15s otherwise.
   useEffect(() => {
-    const anyRunning = jobs.some((j) => j.status === "running");
-    const intervalMs = anyRunning ? 3000 : 15000;
+    const anyActive = jobs.some(
+      (j) => j.status === "running" || j.status === "scheduled",
+    );
+    const intervalMs = anyActive ? 2000 : 15000;
     const id = setInterval(loadJobs, intervalMs);
     return () => clearInterval(id);
   }, [loadJobs, jobs]);
 
+  // Synchronous lock so a rapid double-click doesn't fire two POSTs
+  // before React rerenders the disabled state of the button. Without
+  // this, two parallel jobs land for the same pipeline and race over
+  // the same S3 prefix.
+  const triggerInFlight = useRef(false);
   async function triggerJob() {
+    if (triggerInFlight.current) return;
+    triggerInFlight.current = true;
     setRunning(true);
     try {
       await fetch(`/api/p/${pipeline}/jobs?clean=true`, { method: "POST" });
       loadJobs();
     } finally {
+      triggerInFlight.current = false;
       setRunning(false);
     }
   }
@@ -62,10 +74,22 @@ export default function JobsPage() {
         return "bg-red-100 text-red-700";
       case "running":
         return "bg-yellow-100 text-yellow-700";
+      case "scheduled":
+        return "bg-blue-100 text-blue-700";
       default:
         return "bg-gray-100 text-gray-600";
     }
   };
+
+  function scheduledCountdown(nextRunAt: string): string {
+    const ms = Date.parse(nextRunAt) - Date.now();
+    if (!Number.isFinite(ms)) return "soon";
+    if (ms <= 0) return "any moment now";
+    const s = Math.ceil(ms / 1000);
+    if (s < 60) return `runs in ${s}s`;
+    const m = Math.ceil(s / 60);
+    return `runs in ${m}m`;
+  }
 
   function formatDuration(startedAt: string, completedAt: string): string {
     const ms = Date.parse(completedAt) - Date.parse(startedAt);
@@ -149,9 +173,18 @@ export default function JobsPage() {
                         )}
                       </div>
                       <div className="mt-1 text-xs text-gray-400">
-                        Started: {new Date(job.startedAt).toLocaleString()}
-                        {job.completedAt && (
-                          <> · Completed: {new Date(job.completedAt).toLocaleString()}</>
+                        {job.status === "scheduled" && job.nextRunAt ? (
+                          <>
+                            Queued: {new Date(job.startedAt).toLocaleString()}
+                            <> · {scheduledCountdown(job.nextRunAt)}</>
+                          </>
+                        ) : (
+                          <>
+                            Started: {new Date(job.startedAt).toLocaleString()}
+                            {job.completedAt && (
+                              <> · Completed: {new Date(job.completedAt).toLocaleString()}</>
+                            )}
+                          </>
                         )}
                       </div>
                       {(job.partitions_written !== undefined || job.files_processed !== undefined) && (
@@ -166,7 +199,7 @@ export default function JobsPage() {
                         </p>
                       )}
                     </div>
-                    {job.status !== "running" && (
+                    {job.status !== "running" && job.status !== "scheduled" && (
                       <button
                         type="button"
                         onClick={() =>

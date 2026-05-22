@@ -1,14 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { buildGraph, type GraphNode } from "@/lib/graph/build";
 import { autoLayout, layoutToConfig } from "@/lib/graph/layout";
 import { useGraphStore } from "@/lib/graph/store";
-import { addNodeToConfig, disconnectEdgeInConfig, type NodeKind } from "@/lib/graph/nodeDefaults";
+import {
+  addNodeToConfig,
+  analyzeNodeDeleteImpact,
+  disconnectEdgeInConfig,
+  scrubLookupReferences,
+  type NodeKind,
+} from "@/lib/graph/nodeDefaults";
 import type { PipelineConfig } from "@/lib/types/config";
 import GraphCanvas, { type GraphCanvasHandle } from "@/components/graph/GraphCanvas";
 import { TOP_NAV_HEIGHT_PX } from "@/components/layout/TopNav";
+import Modal from "@/components/ui/Modal";
 import NodeDetailPanel, {
   NODE_DETAIL_PANEL_WIDTH_PX,
 } from "@/components/graph/NodeDetailPanel";
@@ -17,18 +24,23 @@ type LoadState = "loading" | "error" | "ready";
 
 export default function PipelineGraphPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
+  const router = useRouter();
   const [status, setStatus] = useState<LoadState>("loading");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  // When the user clicks an in-app link with unsaved changes, we
+  // intercept the click and stash the destination here. Resolving the
+  // modal either navigates to it or discards the intent.
+  const [pendingNav, setPendingNav] = useState<string | null>(null);
 
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
   const select = useGraphStore((s) => s.select);
   const clear = useGraphStore((s) => s.clear);
   const setConfig = useGraphStore((s) => s.setConfig);
   // Subscribe to config so the page re-renders when editors mutate the
-  // store — otherwise `selectedNodeValue` stays stale and controlled
+  // store -- otherwise `selectedNodeValue` stays stale and controlled
   // `<input value=...>` reverts on every keystroke after the first.
   const config = useGraphStore((s) => s.config);
 
@@ -106,7 +118,7 @@ export default function PipelineGraphPage() {
     };
 
     const onClick = (e: MouseEvent) => {
-      // Ignore modified clicks and non-primary buttons — those are the
+      // Ignore modified clicks and non-primary buttons -- those are the
       // user explicitly asking for a new tab/window, not navigating
       // away from the current view.
       if (e.defaultPrevented) return;
@@ -121,7 +133,7 @@ export default function PipelineGraphPage() {
       ) ?? null) as HTMLAnchorElement | null;
       if (!anchor || !anchor.href) return;
 
-      // Skip new-tab links and downloads — those don't navigate the
+      // Skip new-tab links and downloads -- those don't navigate the
       // current page, so the warning would be a false positive.
       if (anchor.target && anchor.target !== "" && anchor.target !== "_self") return;
       if (anchor.hasAttribute("download")) return;
@@ -147,10 +159,13 @@ export default function PipelineGraphPage() {
         return;
       }
 
-      if (!window.confirm(message)) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      // Block the navigation entirely so the synchronous click never
+      // turns into a route change, then surface a Modal asking whether
+      // to leave. Resolution lives in `pendingNav` -- confirm =
+      // router.push, cancel = drop.
+      e.preventDefault();
+      e.stopPropagation();
+      setPendingNav(dest.pathname + dest.search + dest.hash);
     };
 
     window.addEventListener("beforeunload", onBeforeUnload);
@@ -162,39 +177,6 @@ export default function PipelineGraphPage() {
       document.removeEventListener("click", onClick, true);
     };
   }, [isDirty]);
-
-  /** Snapshot the current canvas and PUT it as the pipeline's preview. */  const captureAndUploadPreview = useCallback(async () => {
-    try {
-      const dataUrl = await canvasRef.current?.capturePreview();
-      if (!dataUrl) return;
-      const blob = await (await fetch(dataUrl)).blob();
-      await fetch(`/api/p/${pipeline}/preview`, { method: "PUT", body: blob });
-    } catch {
-      // Silent: the homepage falls back to a 1x1 placeholder if no
-      // preview exists, so a capture failure isn't user-visible.
-    }
-  }, [pipeline]);
-
-  // Auto-capture a preview the first time a pipeline is viewed if none
-  // exists yet. Covers the "just created from template" case: the user
-  // lands on this page, navigates home without saving, and otherwise
-  // would see an empty thumbnail card. Runs once per mount, and only
-  // after React Flow's fitView has had a moment to settle so the
-  // rendered viewport matches what the user sees.
-  useEffect(() => {
-    if (status !== "ready") return;
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      try {
-        const head = await fetch(`/api/p/${pipeline}/preview`, { method: "HEAD" });
-        if (head.status === 200) return; // Real preview already exists.
-        if (head.status !== 404) return; // Other error — don't clobber.
-        if (cancelled) return;
-        await captureAndUploadPreview();
-      } catch { /* silent */ }
-    }, 600);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [status, pipeline, captureAndUploadPreview]);
 
   /** Apply a draft config change: update store, update canvas, mark dirty. */
   const applyDraft = useCallback((cfg: PipelineConfig) => {
@@ -217,44 +199,117 @@ export default function PipelineGraphPage() {
     setSaving(true);
     setValidationErrors([]);
     try {
-      // Validate via the worker before saving
+      // Client-side pre-flight: refuse to save if any analytic table
+      // has empty or duplicate column names. The worker validates the
+      // same constraints, but we want to block the request locally so
+      // the rule still applies when the worker is unreachable.
+      const localErrors = validateConfigForSave(cfg);
+      if (localErrors.length > 0) {
+        setValidationErrors(localErrors);
+        return;
+      }
+
+      // Validate via the worker before saving. Network failures are
+      // surfaced to the user instead of silently skipping validation --
+      // a worker-down save risks landing a config that's already known
+      // to be invalid, so the user must explicitly accept the risk
+      // (here, by retrying after the worker is back).
       try {
         const valRes = await fetch(`/api/p/${pipeline}/validate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(cfg),
         });
+        if (!valRes.ok) {
+          setValidationErrors([
+            `Validation request failed (${valRes.status}). The worker may be down. Try again or check rustfs/worker container health.`,
+          ]);
+          return;
+        }
         const valData = await valRes.json();
         if (valData.ok === false && valData.errors?.length > 0) {
           setValidationErrors(valData.errors.map((e: { message: string }) => e.message));
           return;
         }
-      } catch { /* worker unreachable, skip validation */ }
+      } catch (err) {
+        setValidationErrors([
+          `Could not reach the worker for validation: ${
+            err instanceof Error ? err.message : String(err)
+          }. Refusing to save until the worker is reachable.`,
+        ]);
+        return;
+      }
 
-      const res = await fetch(`/api/p/${pipeline}/config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cfg),
-      });
-      const data = await res.json();
+      // Honor the ETag we read at load time so a concurrent edit by
+      // another session doesn't get silently overwritten. Failures here
+      // (5xx, 412 ETag mismatch, network) MUST be surfaced -- previously
+      // they were swallowed and the dirty banner cleared as if the save
+      // had succeeded.
+      const etag = useGraphStore.getState().etag;
+      let res: Response;
+      try {
+        res = await fetch(`/api/p/${pipeline}/config`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(etag ? { "If-Match": `"${etag}"` } : {}),
+          },
+          body: JSON.stringify(cfg),
+        });
+      } catch (err) {
+        setValidationErrors([
+          `Save failed (network): ${
+            err instanceof Error ? err.message : String(err)
+          }. Your edits are still in the editor.`,
+        ]);
+        return;
+      }
+
+      if (res.status === 412) {
+        setValidationErrors([
+          "This pipeline was modified elsewhere since you opened it. Reload to see the latest version, then re-apply your edits. Your changes are still in the editor for now.",
+        ]);
+        return;
+      }
+
+      if (!res.ok) {
+        const body: { error?: string; message?: string } = await res
+          .json()
+          .catch(() => ({}));
+        setValidationErrors([
+          `Save failed (${res.status}): ${
+            body.message ?? body.error ?? res.statusText
+          }`,
+        ]);
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
       savedConfigRef.current = cfg;
       useGraphStore.setState({ config: cfg, etag: data.etag ?? null });
       clearDirty();
-
-      // Fire-and-forget preview capture so the homepage card reflects the
-      // just-published state.
-      void captureAndUploadPreview();
     } finally {
       setSaving(false);
     }
-  }, [pipeline, clearDirty, captureAndUploadPreview]);
+  }, [pipeline, clearDirty]);
 
   const handleRevert = useCallback(() => {
     const saved = savedConfigRef.current;
     if (!saved) return;
     useGraphStore.setState({ config: saved });
     const built = buildGraph(saved);
-    canvasRef.current?.setGraph(autoLayout(built.nodes, built.edges), built.edges);
+    // Honor the saved `layout` map -- `buildGraph` already reads
+    // positions out of it. Only fall back to `autoLayout` when the
+    // saved config has no layout at all (e.g. a fresh template-created
+    // pipeline). The previous version unconditionally re-ran
+    // autoLayout, which silently overwrote any hand-tuned positions
+    // the user had previously saved.
+    const hasLayout =
+      saved.layout && Object.keys(saved.layout).length > 0;
+    const positioned = hasLayout
+      ? built.nodes
+      : autoLayout(built.nodes, built.edges);
+    canvasRef.current?.setGraph(positioned, built.edges);
     clearDirty();
     setValidationErrors([]);
   }, [clearDirty]);
@@ -308,6 +363,25 @@ export default function PipelineGraphPage() {
       if (m.analytic_table_id === nodeId) {
         working = disconnectEdgeInConfig(working, m.id, nodeId);
       }
+    }
+
+    // If the doomed node is a Lookup, scrub every `lookup_ref` whose
+    // root id matches it from every mapping column expression. The
+    // user still needs to rewrite the affected columns, but at least
+    // the config parses and the worker won't reject it on save with
+    // a cryptic "unknown lookup id" error.
+    const isLookup = cfg.lookup_mappings.some((l) => l.id === nodeId);
+    if (isLookup) {
+      working = {
+        ...working,
+        mappings: working.mappings.map((m) => ({
+          ...m,
+          columns: m.columns.map((c) => ({
+            ...c,
+            expr: scrubLookupReferences(c.expr, nodeId),
+          })),
+        })),
+      };
     }
 
     // Then drop the node itself from its owning collection and clean up
@@ -377,6 +451,17 @@ export default function PipelineGraphPage() {
           onAddNode={handleAddNode}
           onConnect={handleConnect}
           onDeleteNode={handleDeleteNode}
+          analyzeDeleteImpact={(nodeId) => {
+            const cfg = useGraphStore.getState().config;
+            if (!cfg) {
+              return {
+                disconnectedMappings: [],
+                disconnectedTables: [],
+                brokenExpressions: [],
+              };
+            }
+            return analyzeNodeDeleteImpact(cfg, nodeId);
+          }}
           onDisconnectEdge={handleDisconnectEdge}
         />
         {isDirty && (
@@ -408,8 +493,136 @@ export default function PipelineGraphPage() {
           markDirty();
         }
       }} />
+
+      {pendingNav !== null ? (
+        <Modal open onClose={() => setPendingNav(null)}>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Discard unsaved changes?
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            You have edits that haven&rsquo;t been published yet. Leaving
+            this page will lose them.
+          </p>
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setPendingNav(null)}
+              data-testid="discard-nav-cancel"
+              className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+            >
+              Stay on this page
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const dest = pendingNav;
+                setPendingNav(null);
+                // Mark the page clean so the navigation isn't blocked
+                // again by the same handler we just resolved through.
+                clearDirty();
+                router.push(dest);
+              }}
+              data-testid="discard-nav-confirm"
+              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            >
+              Discard and leave
+            </button>
+          </div>
+        </Modal>
+      ) : null}
     </main>
   );
+}
+
+/**
+ * Block-on-save pre-flight for the structural rules the user must
+ * resolve before publishing. Catches:
+ *
+ *   - empty / duplicate analytic-table column names
+ *   - empty node names (source / lookup / mapping / table)
+ *   - duplicate node names *within* a single kind (two tables both
+ *     called "Transactions" -- the user can't tell them apart in the
+ *     sidebar or graph header). Cross-kind name reuse is fine since
+ *     the node type is part of the visual identity.
+ *
+ * Other constraints (worker AST validation, schema-shape sanity)
+ * stay on the worker's `/validate` endpoint. Returns one human-
+ * readable message per problem so the user knows where to look.
+ */
+function validateConfigForSave(cfg: PipelineConfig): string[] {
+  const errors: string[] = [];
+
+  // Per-kind name uniqueness + non-empty checks. Each kind keeps its
+  // own scope so a Source named "Transactions" doesn't collide with a
+  // Table named "Transactions" -- they're different shapes in the UI.
+  const kinds: { label: string; entities: { id: string; name?: string }[] }[] = [
+    { label: "Source", entities: cfg.source_containers },
+    { label: "Lookup", entities: cfg.lookup_mappings },
+    { label: "Mapping", entities: cfg.mappings },
+    { label: "Table", entities: cfg.analytic_tables },
+  ];
+  for (const { label, entities } of kinds) {
+    const seen = new Map<string, number>();
+    let emptyCount = 0;
+    for (const e of entities) {
+      const name = e.name?.trim() ?? "";
+      if (name === "") {
+        emptyCount++;
+        continue;
+      }
+      seen.set(name, (seen.get(name) ?? 0) + 1);
+    }
+    if (emptyCount > 0) {
+      errors.push(
+        `${emptyCount} ${label}${emptyCount === 1 ? "" : "s"} missing a name`,
+      );
+    }
+    const dupes = Array.from(seen.entries())
+      .filter(([, count]) => count > 1)
+      .map(([name]) => name);
+    if (dupes.length > 0) {
+      errors.push(
+        `Duplicate ${label} name${dupes.length === 1 ? "" : "s"}: ${dupes
+          .sort()
+          .map((n) => `"${n}"`)
+          .join(", ")}`,
+      );
+    }
+  }
+
+  // Per-table column name checks. Empty/duplicate columns inside an
+  // analytic table break SQL queries and Parquet output.
+  for (const t of cfg.analytic_tables) {
+    const label = t.name?.trim() || t.id;
+    const seen = new Set<string>();
+    const dupes = new Set<string>();
+    let emptyCount = 0;
+    for (const col of t.schema) {
+      const name = col.name?.trim() ?? "";
+      if (name === "") {
+        emptyCount++;
+        continue;
+      }
+      if (seen.has(name)) dupes.add(name);
+      seen.add(name);
+    }
+    if (emptyCount > 0) {
+      errors.push(
+        `Table "${label}": ${emptyCount} column${
+          emptyCount === 1 ? "" : "s"
+        } missing a name`,
+      );
+    }
+    if (dupes.size > 0) {
+      errors.push(
+        `Table "${label}": duplicate column names (${Array.from(dupes)
+          .sort()
+          .join(", ")})`,
+      );
+    }
+  }
+
+  return errors;
 }
 
 // Sync a Mapping's columns with its newly-connected Analytic_Table schema.

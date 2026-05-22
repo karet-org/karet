@@ -14,7 +14,7 @@
 //
 //     npm run test:e2e
 //
-// The config intentionally does *not* spawn its own web server — the
+// The config intentionally does *not* spawn its own web server -- the
 // E2E suite assumes docker-compose (or the user) already has `web`,
 // `worker`, and `rustfs` running. This keeps the Playwright harness
 // lightweight and avoids embedding Docker orchestration in the test

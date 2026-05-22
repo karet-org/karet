@@ -1,4 +1,4 @@
-// Icon library — carrot logo + simple UI icons (no emojis).
+// Icon library -- carrot logo + simple UI icons (no emojis).
 
 interface IconProps { className?: string; size?: number }
 
@@ -10,32 +10,14 @@ function Svg({ children, className, size = 16, viewBox = "0 0 24 24" }: IconProp
   );
 }
 
-/** Karet golden carrot logo (filled, colored). */
-export function KaretLogo({ className, size = 24 }: IconProps) {
+/** Karet carrot mark -- slim, two-color, used at small sizes only. */
+export function KaretLogo({ className, size = 22 }: IconProps) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 64 64" className={className} aria-label="Karet">
-      <defs>
-        <linearGradient id="kl-body" x1="32" y1="18" x2="32" y2="58" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FFD54F"/>
-          <stop offset="50%" stopColor="#FFB300"/>
-          <stop offset="100%" stopColor="#E65100"/>
-        </linearGradient>
-        <linearGradient id="kl-shine" x1="28" y1="20" x2="34" y2="50" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FFF8E1" stopOpacity="0.9"/>
-          <stop offset="100%" stopColor="#FFF8E1" stopOpacity="0"/>
-        </linearGradient>
-        <linearGradient id="kl-leaf" x1="32" y1="2" x2="32" y2="22" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#81C784"/>
-          <stop offset="100%" stopColor="#2E7D32"/>
-        </linearGradient>
-      </defs>
-      <path d="M28 18 C26 19, 23 24, 22 30 Q21 44, 32 58 Q43 44, 42 30 C41 24, 38 19, 36 18 Z" fill="url(#kl-body)" />
-      <path d="M29 22 C28 28, 27 36, 30 48 C31 36, 30 28, 30 22 Z" fill="url(#kl-shine)" />
-      <path d="M25 30 Q32 29, 39 30" stroke="#E65100" strokeWidth="1.1" strokeLinecap="round" fill="none" opacity="0.4" />
-      <path d="M26 37 Q32 36, 38 37" stroke="#E65100" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.3" />
-      <path d="M30 19 C26 14, 16 8, 8 3 C10 6, 18 12, 24 16 C18 10, 12 7, 8 6 C14 10, 24 16, 29 19 Z" fill="url(#kl-leaf)" />
-      <path d="M29 19 C28 10, 29 4, 32 0 C35 4, 36 10, 35 19 Z" fill="url(#kl-leaf)" />
-      <path d="M34 19 C38 14, 48 8, 56 3 C54 6, 46 12, 40 16 C46 10, 52 7, 56 6 C50 10, 40 16, 35 19 Z" fill="url(#kl-leaf)" />
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" className={className} aria-label="Karet">
+      <path d="M11 8 C10 8.5, 8.5 11, 8.5 13 Q8.5 19, 12 22 Q15.5 19, 15.5 13 C15.5 11, 14 8.5, 13 8 Z" fill="#ff6b35" />
+      <path d="M12 8 C10.5 5, 7 3, 5 2 C5.7 3, 8 5, 10 6.5 C7.5 4.5, 5.5 3.5, 5 3.5 C7 5, 10 6.8, 11.5 8 Z" fill="#4caf50" />
+      <path d="M11.5 8 C11 4.5, 11.5 2.5, 12 1 C12.5 2.5, 13 4.5, 12.5 8 Z" fill="#4caf50" />
+      <path d="M12.5 8 C14.5 5, 18 3, 19 2 C18.3 3, 16 5, 14 6.5 C16.5 4.5, 18.5 3.5, 19 3.5 C17 5, 14 6.8, 12.5 8 Z" fill="#4caf50" />
     </svg>
   );
 }
@@ -50,4 +32,6 @@ export const IconPlay = (p: IconProps) => <Svg {...p}><polygon points="6 4 20 12
 export const IconChevronDown = (p: IconProps) => <Svg {...p}><polyline points="6 9 12 15 18 9" /></Svg>;
 export const IconExternal = (p: IconProps) => <Svg {...p}><path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" /></Svg>;
 export const IconDownload = (p: IconProps) => <Svg {...p}><path d="M12 3v12m-5-5 5 5 5-5M5 21h14" /></Svg>;
-export const IconPackage = (p: IconProps) => <Svg {...p}><path d="m7.5 4.27 9 5.15M21 8 12 13 3 8M12 22V13M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /></Svg>;
+export const IconUpload = (p: IconProps) => <Svg {...p}><path d="M12 21V9m-5 5 5-5 5 5M5 3h14" /></Svg>;
+export const IconPlus = (p: IconProps) => <Svg {...p}><path d="M12 5v14M5 12h14" /></Svg>;
+export const IconSettings = (p: IconProps) => <Svg {...p}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></Svg>;

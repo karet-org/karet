@@ -22,7 +22,7 @@ export function aggregateValues(values: number[], agg: Aggregation): number {
       return values.reduce((a, b) => a + b, 0) / values.length;
     case "min":
       // `Math.min(...values)` spreads the array into function arguments;
-      // browsers cap that at ~64–256k args and throw on larger sets.
+      // browsers cap that at ~64-256k args and throw on larger sets.
       // Reduce folds safely over any length.
       return values.reduce((a, b) => (a < b ? a : b));
     case "max":

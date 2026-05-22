@@ -10,7 +10,7 @@ import {
 import { listAllObjectKeys } from "@/lib/services/s3-helpers";
 
 /**
- * Delete a pipeline by slug — removes every object under
+ * Delete a pipeline by slug -- removes every object under
  * `pipelines/<slug>/`. Backs the "Delete pipeline" button in TopNav.
  */
 export async function DELETE(

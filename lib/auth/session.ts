@@ -1,10 +1,9 @@
-// Session cookies — HMAC-signed JSON payload.
+// Session cookies -- HMAC-signed JSON payload.
 //
 // Cookie value: `<base64url(payload)>.<base64url(hmacSHA256(payload))>`
-// Payload: `{ "u": "", "exp": <unix-seconds> }`. The `u` slot is kept for
-// backwards-compatible verification of pre-migration cookies (which carry
-// the legacy admin username). New cookies set it to the empty string —
-// the app is single-admin and password-only.
+// Payload: `{ "exp": <unix-seconds> }`. Karet is single-admin and
+// password-only, so the cookie carries nothing but expiry -- possession
+// of a valid HMAC over a fresh `exp` is the entire authorization signal.
 //
 // Stateless: no server-side session table. Uses Web Crypto (`globalThis.
 // crypto.subtle`) so the same module works in both the Edge middleware
@@ -16,13 +15,7 @@ export const SESSION_COOKIE = "karet_session";
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days.
 
 interface SessionPayload {
-  u: string;
   exp: number;
-}
-
-export interface Session {
-  username: string;
-  expiresAt: number;
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {
@@ -57,12 +50,11 @@ function timingSafeEqualBytes(a: Uint8Array, b: Uint8Array): boolean {
 }
 
 export async function signSession(
-  username: string,
   secret: string,
   ttlSeconds: number = SESSION_TTL_SECONDS,
 ): Promise<{ value: string; expiresAt: number }> {
   const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
-  const payload: SessionPayload = { u: username, exp: expiresAt };
+  const payload: SessionPayload = { exp: expiresAt };
   const payloadBytes = new TextEncoder().encode(JSON.stringify(payload));
   const key = await hmacKey(secret);
   const sig = new Uint8Array(
@@ -74,13 +66,18 @@ export async function signSession(
   };
 }
 
+/**
+ * Returns `true` iff `cookieValue` is a valid, non-expired session signed
+ * by `secret`. The payload is just an `exp` timestamp -- there's no
+ * additional state to surface.
+ */
 export async function verifySession(
   cookieValue: string | undefined,
   secret: string,
-): Promise<Session | null> {
-  if (!cookieValue) return null;
+): Promise<boolean> {
+  if (!cookieValue) return false;
   const dot = cookieValue.indexOf(".");
-  if (dot < 0) return null;
+  if (dot < 0) return false;
   const payloadB64 = cookieValue.slice(0, dot);
   const sigB64 = cookieValue.slice(dot + 1);
 
@@ -90,33 +87,31 @@ export async function verifySession(
     payloadBytes = base64UrlDecode(payloadB64);
     sigBytes = base64UrlDecode(sigB64);
   } catch {
-    return null;
+    return false;
   }
 
   const key = await hmacKey(secret);
   const expected = new Uint8Array(
     await crypto.subtle.sign("HMAC", key, payloadBytes),
   );
-  if (!timingSafeEqualBytes(sigBytes, expected)) return null;
+  if (!timingSafeEqualBytes(sigBytes, expected)) return false;
 
   let parsed: SessionPayload;
   try {
     parsed = JSON.parse(new TextDecoder().decode(payloadBytes));
   } catch {
-    return null;
+    return false;
   }
-  if (typeof parsed.u !== "string" || typeof parsed.exp !== "number") {
-    return null;
-  }
-  if (parsed.exp < Math.floor(Date.now() / 1000)) return null;
-  return { username: parsed.u, expiresAt: parsed.exp };
+  if (typeof parsed.exp !== "number") return false;
+  if (parsed.exp < Math.floor(Date.now() / 1000)) return false;
+  return true;
 }
 
 /**
- * Build the `Set-Cookie` value for a fresh session. Secure flag is opt-in —
+ * Build the `Set-Cookie` value for a fresh session. Secure flag is opt-in --
  * dev runs over plain HTTP; prod (deploy-aws.md) terminates TLS at the ALB.
  */
-export function sessionCookieHeader(
+function sessionCookieHeader(
   value: string,
   expiresAt: number,
   options: { secure: boolean },
@@ -153,7 +148,7 @@ export function clearSessionCookieHeader(options: { secure: boolean }): string {
  * both work.
  */
 export async function issueSessionCookie(request: Request): Promise<NextResponse> {
-  const { value, expiresAt } = await signSession("", getSessionSecret());
+  const { value, expiresAt } = await signSession(getSessionSecret());
   const secure = new URL(request.url).protocol === "https:";
   const res = NextResponse.json({ ok: true });
   res.headers.set("Set-Cookie", sessionCookieHeader(value, expiresAt, { secure }));

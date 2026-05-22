@@ -4,7 +4,7 @@
  * trailing dashes trimmed. Returns `""` when the input has no legal
  * characters, which callers should treat as "invalid input".
  *
- * Single source of truth — every call site (create pipeline, rename,
+ * Single source of truth -- every call site (create pipeline, rename,
  * import, delete, display hint) must go through this to stay consistent.
  */
 export function sanitizeSlug(raw: string | null | undefined): string {

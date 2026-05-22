@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sanitizeSlug } from "@/lib/config/slug";
+import { IconUpload } from "@/components/icons";
 
 export default function ImportButton() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -19,6 +20,9 @@ export default function ImportButton() {
       });
       const data = await res.json();
       if (data.ok) {
+        // Invalidate the App Router cache so the home page reflects the
+        // new pipeline next time the user navigates there.
+        router.refresh();
         router.push(`/p/${data.pipeline}/graph`);
       }
     } finally {
@@ -42,9 +46,10 @@ export default function ImportButton() {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={importing}
-        className="rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 transition hover:border-orange-300 hover:text-orange-600 disabled:opacity-50"
+        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[color:var(--color-rule)] bg-white px-3.5 text-[13.5px] font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-ink-4)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
       >
-        {importing ? "Importing…" : "Import pipeline (.zip)"}
+        <IconUpload size={14} />
+        {importing ? "Importing…" : "Import"}
       </button>
     </>
   );

@@ -4,12 +4,22 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { sanitizeSlug } from "@/lib/config/slug";
 import Modal from "@/components/ui/Modal";
+import { IconPlus } from "@/components/icons";
 
 type TemplateId = "blank" | "spending";
 
 const TEMPLATES: { id: TemplateId; name: string; description: string }[] = [
-  { id: "blank", name: "Blank", description: "Empty pipeline - add your own sources, mappings, and tables." },
-  { id: "spending", name: "Spending Tracker", description: "Personal spending pipeline with transactions table and overview dashboard." },
+  {
+    id: "blank",
+    name: "Blank",
+    description: "An empty pipeline. Add your own data and steps.",
+  },
+  {
+    id: "spending",
+    name: "Spending tracker",
+    description:
+      "A personal-finance starter with a transactions table and an overview dashboard.",
+  },
 ];
 
 export default function CreatePipelineButton() {
@@ -52,6 +62,11 @@ export default function CreatePipelineButton() {
         setError(data.message || data.error || "Failed to create pipeline");
         return;
       }
+      // Invalidate the App Router cache so when the user navigates back
+      // to "/" they see the new pipeline in the list. `push` alone reuses
+      // the cached server render of "/" from the moment they opened the
+      // app, which won't include this slug.
+      router.refresh();
       router.push(`/p/${data.pipeline}/graph`);
     } catch (err) {
       setError((err as Error).message);
@@ -65,71 +80,110 @@ export default function CreatePipelineButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-orange-700"
+        className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-3.5 text-[13.5px] font-medium text-white shadow-[0_1px_0_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.18)] transition hover:bg-[color:var(--color-carrot-deep)]"
       >
-        + New pipeline
+        <IconPlus size={14} />
+        New pipeline
       </button>
 
       {open ? (
         <Modal open={open} onClose={close}>
           <form onSubmit={submit}>
-            <h2 className="text-lg font-semibold text-gray-900">Create pipeline</h2>
+            <h2 className="text-[17px] font-semibold text-[color:var(--color-ink)]">
+              Create a pipeline
+            </h2>
+            <p className="mt-1 text-[13px] text-[color:var(--color-ink-3)]">
+              Pipelines hold your data, your graph, and your dashboards. You can
+              rename or delete them later.
+            </p>
 
-            <label className="mt-4 block text-sm font-medium text-gray-700">Name</label>
+            <label className="mt-5 block text-[12px] font-medium text-[color:var(--color-ink-2)]">
+              Name
+            </label>
             <input
               autoFocus
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="My pipeline"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+              className="mt-1.5 h-[38px] w-full rounded-md border border-[color:var(--color-rule)] bg-white px-3 text-sm text-[color:var(--color-ink)] outline-none transition focus:border-[color:var(--color-carrot)] focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
             />
-            <p className="mt-1 text-xs text-gray-400">
-              Will be saved as <code className="rounded bg-gray-100 px-1">{sanitizeSlug(name) || "…"}</code>
+            <p className="mt-1 text-[11px] text-[color:var(--color-ink-4)]">
+              Saved as{" "}
+              <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono">
+                {sanitizeSlug(name) || "…"}
+              </code>
             </p>
 
-            <label className="mt-4 block text-sm font-medium text-gray-700">Template</label>
+            <label className="mt-4 block text-[12px] font-medium text-[color:var(--color-ink-2)]">
+              Start from a template
+            </label>
             <div className="mt-2 space-y-2">
-              {TEMPLATES.map((t) => (
-                <label
-                  key={t.id}
-                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${
-                    template === t.id ? "border-orange-400 bg-orange-50" : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="template"
-                    value={t.id}
-                    checked={template === t.id}
-                    onChange={() => setTemplate(t.id)}
-                    className="mt-1"
-                  />
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">{t.name}</div>
-                    <div className="text-xs text-gray-500">{t.description}</div>
-                  </div>
-                </label>
-              ))}
+              {TEMPLATES.map((t) => {
+                const checked = template === t.id;
+                return (
+                  <label
+                    key={t.id}
+                    className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition ${
+                      checked
+                        ? "border-[color:var(--color-carrot)] bg-[color:var(--color-carrot-soft)]"
+                        : "border-[color:var(--color-rule)] hover:border-[color:var(--color-ink-4)]"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="template"
+                      value={t.id}
+                      checked={checked}
+                      onChange={() => setTemplate(t.id)}
+                      className="sr-only"
+                    />
+                    <span
+                      className={`mt-[2px] grid h-4 w-4 flex-none place-items-center rounded-full border-[1.5px] ${
+                        checked
+                          ? "border-[color:var(--color-carrot)]"
+                          : "border-[color:var(--color-ink-4)]"
+                      }`}
+                      aria-hidden
+                    >
+                      {checked ? (
+                        <span className="h-2 w-2 rounded-full bg-[color:var(--color-carrot)]" />
+                      ) : null}
+                    </span>
+                    <span className="flex-1">
+                      <span className="block text-[13.5px] font-semibold text-[color:var(--color-ink)]">
+                        {t.name}
+                      </span>
+                      <span className="mt-[2px] block text-[12.5px] text-[color:var(--color-ink-3)]">
+                        {t.description}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
             </div>
 
-            {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+            {error ? (
+              <p className="mt-3 text-sm text-[color:var(--color-rose-deep)]">
+                {error}
+              </p>
+            ) : null}
 
             <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={close}
                 disabled={submitting}
-                className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                className="rounded-md border border-transparent px-3.5 py-2 text-[13.5px] text-[color:var(--color-ink-2)] hover:border-[color:var(--color-rule)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50"
+                className="inline-flex h-9 items-center rounded-md bg-[color:var(--color-carrot)] px-3.5 text-[13.5px] font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
               >
-                {submitting ? "Creating…" : "Create"}
+                {submitting ? "Creating…" : "Create pipeline"}
               </button>
             </div>
           </form>

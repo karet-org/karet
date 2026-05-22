@@ -1,6 +1,6 @@
 "use client";
 
-// "Account · Sign out" — confirms an active session via /api/auth/me on
+// "Account · Sign out" -- confirms an active session via /api/auth/me on
 // mount, opens an Account modal for password edits, and hits
 // /api/auth/logout on sign-out. Karet is single-admin and password-only,
 // so no username is shown.
@@ -23,7 +23,7 @@ export default function UserMenu() {
         if (cancelled) return;
         setAuthenticated(res.ok);
       } catch {
-        // Stay silent — the server-rendered page already required a session.
+        // Stay silent -- the server-rendered page already required a session.
       }
     })();
     return () => {
@@ -35,16 +35,15 @@ export default function UserMenu() {
 
   return (
     <>
-      <div className="flex items-center gap-2 text-xs text-gray-500">
+      <div className="flex items-center gap-1 text-[13px]">
         <button
           type="button"
           onClick={() => setAccountOpen(true)}
-          className="rounded text-gray-600 hover:text-gray-900"
+          className="rounded-md px-2.5 py-1.5 text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
           data-testid="user-menu-account"
         >
           Account
         </button>
-        <span className="text-gray-300">·</span>
         <button
           type="button"
           disabled={signingOut}
@@ -57,7 +56,7 @@ export default function UserMenu() {
               router.refresh();
             }
           }}
-          className="rounded text-gray-600 hover:text-gray-900 disabled:opacity-50"
+          className="rounded-md px-2.5 py-1.5 text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)] disabled:opacity-50"
           data-testid="user-menu-logout"
         >
           {signingOut ? "Signing out…" : "Sign out"}
@@ -148,7 +147,7 @@ function AccountModal({ onClose }: AccountModalProps) {
           onChange={(e) => setCurrentPassword(e.target.value)}
           autoComplete="current-password"
           required
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+          className="mt-1 h-[38px] w-full rounded-md border border-[color:var(--color-rule)] bg-white px-3 text-sm outline-none focus:border-[color:var(--color-carrot)] focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
           data-testid="account-current-password"
         />
 
@@ -160,7 +159,7 @@ function AccountModal({ onClose }: AccountModalProps) {
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           autoComplete="new-password"
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+          className="mt-1 h-[38px] w-full rounded-md border border-[color:var(--color-rule)] bg-white px-3 text-sm outline-none focus:border-[color:var(--color-carrot)] focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
           data-testid="account-new-password"
         />
 
@@ -172,7 +171,7 @@ function AccountModal({ onClose }: AccountModalProps) {
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           autoComplete="new-password"
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none"
+          className="mt-1 h-[38px] w-full rounded-md border border-[color:var(--color-rule)] bg-white px-3 text-sm outline-none focus:border-[color:var(--color-carrot)] focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
           data-testid="account-confirm-password"
         />
 

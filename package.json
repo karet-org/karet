@@ -2,6 +2,7 @@
   "name": "karet",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -20,7 +21,6 @@
     "chart.js": "^4.5.1",
     "chartjs-chart-geo": "^4.3.6",
     "dagre": "^0.8.5",
-    "html-to-image": "^1.11.13",
     "hyparquet": "^1.25.1",
     "hyparquet-compressors": "^1.1.1",
     "jszip": "^3.10.1",

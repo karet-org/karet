@@ -325,7 +325,7 @@ describe("config-service", () => {
           body: "PAR1",
           etag: "3",
         },
-        // Unrelated pipeline — must be left alone.
+        // Unrelated pipeline -- must be left alone.
         "pipelines/other/pipeline.json": { body: MINIMAL_CONFIG_JSON, etag: "4" },
       });
 
@@ -388,7 +388,7 @@ describe("config-service", () => {
     });
 
     it("handles keys containing characters that need URL-encoding in CopySource", async () => {
-      // Spaces, plus signs, parens — all legal in S3 keys, all require
+      // Spaces, plus signs, parens -- all legal in S3 keys, all require
       // encoding in the CopySource header.
       const client = buildStubClient({
         "pipelines/old/raw/weird name (1).csv": { body: "a,b\n1,2", etag: "1" },

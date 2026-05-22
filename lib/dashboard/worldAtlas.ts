@@ -16,7 +16,7 @@ import type {
 
 /**
  * Loose structural type for the world-atlas@2 TopoJSON document. We don't
- * pull in topojson-specification just for this — the only thing we need
+ * pull in topojson-specification just for this -- the only thing we need
  * is enough shape for `topojson-client`'s `feature()` call to accept it,
  * and it takes `any` anyway at runtime.
  */
@@ -34,7 +34,7 @@ interface WorldAtlasTopology {
 export interface DecodedAtlas {
   /** Full list of country features with numeric ids. */
   features: Feature<Geometry, { name: string }>[];
-  /** FeatureCollection — useful as the `outline` dataset for chartjs-chart-geo. */
+  /** FeatureCollection -- useful as the `outline` dataset for chartjs-chart-geo. */
   collection: FeatureCollection<Geometry, { name: string }>;
   /** Map from ISO numeric code (zero-padding stripped) to feature. */
   byNumeric: Map<string, Feature<Geometry, { name: string }>>;

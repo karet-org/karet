@@ -100,7 +100,7 @@ export function ChoroplethMapPanel({
   // Create / recreate the chart when atlas or data changes.
   useEffect(() => {
     if (!atlas || !canvasRef.current || !chartData) return;
-    // Tear down any previous instance before re-creating — Chart.js does
+    // Tear down any previous instance before re-creating -- Chart.js does
     // not support reassigning `data.labels` + `datasets[0].outline` on an
     // existing choropleth cleanly.
     chartRef.current?.destroy();

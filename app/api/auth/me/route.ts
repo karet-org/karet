@@ -14,8 +14,7 @@ export const runtime = "nodejs";
 export async function GET() {
   const jar = await cookies();
   const cookie = jar.get(SESSION_COOKIE)?.value;
-  const session = await verifySession(cookie, getSessionSecret());
-  if (!session) {
+  if (!(await verifySession(cookie, getSessionSecret()))) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
   return NextResponse.json({ authenticated: true });
@@ -24,8 +23,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   const jar = await cookies();
   const cookie = jar.get(SESSION_COOKIE)?.value;
-  const session = await verifySession(cookie, getSessionSecret());
-  if (!session) {
+  if (!(await verifySession(cookie, getSessionSecret()))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

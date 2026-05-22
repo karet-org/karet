@@ -127,10 +127,6 @@ export async function getPipelineConfig(
     );
     const body = await streamToString(response.Body);
     const parsed = JSON.parse(body) as PipelineConfig;
-    if (!parsed.version) parsed.version = 1;
-    for (const m of parsed.mappings) {
-      if (!m.name) m.name = m.id;
-    }
     return { config: parsed, body, etag: normalizeETag(response.ETag) };
   } catch (err) {
     if (isNotFound(err)) return null;
@@ -220,9 +216,9 @@ export async function getDashboard(
  * Move every object from `pipelines/<from>/` to `pipelines/<to>/` by
  * copying then deleting. S3 has no atomic rename; this performs:
  *
- *   1. Pre-flight HEAD on `<to>/pipeline.json` — throws `TargetExistsError`
+ *   1. Pre-flight HEAD on `<to>/pipeline.json` -- throws `TargetExistsError`
  *      (409) before touching any data if the destination is occupied.
- *   2. Lists every object under the source prefix — throws
+ *   2. Lists every object under the source prefix -- throws
  *      `SourceNotFoundError` (404) if empty.
  *   3. Copies each object to the new prefix.
  *   4. Deletes the originals in batches of 1000 (S3's API cap).
