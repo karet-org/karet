@@ -243,8 +243,8 @@ describe("config-service", () => {
         if (command instanceof PutObjectCommand) {
           const key = command.input.Key!;
           const body = command.input.Body as string;
-          store.set(key, { body, getEtag: "canonical-etag" });
-          return { ETag: '"put-response-etag"' };
+          store.set(key, { body, getEtag: "canonical" });
+          return { ETag: '"putresponse"' };
         }
         if (command instanceof HeadObjectCommand) {
           // PUT runs first in this test, so the entry is always present.
@@ -269,8 +269,8 @@ describe("config-service", () => {
         JSON.stringify(SAMPLE_CONFIG),
       );
 
-      expect(etag).toBe("canonical-etag");
-      expect(etag).not.toBe("put-response-etag");
+      expect(etag).toBe("canonical");
+      expect(etag).not.toBe("putresponse");
 
       // Save → save round-trip with the returned ETag must not 412.
       await expect(
@@ -281,6 +281,52 @@ describe("config-service", () => {
           etag,
         ),
       ).resolves.toBeDefined();
+    });
+
+    // Regression: RustFS returns ETags with a `-<codec>` suffix
+    // (e.g. `<md5>-zstd`) for compressed-at-rest objects, but the same
+    // object can be read back as bare `<md5>` on a later GetObject. The
+    // bare and codec-suffixed forms must compare equal so a save with
+    // an `If-Match` value carrying either form lands cleanly.
+    it("treats `<md5>-<codec>` and `<md5>` as the same ETag", async () => {
+      const client = buildStubClient({
+        "config/pipeline.json": {
+          body: JSON.stringify(SAMPLE_CONFIG),
+          etag: "abc123",
+        },
+      });
+
+      // Server-stored canonical form is bare; client sends the
+      // codec-suffixed form it captured at page load.
+      await expect(
+        putPipelineConfig(
+          client,
+          DEFAULT_CONFIG,
+          JSON.stringify(SAMPLE_CONFIG),
+          "abc123-zstd",
+        ),
+      ).resolves.toMatchObject({ etag: expect.any(String) });
+    });
+
+    // Multipart ETags carry a numeric `<md5>-<partcount>` suffix that
+    // is part of the identity (different chunking → different ETag).
+    // The codec-suffix strip must not collapse these.
+    it("preserves multipart ETag numeric suffix", async () => {
+      const client = buildStubClient({
+        "config/pipeline.json": {
+          body: JSON.stringify(SAMPLE_CONFIG),
+          etag: "abc123-2",
+        },
+      });
+
+      await expect(
+        putPipelineConfig(
+          client,
+          DEFAULT_CONFIG,
+          JSON.stringify(SAMPLE_CONFIG),
+          "abc123",
+        ),
+      ).rejects.toBeInstanceOf(PreconditionFailedError);
     });
   });
 

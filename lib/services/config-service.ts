@@ -61,10 +61,22 @@ async function streamToString(body: unknown): Promise<string> {
   return (await readBodyToBuffer(body)).toString("utf-8");
 }
 
-/** Strip surrounding quotes from an S3 ETag (S3 returns `"abc123"`). */
+/**
+ * Normalize an S3-style ETag for comparison.
+ *
+ * Strips:
+ * - Surrounding quotes (S3 wraps the value: `"abc123"`).
+ * - Trailing alphabetic codec suffix `-<codec>` (RustFS returns ETags
+ *   like `<md5>-zstd` for compressed-at-rest objects, but the same
+ *   `GetObject` can return the bare `<md5>` form on later reads, which
+ *   would break optimistic concurrency).
+ *
+ * Multipart ETags (`<md5>-<digits>`) are preserved: only an alphabetic
+ * suffix is stripped, never a numeric one.
+ */
 function normalizeETag(etag: string | undefined): string | undefined {
   if (!etag) return undefined;
-  return etag.replace(/^"|"$/g, "");
+  return etag.replace(/^"|"$/g, "").replace(/-[a-zA-Z]+$/, "");
 }
 
 function isNotFound(err: unknown): boolean {
@@ -154,9 +166,10 @@ export async function putPipelineConfig(
   if (ifMatch !== undefined) {
     const current = await getPipelineConfig(client, config);
     const currentEtag = current?.etag;
-    if (currentEtag !== ifMatch) {
+    const normalizedIfMatch = normalizeETag(ifMatch);
+    if (currentEtag !== normalizedIfMatch) {
       throw new PreconditionFailedError(
-        `ETag mismatch: expected ${ifMatch}, got ${currentEtag ?? "<none>"}`,
+        `ETag mismatch: expected ${normalizedIfMatch}, got ${currentEtag ?? "<none>"}`,
       );
     }
   }
