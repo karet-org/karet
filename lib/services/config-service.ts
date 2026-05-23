@@ -140,6 +140,10 @@ export async function getPipelineConfig(
  * `ifMatch` enables optimistic concurrency. S3 PutObject doesn't honor
  * `If-Match` consistently across S3-compatible stores (notably RustFS),
  * so we do the compare-and-swap ourselves against a fresh GET.
+ *
+ * The returned ETag is read via HEAD after the PUT, not taken from the
+ * PutObject response: on RustFS the two values can differ, which would
+ * make the next save spuriously 412.
  */
 export async function putPipelineConfig(
   client: S3Client,
@@ -157,7 +161,7 @@ export async function putPipelineConfig(
     }
   }
 
-  const response = await client.send(
+  await client.send(
     new PutObjectCommand({
       Bucket: config.bucket,
       Key: config.pipelineConfigKey,
@@ -165,7 +169,19 @@ export async function putPipelineConfig(
       ContentType: "application/json",
     }),
   );
-  return { etag: normalizeETag(response.ETag) };
+
+  try {
+    const head = await client.send(
+      new HeadObjectCommand({
+        Bucket: config.bucket,
+        Key: config.pipelineConfigKey,
+      }),
+    );
+    return { etag: normalizeETag(head.ETag) };
+  } catch {
+    // HEAD failure is non-fatal; the write itself succeeded.
+    return { etag: undefined };
+  }
 }
 
 // ---------------------------------------------------------------------------

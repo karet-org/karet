@@ -11,7 +11,7 @@ import { Readable } from "node:stream";
 import fc from "fast-check";
 import {
   GetObjectCommand,
-  NoSuchKey,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -40,14 +40,9 @@ function buildStubClient(initial: Record<string, Stored> = {}): S3Client {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (client as any).send = async (command: unknown) => {
     if (command instanceof GetObjectCommand) {
-      const key = command.input.Key!;
-      const entry = store.get(key);
-      if (!entry) {
-        throw new NoSuchKey({
-          message: `key ${key} not found`,
-          $metadata: { httpStatusCode: 404 },
-        });
-      }
+      // PUT runs before any read in the round-trip property, so the
+      // entry is always present.
+      const entry = store.get(command.input.Key!)!;
       return {
         Body: Readable.from([Buffer.from(entry.body, "utf-8")]),
         ETag: `"${entry.etag}"`,
@@ -63,6 +58,10 @@ function buildStubClient(initial: Record<string, Stored> = {}): S3Client {
       const etag = `etag-${nextEtag++}`;
       store.set(key, { body: text, etag });
       return { ETag: `"${etag}"` };
+    }
+    if (command instanceof HeadObjectCommand) {
+      const entry = store.get(command.input.Key!)!;
+      return { ETag: `"${entry.etag}"`, ContentLength: entry.body.length };
     }
     throw new Error(
       `Unsupported command in stub: ${(command as object).constructor?.name}`,

@@ -230,6 +230,58 @@ describe("config-service", () => {
         putPipelineConfig(client, DEFAULT_CONFIG, "{}", "current"),
       ).resolves.toMatchObject({ etag: expect.any(String) });
     });
+
+    // Regression: on RustFS the ETag returned by PutObject can differ
+    // from what GetObject returns for the same object. If we returned
+    // the PUT-response ETag, the next save's `If-Match` wouldn't match
+    // the server's compare-and-swap read and would spuriously 412.
+    it("returns the GET-canonical ETag, not the PUT-response ETag", async () => {
+      const store = new Map<string, { body: string; getEtag: string }>();
+      const client = new S3Client({ region: "us-east-1" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (client as any).send = async (command: unknown) => {
+        if (command instanceof PutObjectCommand) {
+          const key = command.input.Key!;
+          const body = command.input.Body as string;
+          store.set(key, { body, getEtag: "canonical-etag" });
+          return { ETag: '"put-response-etag"' };
+        }
+        if (command instanceof HeadObjectCommand) {
+          // PUT runs first in this test, so the entry is always present.
+          const entry = store.get(command.input.Key!)!;
+          return { ETag: `"${entry.getEtag}"` };
+        }
+        if (command instanceof GetObjectCommand) {
+          const entry = store.get(command.input.Key!)!;
+          return {
+            Body: Readable.from([Buffer.from(entry.body, "utf-8")]),
+            ETag: `"${entry.getEtag}"`,
+          };
+        }
+        throw new Error(
+          `Unsupported command in stub: ${(command as object).constructor?.name}`,
+        );
+      };
+
+      const { etag } = await putPipelineConfig(
+        client,
+        DEFAULT_CONFIG,
+        JSON.stringify(SAMPLE_CONFIG),
+      );
+
+      expect(etag).toBe("canonical-etag");
+      expect(etag).not.toBe("put-response-etag");
+
+      // Save → save round-trip with the returned ETag must not 412.
+      await expect(
+        putPipelineConfig(
+          client,
+          DEFAULT_CONFIG,
+          JSON.stringify(SAMPLE_CONFIG),
+          etag,
+        ),
+      ).resolves.toBeDefined();
+    });
   });
 
   describe("listDashboards", () => {
