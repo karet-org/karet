@@ -37,6 +37,7 @@ function mappingLookupRoots(m: Mapping): Set<string> {
         walk(node.right);
         return;
       case "concat":
+      case "coalesce":
         for (const a of node.args) walk(a);
         return;
       case "upper":

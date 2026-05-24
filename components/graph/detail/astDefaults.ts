@@ -22,6 +22,7 @@ export const AST_KINDS = [
   "mul",
   "div",
   "concat",
+  "coalesce",
   "upper",
   "lower",
   "trim",
@@ -80,6 +81,13 @@ export function defaultAst(kind: AstKind): AstNode {
       };
     case "concat":
       return { kind: "concat", sep: " ", args: [] };
+    case "coalesce":
+      // Two empty leaves so the user immediately sees both arg slots.
+      // Common usage is a 2-arg coalesce(primary, fallback).
+      return {
+        kind: "coalesce",
+        args: [{ ...DEFAULT_LEAF_STR }, { ...DEFAULT_LEAF_STR }],
+      };
     case "upper":
     case "lower":
     case "trim":

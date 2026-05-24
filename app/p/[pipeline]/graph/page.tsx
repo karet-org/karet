@@ -180,6 +180,18 @@ export default function PipelineGraphPage() {
 
   /** Apply a draft config change: update store, update canvas, mark dirty. */
   const applyDraft = useCallback((cfg: PipelineConfig) => {
+    const prev = useGraphStore.getState().config;
+    // Skip the dirty mark (and the canvas rebuild) when the new config is
+    // structurally identical to the live one. Editor-side onChange chains
+    // (e.g. ColumnExprEditor -> MappingEditor -> NodeDetailPanel) always
+    // produce a fresh top-level reference even when the user clicks into
+    // a field and clicks out without typing -- without this guard, every
+    // such "click-blur" surfaced the Save & Publish banner.
+    //
+    // Equality is via JSON.stringify because the editors only ever spread
+    // the existing entity (`{ ...value, foo }`), so key insertion order
+    // is preserved and JSON serialization is a stable structural digest.
+    if (prev && JSON.stringify(prev) === JSON.stringify(cfg)) return;
     useGraphStore.setState({ config: cfg });
     const built = buildGraph(cfg);
     canvasRef.current?.updateGraph(built.nodes, built.edges);

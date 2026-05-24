@@ -33,11 +33,17 @@ function tokenize(input: string): Token[] {
     // Skip whitespace
     if (/\s/.test(input[i])) { i++; continue; }
 
-    // Number
+    // Number -- supports scientific notation (`1e-5`, `1.5e+10`).
     if (/[0-9]/.test(input[i]) || (input[i] === "-" && i + 1 < input.length && /[0-9]/.test(input[i + 1]) && (tokens.length === 0 || tokens[tokens.length - 1].kind === "op" || tokens[tokens.length - 1].kind === "comma" || (tokens[tokens.length - 1].kind === "paren" && tokens[tokens.length - 1].value === "(")))) {
       const start = i;
       if (input[i] === "-") i++;
       while (i < input.length && /[0-9.]/.test(input[i])) i++;
+      // Optional exponent: `e` or `E` followed by an optional sign and digits.
+      if (i < input.length && (input[i] === "e" || input[i] === "E")) {
+        i++;
+        if (i < input.length && (input[i] === "+" || input[i] === "-")) i++;
+        while (i < input.length && /[0-9]/.test(input[i])) i++;
+      }
       tokens.push({ kind: "num", value: input.slice(start, i), pos: start });
       continue;
     }
@@ -176,12 +182,34 @@ class Parser {
       case "upper": return { kind: "upper", input: this.requireArg(args, 0, name) };
       case "lower": return { kind: "lower", input: this.requireArg(args, 0, name) };
       case "trim": return { kind: "trim", input: this.requireArg(args, 0, name) };
+      case "col": {
+        // `col("Name With Spaces")` -- explicit form for column names
+        // that aren't bare identifiers. The bare-ident form (just
+        // writing `Description`) still works for normal names; this
+        // arm handles round-trip from `astExpression` for source
+        // schemas with whitespace, dashes, etc.
+        const arg = this.requireArg(args, 0, name);
+        if (arg.kind !== "str") {
+          throw new ParseError("col() requires a string column name", this.peek().pos);
+        }
+        return { kind: "col", name: arg.value };
+      }
       case "contains": return { kind: "contains", input: this.requireArg(args, 0, name), pattern: this.requireArg(args, 1, name) };
       case "concat": {
-        if (args.length < 2) throw new ParseError("concat requires separator + at least 1 arg", this.peek().pos);
+        // Shape: `concat("sep", a, b, ...)` -- separator first, zero or
+        // more args after. The AST permits an empty `args` array (Polars
+        // produces an empty string for that case), so we don't require
+        // a minimum body arity here -- only the separator itself.
+        if (args.length < 1) throw new ParseError("concat requires a string separator", this.peek().pos);
         const sep = args[0];
         if (sep.kind !== "str") throw new ParseError("concat first arg must be a string separator", this.peek().pos);
         return { kind: "concat", sep: sep.value, args: args.slice(1) };
+      }
+      case "coalesce": {
+        // `coalesce(a, b, c, ...)` -- arity is open. Empty `coalesce()`
+        // is a constant null; we still allow it for symmetry with the
+        // worker-side semantics.
+        return { kind: "coalesce", args };
       }
       case "substring": {
         const input = this.requireArg(args, 0, name);

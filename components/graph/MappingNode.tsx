@@ -15,7 +15,7 @@ export function MappingNode({
   return (
     <div
       data-testid="mapping-node"
-      className={`min-w-[280px] cursor-pointer rounded-md border border-gray-300 bg-white shadow-sm ${ringClass}`}
+      className={`min-w-[280px] max-w-[420px] cursor-pointer rounded-md border border-gray-300 bg-white shadow-sm ${ringClass}`}
     >
       <Handle type="target" position={Position.Left} />
       <div className="drag-handle flex cursor-grab items-center justify-between gap-2 rounded-t-md bg-gray-100 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
@@ -32,7 +32,7 @@ export function MappingNode({
                 {col.name}
               </span>
               <span
-                className="truncate font-mono text-[11px] text-gray-500"
+                className="min-w-0 truncate font-mono text-[11px] text-gray-500"
                 title={astSummary(col.expr)}
               >
                 {astSummary(col.expr)}

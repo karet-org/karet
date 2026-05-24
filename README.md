@@ -7,6 +7,22 @@ ETL pipeline configuration stored in S3.
 See the top-level `docker-compose.yaml` for the full stack (rustfs +
 worker + web).
 
+## Features
+
+- Pipeline templates: `Blank` and `Spending Tracker` (worked example
+  with merchant + category lookups, vertical monthly-spending bar, and
+  a `where` clause excluding bank-internal rows). See
+  `lib/templates/index.ts` and the docs guide.
+- Dashboards with KPI, doughnut, line, bar (horizontal Top-N or
+  vertical date-binned), table, map, and Sankey panels. Click a
+  doughnut, bar, choropleth, or Sankey node to cross-filter the rest
+  of the dashboard.
+- Optional `where: AstNode[]` on a dashboard applies a baseline row
+  filter before any panel renders or any dropdown populates.
+- Graph editor for source containers, lookups, mappings, and analytic
+  tables. Mapping column expressions support a textual form that
+  round-trips losslessly via `astExpression`.
+
 ## Environment variables
 
 | Variable | Description |

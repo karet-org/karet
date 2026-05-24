@@ -10,6 +10,7 @@ export { default as FilterBar, applyFilters, emptyFilterState } from "./FilterBa
 export type { FilterState } from "./FilterBar";
 export { default as LinePanel } from "./LinePanel";
 export { default as PanelRenderer } from "./PanelRenderer";
+export { default as SankeyPanel } from "./SankeyPanel";
 export { default as SummaryPanel } from "./SummaryPanel";
 export { default as SymbolMapPanel } from "./SymbolMapPanel";
 export { default as TablePanel } from "./TablePanel";

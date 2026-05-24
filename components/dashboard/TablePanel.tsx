@@ -28,7 +28,7 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
   return (
     <div
       data-testid="table-panel"
-      className="flex flex-1 flex-col rounded-lg border border-orange-100 bg-white p-4 shadow-sm"
+      className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-100 bg-white p-4 shadow-sm"
     >
       <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
       <div className="mt-3 overflow-x-auto">
@@ -79,7 +79,7 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
               type="button"
               onClick={() => setPage(Math.max(0, safePage - 1))}
               disabled={safePage === 0}
-              className="rounded border border-gray-300 px-2 py-1 disabled:opacity-50"
+              className="cursor-pointer rounded border border-gray-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Prev
             </button>
@@ -87,7 +87,7 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
               type="button"
               onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))}
               disabled={safePage >= pageCount - 1}
-              className="rounded border border-gray-300 px-2 py-1 disabled:opacity-50"
+              className="cursor-pointer rounded border border-gray-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next
             </button>

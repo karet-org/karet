@@ -339,6 +339,7 @@ export function scrubLookupReferences(
         right: scrubLookupReferences(node.right, lookupId),
       };
     case "concat":
+    case "coalesce":
       return {
         ...node,
         args: node.args.map((a) => scrubLookupReferences(a, lookupId)),
@@ -394,6 +395,7 @@ function astReferencesLookup(node: AstNode, lookupId: string): boolean {
         astReferencesLookup(node.right, lookupId)
       );
     case "concat":
+    case "coalesce":
       return node.args.some((a) => astReferencesLookup(a, lookupId));
     case "upper":
     case "lower":
@@ -446,6 +448,7 @@ function astReferencesSourceColumn(
         astReferencesSourceColumn(node.right, columnNames)
       );
     case "concat":
+    case "coalesce":
       return node.args.some((a) => astReferencesSourceColumn(a, columnNames));
     case "upper":
     case "lower":

@@ -18,7 +18,7 @@ import type {
   MappingColumn,
   PartitionBy,
 } from "@/lib/types/config";
-import { astSummary } from "../astSummary";
+import { astSummary, astExpression } from "../astSummary";
 import { parseExpression } from "@/lib/graph/expressionParser";
 import { useGraphStore } from "@/lib/graph/store";
 import { EditorField, inputClass } from "./editorPrimitives";
@@ -340,7 +340,7 @@ function columnHasError(
   col: MappingColumn,
   sourceColumns: string[] | null | undefined,
 ): boolean {
-  return validateExprText(astSummary(col.expr), sourceColumns) !== null;
+  return validateExprText(astExpression(col.expr), sourceColumns) !== null;
 }
 
 interface ColumnExprEditorProps {
@@ -361,12 +361,12 @@ function collectColRefs(node: AstNode): string[] {
 }
 
 function ColumnExprEditor({ value, onChange, sourceColumns }: ColumnExprEditorProps) {
-  const [exprText, setExprText] = useState(() => astSummary(value.expr));
+  const [exprText, setExprText] = useState(() => astExpression(value.expr));
 
   // If the persisted value changes out from under us (e.g. the source
   // connection was restored, or another pane edited the column), reset
   // the local text to match.
-  const persistedText = astSummary(value.expr);
+  const persistedText = astExpression(value.expr);
   useEffect(() => {
     setExprText(persistedText);
   }, [persistedText]);

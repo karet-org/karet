@@ -10,6 +10,8 @@ function toKey(v: unknown): string {
   return String(v);
 }
 
+export { toKey };
+
 /** Apply the declared aggregation to a list of values. */
 export function aggregateValues(values: number[], agg: Aggregation): number {
   if (values.length === 0) return 0;

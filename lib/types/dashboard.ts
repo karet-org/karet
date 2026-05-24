@@ -1,5 +1,7 @@
 // TypeScript mirror of the Dashboard configuration schema.
 
+import type { AstNode } from "@/lib/types/config";
+
 export type FilterKind = "dropdown" | "date_range";
 
 export interface DashboardFilter {
@@ -78,6 +80,12 @@ export type Panel =
       group_by: string;
       value: string;
       agg: Aggregation;
+      /**
+       * When set, group by `binDate(group_by, x_bin)` and render as
+       * vertical bars sorted chronologically (no `limit`). Otherwise
+       * the bar is the horizontal "top N by value" form.
+       */
+      x_bin?: "day" | "week" | "month" | "year";
       limit?: number;
       grid?: PanelGrid;
     }
@@ -114,7 +122,44 @@ export type Panel =
       value?: string;
       agg: Aggregation;
       grid?: PanelGrid;
+    }
+  | {
+      kind: "sankey";
+      title: string;
+      /**
+       * One or more flows; stack multiple for multi-stage diagrams
+       * (e.g. income → account → category). Each flow groups rows by a
+       * (from, to) column pair and aggregates the value column.
+       */
+      flows: SankeyFlow[];
+      /**
+       * Optional raw-value → display-label map applied to node labels.
+       * Useful for collapsing CSV variants into one display label
+       * without rewriting the underlying data.
+       */
+      labels?: Record<string, string>;
+      grid?: PanelGrid;
     };
+
+/** One ribbon set in a Sankey panel. */
+export interface SankeyFlow {
+  /** Categorical column for the ribbon's source side. */
+  from: string;
+  /** Categorical column for the destination side. */
+  to: string;
+  /** Numeric column aggregated per (from, to) pair. */
+  value: string;
+  /**
+   * `sum` (default), `abs_sum` (handy when income rows carry negative
+   * amounts), or `count` rows.
+   */
+  agg?: "sum" | "abs_sum" | "count";
+  /**
+   * Optional per-flow row filter, ANDed. Same boolean AST subset as
+   * the dashboard-level `where`.
+   */
+  where?: AstNode[];
+}
 
 export interface DashboardConfig {
   id: string;
@@ -122,6 +167,19 @@ export interface DashboardConfig {
   analytic_table_id: string;
   filters: DashboardFilter[];
   panels: Panel[];
+  /**
+   * Optional baseline row filter applied before the interactive
+   * `FilterBar` and any cross-filter clicks. Each element is a boolean
+   * AstNode; rows must satisfy every predicate (implicit AND).
+   *
+   * Use it for "always exclude these rows" rules like dropping
+   * transfer/investment rows from a spending dashboard. For
+   * interactive exclusion, use a dropdown filter.
+   *
+   * Only the boolean subset of AstNode is evaluated; see
+   * `lib/dashboard/evalWhere.ts`.
+   */
+  where?: AstNode[];
   layout?: {
     columns?: number;
     /** CSS grid-template-columns, e.g. "1fr 1fr 1fr" or "repeat(3, 1fr)". Overrides `columns`. */

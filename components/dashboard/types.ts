@@ -19,30 +19,41 @@ export interface PanelProps<P extends Panel = Panel> {
 }
 
 /**
- * Cross-filter props for panels that emit and highlight a selection
- * (doughnut / bar / choropleth). `onFilter(column, value)` is a toggle:
- * passing the same pair clears the filter. `activeFilter` is broadcast
- * from the dashboard root so every panel can dim non-matching slices.
+ * Cross-filter props for panels that emit + highlight a selection
+ * (doughnut / bar / choropleth / line). `onFilter` is a toggle: passing
+ * the same triple clears the filter. `bin` is set when the value is a
+ * date binned via `binDate` (line clicks); equality-style emitters omit
+ * it.
  */
 export interface CrossFilterProps {
-  onFilter?: (column: string, value: string) => void;
-  activeFilter?: { column: string; value: string } | null;
+  onFilter?: (column: string, value: string, bin?: ChartFilterBin) => void;
+  activeFilter?: ChartFilter | null;
+}
+
+export type ChartFilterBin = "day" | "week" | "month" | "year";
+
+export interface ChartFilter {
+  column: string;
+  value: string;
+  bin?: ChartFilterBin;
 }
 
 /**
- * Derive the chart-area wrapper className + inline style from a panel's
- * `grid.aspect` / `grid.maxHeight` config. Panels render this on the
- * inner box that contains the Chart.js canvas.
+ * Chart-area wrapper className + inline style derived from a panel's
+ * `grid.aspect` / `grid.maxHeight`.
  *
- * - `aspect: "auto"` (default): fill the row with `flex-1 min-h-[16rem]`
- *   so multiple charts in the same row share its height.
- * - `aspect: "square"`: inscribe a circle. Centered with `mx-auto` so
- *   when `maxHeight` clips the height, the resulting square sits in the
- *   middle of its column.
- * - `aspect: "video"`: 16:9, useful for map panels.
+ * - `aspect: "auto"` (default): `flex-1 min-h-[16rem]`, fills the row.
+ * - `aspect: "square"`: 1:1 box, centered with `mx-auto`.
+ * - `aspect: "video"`: 16:9.
  *
- * `maxHeight` (e.g. `"20rem"`) caps the chart so a square doughnut on a
- * 30rem-wide column doesn't take 30rem of vertical space.
+ * `maxHeight` caps the chart so a square doughnut on a wide column
+ * doesn't blow up vertically. For `aspect: "square"` we mirror it as
+ * `maxWidth` so the box stays square (without that, `aspect-ratio: 1/1`
+ * + `width: 100%` + `max-height` resolves to a non-square rectangle on
+ * wide columns).
+ *
+ * `overflow-hidden` keeps a slow-to-resize Chart.js canvas from spilling
+ * outside its slot during transient layout changes.
  */
 export function chartAreaProps(panel: Panel): {
   className: string;
@@ -50,15 +61,18 @@ export function chartAreaProps(panel: Panel): {
 } {
   const aspect = panel.grid?.aspect ?? "auto";
   const style: React.CSSProperties = {};
-  if (panel.grid?.maxHeight) style.maxHeight = panel.grid.maxHeight;
+  if (panel.grid?.maxHeight) {
+    style.maxHeight = panel.grid.maxHeight;
+    if (aspect === "square") style.maxWidth = panel.grid.maxHeight;
+  }
 
   if (aspect === "square") {
-    return { className: "relative mt-3 mx-auto aspect-square w-full", style };
+    return { className: "relative mt-3 mx-auto aspect-square w-full overflow-hidden", style };
   }
   if (aspect === "video") {
-    return { className: "relative mt-3 mx-auto aspect-video w-full", style };
+    return { className: "relative mt-3 mx-auto aspect-video w-full overflow-hidden", style };
   }
-  return { className: "relative mt-3 min-h-[16rem] flex-1", style };
+  return { className: "relative mt-3 min-h-[16rem] flex-1 overflow-hidden", style };
 }
 
 /** Returns the set of column names required by a panel config. */
@@ -84,6 +98,11 @@ export function requiredColumns(panel: Panel): string[] {
         : [panel.lat, panel.lon];
     case "choropleth_map":
       return panel.value ? [panel.country, panel.value] : [panel.country];
+    case "sankey": {
+      const cols: string[] = [];
+      for (const f of panel.flows) cols.push(f.from, f.to, f.value);
+      return cols;
+    }
   }
 }
 

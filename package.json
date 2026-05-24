@@ -16,10 +16,12 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1009.0",
     "@tailwindcss/postcss": "^4.2.1",
+    "@types/d3-sankey": "^0.12.5",
     "@xyflow/react": "^12.3.5",
     "alasql": "^4.17.2",
     "chart.js": "^4.5.1",
     "chartjs-chart-geo": "^4.3.6",
+    "d3-sankey": "^0.12.3",
     "dagre": "^0.8.5",
     "hyparquet": "^1.25.1",
     "hyparquet-compressors": "^1.1.1",

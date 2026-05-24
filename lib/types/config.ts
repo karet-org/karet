@@ -30,6 +30,7 @@ export type AstNode =
   | { kind: "le"; left: AstNode; right: AstNode }
   | { kind: "contains"; input: AstNode; pattern: AstNode }
   | { kind: "if"; cond: AstNode; then: AstNode; else: AstNode }
+  | { kind: "coalesce"; args: AstNode[] }
   | { kind: "parse_date"; input: AstNode; format: string }
   | { kind: "lookup_ref"; lookup_id: string; input: AstNode }
   | { kind: "cast"; input: AstNode; to: CastType };

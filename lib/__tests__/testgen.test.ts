@@ -23,6 +23,7 @@ const KNOWN_AST_KINDS = new Set<AstNode["kind"]>([
   "mul",
   "div",
   "concat",
+  "coalesce",
   "upper",
   "lower",
   "trim",
@@ -58,6 +59,7 @@ function assertKnownAstNode(node: AstNode): void {
       assertKnownAstNode(node.right);
       break;
     case "concat":
+    case "coalesce":
       for (const a of node.args) assertKnownAstNode(a);
       break;
     case "upper":

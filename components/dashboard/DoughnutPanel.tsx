@@ -60,6 +60,10 @@ export function DoughnutPanel({
         if (label) onFilter(config.group_by, label);
       }
     },
+    onHover: (event: { native: Event | null }, elements: unknown[]) => {
+      const target = event.native?.target as HTMLElement | null;
+      if (target) target.style.cursor = elements.length > 0 ? "pointer" : "default";
+    },
     plugins: {
       legend: {
         position: "bottom" as const,
@@ -75,7 +79,7 @@ export function DoughnutPanel({
   return (
     <div
       data-testid="doughnut-panel"
-      className="flex flex-1 flex-col rounded-lg border border-orange-100 bg-white p-4 shadow-sm"
+      className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-100 bg-white p-4 shadow-sm"
     >
       <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
       <div {...chartAreaProps(config)}>

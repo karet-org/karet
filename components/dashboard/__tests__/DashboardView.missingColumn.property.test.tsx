@@ -55,6 +55,12 @@ function breakPanel(panel: Panel): Panel {
       return { ...panel, lat: MISSING };
     case "choropleth_map":
       return { ...panel, country: MISSING };
+    case "sankey": {
+      const flows = panel.flows.length === 0
+        ? panel.flows
+        : [{ ...panel.flows[0], from: MISSING }, ...panel.flows.slice(1)];
+      return { ...panel, flows };
+    }
   }
 }
 

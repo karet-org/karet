@@ -160,6 +160,9 @@ export const arbAstNode: fc.Arbitrary<AstNode> = fc.letrec<{
     fc
       .tuple(tie("node"), tie("node"), tie("node"))
       .map<AstNode>(([cond, t, e]) => ({ kind: "if", cond, then: t, else: e })),
+    fc
+      .array(tie("node"), { maxLength: 4 })
+      .map<AstNode>((args) => ({ kind: "coalesce", args })),
 
     // Date and lookup
     fc

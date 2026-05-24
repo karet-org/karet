@@ -7,6 +7,7 @@ import DoughnutPanel from "./DoughnutPanel";
 import ErrorPanel from "./ErrorPanel";
 import KpiPanel from "./KpiPanel";
 import LinePanel from "./LinePanel";
+import SankeyPanel from "./SankeyPanel";
 import SummaryPanel from "./SummaryPanel";
 import SymbolMapPanel from "./SymbolMapPanel";
 import TablePanel from "./TablePanel";
@@ -40,6 +41,8 @@ export function PanelRenderer({
       return <SymbolMapPanel config={config} rows={rows} schema={schema} />;
     case "choropleth_map":
       return <ChoroplethMapPanel config={config} rows={rows} schema={schema} onFilter={onFilter} activeFilter={activeFilter} />;
+    case "sankey":
+      return <SankeyPanel config={config} rows={rows} schema={schema} onFilter={onFilter} activeFilter={activeFilter} />;
   }
 }
 

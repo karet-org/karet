@@ -135,7 +135,7 @@ export function SymbolMapPanel({
   }, [atlas, points, config.title, config.max_radius]);
 
   return (
-    <div className="flex flex-1 flex-col rounded-lg border border-orange-100 bg-white p-4 shadow-sm">
+    <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-100 bg-white p-4 shadow-sm">
       <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
       <div {...chartAreaProps(config)}>
         {!atlas ? (

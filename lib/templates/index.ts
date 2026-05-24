@@ -3,7 +3,7 @@
 // A template is a bundle of files (relative path -> JSON-serializable
 // content) that get written under `pipelines/<slug>/` in S3.
 
-import type { PipelineConfig } from "@/lib/types/config";
+import type { AstNode, PipelineConfig } from "@/lib/types/config";
 import type { DashboardConfig } from "@/lib/types/dashboard";
 
 export type TemplateId = "blank" | "spending";
@@ -24,6 +24,16 @@ const blankPipeline: PipelineConfig = {
   lookup_mappings: [],
   mappings: [],
   analytic_tables: [],
+};
+
+// `upper(trim(col(description)))`. Reused as the description column,
+// the merchant lookup input, and the category lookup input.
+const CLEANED_DESCRIPTION: AstNode = {
+  kind: "upper",
+  input: {
+    kind: "trim",
+    input: { kind: "col", name: "description" },
+  },
 };
 
 const spendingPipeline: PipelineConfig = {
@@ -48,11 +58,49 @@ const spendingPipeline: PipelineConfig = {
       match: "keyword_substring",
       case_insensitive: true,
       rows: [
-        { input_patterns: ["STARBUCKS", "CAFE", "RAMEN", "SUSHI", "CHIPOTLE"], output: "FOOD" },
-        { input_patterns: ["UBER", "LYFT", "SHELL", "CHEVRON"], output: "TRANSPORT" },
+        { input_patterns: ["RENT", "PG&E", "COMCAST", "FIDO"], output: "BILLS" },
+        {
+          input_patterns: [
+            "STARBUCKS", "CAFE", "TIM HORTONS", "RAMEN", "RA MEN",
+            "SUSHI", "CHIPOTLE", "MCDONALD", "A&W", "POPEYES",
+          ],
+          output: "FOOD",
+        },
+        {
+          input_patterns: ["UBER", "LYFT", "SHELL", "CHEVRON", "COMPASS"],
+          output: "TRANSPORT",
+        },
         { input_patterns: ["AMAZON", "TARGET", "WALMART"], output: "SHOPPING" },
-        { input_patterns: ["NETFLIX", "SPOTIFY", "HULU"], output: "ENTERTAINMENT" },
-        { input_patterns: ["RENT", "PG&E", "COMCAST"], output: "BILLS" },
+        { input_patterns: ["NETFLIX", "SPOTIFY", "HULU", "STEAM"], output: "ENTERTAINMENT" },
+        // Bank-internal rows. The dashboard's `where` clause excludes
+        // these from the spending view by default.
+        { input_patterns: ["CUSTOMER TRANSFER", "PAYMENT THANK YOU", "WITHDRAWAL"], output: "TRANSFER" },
+        { input_patterns: ["DEPOSIT", "PAYROLL", "TAX REFUND"], output: "INCOME" },
+        { input_patterns: ["INVESTMENT"], output: "INVESTMENT" },
+      ],
+      children: [],
+      catch_all: { output: "OTHER" },
+    },
+    {
+      id: "merchants",
+      name: "Merchants",
+      match: "keyword_substring",
+      case_insensitive: true,
+      // Canonical names for common merchants. Anything not listed
+      // falls through to the cleaned description via `coalesce` in
+      // the merchant column expression below.
+      rows: [
+        { input_patterns: ["STARBUCKS"], output: "Starbucks" },
+        { input_patterns: ["TIM HORTONS"], output: "Tim Hortons" },
+        { input_patterns: ["MCDONALD"], output: "McDonald's" },
+        { input_patterns: ["CHIPOTLE"], output: "Chipotle" },
+        { input_patterns: ["UBER"], output: "Uber" },
+        { input_patterns: ["LYFT"], output: "Lyft" },
+        { input_patterns: ["AMAZON"], output: "Amazon" },
+        { input_patterns: ["TARGET"], output: "Target" },
+        { input_patterns: ["WALMART"], output: "Walmart" },
+        { input_patterns: ["NETFLIX"], output: "Netflix" },
+        { input_patterns: ["SPOTIFY"], output: "Spotify" },
       ],
       children: [],
     },
@@ -66,10 +114,25 @@ const spendingPipeline: PipelineConfig = {
       partition_by: { column: "date", granularity: "month" },
       columns: [
         { name: "date", expr: { kind: "parse_date", input: { kind: "col", name: "date" }, format: "%Y-%m-%d" } },
-        { name: "description", expr: { kind: "upper", input: { kind: "col", name: "description" } } },
+        { name: "description", expr: CLEANED_DESCRIPTION },
+        // Known merchants get a canonical name; anything else falls
+        // back to the cleaned description.
+        {
+          name: "merchant",
+          expr: {
+            kind: "coalesce",
+            args: [
+              { kind: "lookup_ref", lookup_id: "merchants", input: CLEANED_DESCRIPTION },
+              CLEANED_DESCRIPTION,
+            ],
+          },
+        },
         { name: "amount", expr: { kind: "cast", input: { kind: "col", name: "amount" }, to: "float64" } },
         { name: "account", expr: { kind: "col", name: "account" } },
-        { name: "category", expr: { kind: "lookup_ref", lookup_id: "categories", input: { kind: "upper", input: { kind: "col", name: "description" } } } },
+        {
+          name: "category",
+          expr: { kind: "lookup_ref", lookup_id: "categories", input: CLEANED_DESCRIPTION },
+        },
       ],
     },
   ],
@@ -81,6 +144,7 @@ const spendingPipeline: PipelineConfig = {
       schema: [
         { name: "date", type: "date" },
         { name: "description", type: "string" },
+        { name: "merchant", type: "string" },
         { name: "amount", type: "float64" },
         { name: "account", type: "string" },
         { name: "category", type: "string" },
@@ -97,22 +161,31 @@ const spendingDashboard: DashboardConfig = {
     { kind: "dropdown", column: "account", label: "Account" },
     { kind: "date_range", column: "date", label: "Date range" },
   ],
+  // Drop bank-internal rows from the spending view. A separate
+  // dashboard without this clause can cover income / cash-flow.
+  where: [
+    { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "TRANSFER" } },
+    { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INVESTMENT" } },
+    { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INCOME" } },
+  ],
   panels: [
     { kind: "kpi", title: "Total Spending", column: "amount", agg: "sum", format: "currency", currency: "CAD", icon: "dollar" },
     { kind: "kpi", title: "Transactions", column: "amount", agg: "count", format: "number", icon: "chart" },
     { kind: "kpi", title: "Top Category", column: "category", agg: "mode", value_column: "amount", format: "currency", currency: "CAD", icon: "shapes" },
     { kind: "doughnut", title: "By Category", group_by: "category", value: "amount", agg: "sum", grid: { aspect: "square", maxHeight: "20rem" } },
-    { kind: "line", title: "Monthly Trend", x: "date", x_bin: "month", y: "amount", agg: "sum", grid: { gridColumn: "span 2" } },
-    { kind: "bar", title: "Top Merchants", group_by: "description", value: "amount", agg: "sum", limit: 5, grid: { gridColumn: "1 / -1" } },
-    { kind: "table", title: "Transactions", columns: ["date", "description", "amount", "account", "category"], page_size: 8, grid: { gridColumn: "1 / -1" } },
+    { kind: "bar", title: "Monthly Spending", group_by: "date", value: "amount", agg: "sum", x_bin: "month", grid: { gridColumn: "span 2" } },
+    { kind: "bar", title: "Top 10 Merchants", group_by: "merchant", value: "amount", agg: "sum", limit: 10, grid: { gridColumn: "1 / -1" } },
+    { kind: "table", title: "Transactions", columns: ["date", "description", "merchant", "amount", "account", "category"], page_size: 10, grid: { gridColumn: "1 / -1" } },
   ],
-  layout: { gridTemplateColumns: "repeat(auto-fit, minmax(max(18rem, calc((100% - 2rem) / 3)), 1fr))", gap: "1rem" },
+  layout: {
+    gridTemplateColumns: "repeat(auto-fit, minmax(max(18rem, calc((100% - 2rem) / 3)), 1fr))",
+    gap: "1rem",
+  },
 } as DashboardConfig;
 
-// Seed transactions that exercise every category in the spending lookup
-// and span two months so the monthly trend line has movement. Amounts
-// chosen so the doughnut and KPI tiles all read sensibly. Description
-// values match the lookup's substring patterns exactly.
+// Two months of seed transactions covering every category and most
+// of the merchant patterns. Description values are exact substring
+// matches against the lookup patterns.
 const SPENDING_SEED_CSV = `date,description,amount,account
 2026-04-02,STARBUCKS,5.75,visa-1234
 2026-04-03,UBER,18.40,visa-1234
@@ -130,6 +203,7 @@ const SPENDING_SEED_CSV = `date,description,amount,account
 2026-04-22,SUSHI,46.75,amex-gold
 2026-04-25,COMCAST,79.00,visa-1234
 2026-04-28,CAFE,6.40,visa-1234
+2026-04-29,PAYROLL DEPOSIT,-3500.00,visa-1234
 2026-05-01,RENT,1850.00,visa-1234
 2026-05-02,PG&E,79.50,visa-1234
 2026-05-03,STARBUCKS,5.75,visa-1234
@@ -145,7 +219,61 @@ const SPENDING_SEED_CSV = `date,description,amount,account
 2026-05-22,SHELL,55.10,visa-9876
 2026-05-25,WALMART,42.30,visa-1234
 2026-05-28,SUSHI,51.20,amex-gold
+2026-05-29,PAYROLL DEPOSIT,-3500.00,visa-1234
 `;
+
+const spendingCashFlow: DashboardConfig = {
+  id: "cash_flow",
+  name: "Cash Flow",
+  analytic_table_id: "transactions",
+  filters: [
+    { kind: "dropdown", column: "account", label: "Account" },
+    { kind: "date_range", column: "date", label: "Date range" },
+  ],
+  panels: [
+    {
+      kind: "sankey",
+      title: "Cash Flow",
+      flows: [
+        // Income → account. Income rows carry negative amounts so we
+        // sum absolute values for the ribbon width.
+        {
+          from: "description",
+          to: "account",
+          value: "amount",
+          agg: "abs_sum",
+          where: [
+            { kind: "eq", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INCOME" } },
+          ],
+        },
+        // Account → category, excluding income and transfers (transfers
+        // would need a `to_account` column to render correctly).
+        {
+          from: "account",
+          to: "category",
+          value: "amount",
+          agg: "sum",
+          where: [
+            { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INCOME" } },
+            { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "TRANSFER" } },
+          ],
+        },
+      ],
+      grid: { gridColumn: "1 / -1", maxHeight: "40rem" },
+    },
+    {
+      kind: "table",
+      title: "Income & Transfers",
+      columns: ["date", "description", "amount", "account", "category"],
+      page_size: 10,
+      grid: { gridColumn: "1 / -1" },
+    },
+  ],
+  layout: {
+    gridTemplateColumns: "repeat(auto-fit, minmax(max(18rem, calc((100% - 2rem) / 3)), 1fr))",
+    gap: "1rem",
+  },
+};
 
 export const TEMPLATES: Record<TemplateId, Template> = {
   blank: {
@@ -157,17 +285,13 @@ export const TEMPLATES: Record<TemplateId, Template> = {
   spending: {
     id: "spending",
     name: "Spending Tracker",
-    description: "Personal spending pipeline with transactions table and overview dashboard.",
+    description: "Personal spending pipeline with merchant + category lookups, transactions table, and overview dashboard.",
     files: {
       "pipeline.json": spendingPipeline,
       "dashboards/spending_overview.json": spendingDashboard,
+      "dashboards/cash_flow.json": spendingCashFlow,
     },
     rawFiles: {
-      // Hand-curated seed CSV so a freshly-created Spending Tracker has
-      // something to chart on first run. ~30 rows across two months,
-      // every category in the lookup, and every account in ACCOUNTS.
-      // Worker partitions by month, so we get two output partitions
-      // and the line chart shows actual movement.
       "raw/transactions/seed.csv": SPENDING_SEED_CSV,
     },
   },

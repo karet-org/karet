@@ -7,7 +7,7 @@
 
 import { useMemo } from "react";
 import type { DashboardFilter } from "@/lib/types/dashboard";
-import type { Row } from "./types";
+import type { ChartFilter, Row } from "./types";
 
 export interface FilterState {
   /** Column name -> selected dropdown value (null = no selection). */
@@ -32,7 +32,7 @@ interface FilterBarProps {
   /** Active cross-filter from a chart click (doughnut/bar/choropleth).
    *  Rendered as an inline pill to the right of the dropdowns so it
    *  doesn't grow the dashboard header height when it appears. */
-  chartFilter?: { column: string; value: string } | null;
+  chartFilter?: ChartFilter | null;
   /** Called when the user clears the chart filter pill. */
   onClearChartFilter?: () => void;
 }
@@ -90,7 +90,7 @@ export function FilterBar({
             >
               <span className="mb-1 font-semibold">{f.label}</span>
               <select
-                className="rounded border border-orange-200 px-2 py-1 text-sm focus:border-orange-400 focus:outline-none"
+                className="cursor-pointer rounded border border-orange-200 px-2 py-1 text-sm focus:border-orange-400 focus:outline-none"
                 value={value}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -167,7 +167,7 @@ export function FilterBar({
             <button
               type="button"
               onClick={onClearChartFilter}
-              className="text-xs text-gray-400 hover:text-gray-600"
+              className="cursor-pointer text-xs text-gray-400 hover:text-gray-600"
               aria-label="Clear chart filter"
             >
               ✕ Clear

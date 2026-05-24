@@ -80,6 +80,7 @@ function collectLookupRootIds(node: AstNode, out: Set<string>): void {
       collectLookupRootIds(node.right, out);
       return;
     case "concat":
+    case "coalesce":
       for (const a of node.args) collectLookupRootIds(a, out);
       return;
     case "upper":

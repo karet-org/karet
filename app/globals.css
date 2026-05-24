@@ -57,3 +57,21 @@ body {
 .react-flow__node {
   cursor: pointer !important;
 }
+
+/* Dashboard panel grid: container queries collapse `grid-column: span N`
+   to full-width below the 2-col threshold (37rem = 2×18rem + 1rem gap).
+   Without this, an `auto-fit` grid with one explicit column materializes
+   a squashed implicit `auto` track to satisfy span requests. */
+[data-testid="panel-grid"] {
+  container-type: inline-size;
+  container-name: panel-grid;
+}
+
+@container panel-grid (max-width: 36.99rem) {
+  /* `!important` overrides the inline `style="grid-column: span 2"` set
+     by DashboardView from the dashboard JSON. */
+  [data-panel-span="2"],
+  [data-panel-span="3"] {
+    grid-column: 1 / -1 !important;
+  }
+}
