@@ -1,5 +1,5 @@
-// Group rows by (from, to) per flow, sum the value column, and return
-// a flat link list plus column hints for the sankey layout.
+// Group rows by (from, to) per flow, aggregate the value column, and
+// return a link list plus column hints for the sankey layout.
 
 import type { SankeyFlow } from "@/lib/types/dashboard";
 import { toNum } from "@/lib/dashboard/format";
@@ -15,16 +15,9 @@ export interface SankeyLink {
 
 export interface SankeyAggregate {
   links: SankeyLink[];
-  /**
-   * Layout column index per node, derived from flow ordering: flow[i]'s
-   * `from` lands in column i, `to` in column i+1. Larger assignment
-   * wins for nodes appearing in multiple flows.
-   */
+  /** Layout column per node: flow[i].from = i, flow[i].to = i+1, max wins. */
   columns: Record<string, number>;
-  /**
-   * Source column name per node (flow.from or flow.to). The panel uses
-   * this to emit cross-filter clicks. First assignment wins.
-   */
+  /** Source column name (flow.from or flow.to) per node, for cross-filter clicks. */
   nodeColumns: Record<string, string>;
 }
 
@@ -41,12 +34,6 @@ function reduceFlow(values: number[], agg: SankeyFlow["agg"]): number {
   }
 }
 
-/**
- * Aggregate rows into Sankey links. Each flow's `where` runs first;
- * remaining rows are bucketed by (from, to) and reduced via `agg`.
- * Non-positive sums are dropped (a sankey can't render a zero-or-
- * negative ribbon).
- */
 export function aggregateSankey(
   rows: Row[],
   flows: SankeyFlow[],
@@ -90,10 +77,8 @@ export function aggregateSankey(
       }
     }
   }
-  // Shift columns so the lowest used hint is 0. d3-sankey's nodeAlign
-  // must return values in [0, n-1] where n is the graph's actual
-  // depth; if a flow produces no data the live hints can start above
-  // zero (e.g. accounts→categories without income → hints {1, 2}).
+  // Shift hints so the lowest used column is 0. d3-sankey requires
+  // nodeAlign values in [0, n-1] where n is the graph's actual depth.
   const minCol = Math.min(...Object.values(columns));
   if (minCol > 0) {
     for (const k of Object.keys(columns)) columns[k] -= minCol;

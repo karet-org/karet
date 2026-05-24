@@ -235,8 +235,7 @@ const spendingCashFlow: DashboardConfig = {
       kind: "sankey",
       title: "Cash Flow",
       flows: [
-        // Income → account. Income rows carry negative amounts so we
-        // sum absolute values for the ribbon width.
+        // Income rows carry negative amounts; abs_sum so the ribbon width is the magnitude.
         {
           from: "description",
           to: "account",
@@ -246,8 +245,7 @@ const spendingCashFlow: DashboardConfig = {
             { kind: "eq", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INCOME" } },
           ],
         },
-        // Account → category, excluding income and transfers (transfers
-        // would need a `to_account` column to render correctly).
+        // Transfers need a to_account column to render properly; skip them.
         {
           from: "account",
           to: "category",

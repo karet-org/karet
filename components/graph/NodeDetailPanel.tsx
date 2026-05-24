@@ -1,4 +1,4 @@
-// Node Detail Panel -- 420px right-hand drawer that mounts the structural
+// Node Detail Panel: 420px right-hand drawer that mounts the structural
 // editor for the selected graph node. Edits flow through the parent via
 // `onEdit` which the graph page uses to rebuild the canvas and mark the
 // config dirty; persistence is handled by the page's Save & Publish button.
@@ -51,6 +51,15 @@ export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps)
   const updateEntity = useCallback((next: EditableEntity) => {
     const cfg = useGraphStore.getState().config;
     if (!cfg) return;
+
+    // Skip when the editor re-emits an unchanged entity (common on
+    // input blur after click-with-no-change).
+    const existing =
+      cfg.source_containers.find((sc) => sc.id === next.id) ??
+      cfg.lookup_mappings.find((lm) => lm.id === next.id) ??
+      cfg.mappings.find((m) => m.id === next.id) ??
+      cfg.analytic_tables.find((t) => t.id === next.id);
+    if (existing && JSON.stringify(existing) === JSON.stringify(next)) return;
 
     // Cross-entity sync: when an analytic_table's schema changes, push
     // the same shape into every Mapping that writes to it. Adds become

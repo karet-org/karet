@@ -20,7 +20,6 @@ type SankeyPanelConfig = Extract<Panel, { kind: "sankey" }>;
 
 interface NodeDatum {
   name: string;
-  /** Optional column hint propagated to the layout via `nodeAlign`. */
   columnHint?: number;
 }
 
@@ -51,7 +50,6 @@ function displayName(
   return labels?.[name] ?? name;
 }
 
-/** Hover state. Differs by what the cursor is over. */
 type Hover =
   | { kind: "node"; name: string; value: number; x: number; y: number }
   | { kind: "link"; from: string; to: string; value: number; x: number; y: number };
@@ -79,7 +77,7 @@ export function SankeyPanel({
     return () => ro.disconnect();
   }, []);
 
-  // d3-sankey mutates the graph it receives; recompute every render.
+  // d3-sankey mutates its input; recompute every render.
   const computed = useMemo(() => {
     if (width === 0) return null;
     const { links, columns, nodeColumns } = aggregateSankey(rows, config.flows);
@@ -191,13 +189,10 @@ function SankeySvg({
   const linkPath = sankeyLinkHorizontal<NodeDatum, LinkDatum>();
   const midX = width / 2;
 
-  // Dim everything not connected to the active node when the active
-  // filter targets one of this sankey's columns.
   const filterColumns = new Set(Object.values(nodeColumns));
   const isFiltered =
     activeFilter !== null && filterColumns.has(activeFilter.column);
 
-  // Active node + the indices of its directly connected nodes/links.
   let activeIdx = -1;
   const litNodes = new Set<number>();
   const litLinks = new Set<number>();
@@ -257,7 +252,7 @@ function SankeySvg({
         })}
       </defs>
 
-      {/* Links first so nodes paint over them. */}
+      {/* Links first; nodes paint over them. */}
       <g fill="none">
         {layout.links.map((l, i) => {
           const d = linkPath(l as D3Link<NodeDatum, LinkDatum>);
@@ -287,7 +282,6 @@ function SankeySvg({
         })}
       </g>
 
-      {/* Nodes paint last so they sit on top of ribbons. */}
       <g>
         {layout.nodes.map((n, i) => {
           const x0 = n.x0 ?? 0;
@@ -355,7 +349,6 @@ function SankeyTooltip({
       ? `${displayName(hover.name, labels)}: ${hover.value.toLocaleString()}`
       : `${displayName(hover.from, labels)} → ${displayName(hover.to, labels)}: ${hover.value.toLocaleString()}`;
 
-  // Flip to the cursor's left when the tooltip would clip the right edge.
   const flip = hover.x > containerWidth - 200;
   const style: React.CSSProperties = flip
     ? { right: containerWidth - hover.x + 8, top: hover.y + 8 }
@@ -371,7 +364,6 @@ function SankeyTooltip({
   );
 }
 
-/** Parse a CSS size string (rem/px). Returns pixel value or null. */
 function parseSize(s: string | undefined): number | null {
   if (!s) return null;
   const m = s.match(/^([\d.]+)(rem|px)?$/);

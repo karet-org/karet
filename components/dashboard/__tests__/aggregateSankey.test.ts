@@ -21,7 +21,6 @@ describe("aggregateSankey", () => {
         { from: "b", to: "x", flow: 3 },
       ]),
     );
-    // The b→y row sums to -2; non-positive flows are dropped.
     expect(links.find((l) => l.from === "b" && l.to === "y")).toBeUndefined();
   });
 
@@ -98,9 +97,8 @@ describe("aggregateSankey", () => {
     });
 
     it("shifts columns down so the smallest used hint is 0", () => {
-      // When only the second flow has data, the first flow contributes
-      // no nodes. Without normalization, hints would span {1, 2} which
-      // breaks d3-sankey's nodeAlign contract (must return < n).
+      // First flow filters everything out; without the shift, hints
+      // would span {1, 2} and break d3-sankey's nodeAlign contract.
       const flows: SankeyFlow[] = [
         { from: "kind", to: "src", value: "v",
           where: [
@@ -111,7 +109,6 @@ describe("aggregateSankey", () => {
       const { columns } = aggregateSankey(rows, flows);
       const values = Object.values(columns);
       expect(Math.min(...values)).toBe(0);
-      // Two stages, so two distinct columns.
       expect(new Set(values)).toEqual(new Set([0, 1]));
     });
   });
@@ -127,8 +124,6 @@ describe("aggregateSankey", () => {
     });
 
     it("uses the first encountered column for nodes appearing in two flows", () => {
-      // x is flow[0].dst (column "dst") AND flow[1].dst (also "dst" — same name).
-      // Test the case where a node spans two flows: tag wins on first sight.
       const flows: SankeyFlow[] = [
         { from: "src", to: "dst", value: "v" },
         { from: "dst", to: "kind", value: "v", agg: "count" },

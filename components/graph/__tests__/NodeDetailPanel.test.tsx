@@ -90,4 +90,45 @@ describe("NodeDetailPanel", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     cleanup();
   });
+
+  it("does not call onEdit when an editor input is focused and blurred without changes", async () => {
+    // Seed the store so the editor renders cleanly.
+    const { useGraphStore } = await import("@/lib/graph/store");
+    useGraphStore.setState({
+      config: {
+        version: 1,
+        source_containers: [sourceContainer],
+        lookup_mappings: [],
+        mappings: [mapping],
+        analytic_tables: [
+          {
+            id: "tbl_tx",
+            name: "Transactions",
+            output_prefix: "clean/tx/",
+            schema: [{ name: "amt", type: "float64" }],
+          },
+        ],
+      },
+      etag: null,
+    });
+
+    const onEdit = vi.fn();
+    const node = makeNode("mapping", mapping.id, mapping);
+    const { container } = render(
+      React.createElement(NodeDetailPanel, { node, onEdit }),
+    );
+
+    const exprInput = container.querySelector<HTMLInputElement>(
+      'input[aria-label="expression"]',
+    );
+    expect(exprInput).not.toBeNull();
+
+    // The blur handler re-parses the unchanged text and emits onChange;
+    // the panel's equality guard should keep onEdit silent.
+    exprInput!.focus();
+    exprInput!.blur();
+
+    expect(onEdit).not.toHaveBeenCalled();
+    cleanup();
+  });
 });

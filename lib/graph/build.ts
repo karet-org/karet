@@ -44,7 +44,7 @@ export interface Graph {
   edges: GraphEdge[];
 }
 
-/** Node type tag strings (stable -- wired to React Flow custom node registry). */
+/** Node type tag strings (stable; wired to React Flow custom node registry). */
 export const NODE_TYPE = {
   sourceContainer: "source-container",
   lookupMapping: "lookup-mapping",
@@ -178,4 +178,37 @@ export function buildGraph(cfg: PipelineConfig): Graph {
   }
 
   return { nodes, edges };
+}
+
+/** Look up a single GraphNode by id without building edges. */
+export function findNode(
+  cfg: PipelineConfig,
+  id: string,
+): GraphNode | null {
+  const position = cfg.layout?.[id] ?? { x: 0, y: 0 };
+  const sc = cfg.source_containers.find((x) => x.id === id);
+  if (sc) return {
+    id, type: NODE_TYPE.sourceContainer,
+    data: { kind: "source-container", entity: sc },
+    position, dragHandle: ".drag-handle",
+  };
+  const lm = cfg.lookup_mappings.find((x) => x.id === id);
+  if (lm) return {
+    id, type: NODE_TYPE.lookupMapping,
+    data: { kind: "lookup-mapping", entity: lm },
+    position, dragHandle: ".drag-handle",
+  };
+  const m = cfg.mappings.find((x) => x.id === id);
+  if (m) return {
+    id, type: NODE_TYPE.mapping,
+    data: { kind: "mapping", entity: m },
+    position, dragHandle: ".drag-handle",
+  };
+  const at = cfg.analytic_tables.find((x) => x.id === id);
+  if (at) return {
+    id, type: NODE_TYPE.analyticTable,
+    data: { kind: "analytic-table", entity: at },
+    position, dragHandle: ".drag-handle",
+  };
+  return null;
 }

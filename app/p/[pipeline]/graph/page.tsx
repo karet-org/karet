@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { buildGraph, type GraphNode } from "@/lib/graph/build";
+import { buildGraph, findNode, type GraphNode } from "@/lib/graph/build";
 import { autoLayout, layoutToConfig } from "@/lib/graph/layout";
 import { useGraphStore } from "@/lib/graph/store";
 import {
@@ -93,7 +93,7 @@ export default function PipelineGraphPage() {
   // panel's editor inputs see every keystroke of store state.
   const selectedNodeValue = useMemo<GraphNode | null>(() => {
     if (!selectedNodeId || !config) return null;
-    return buildGraph(config).nodes.find((n) => n.id === selectedNodeId) ?? null;
+    return findNode(config, selectedNodeId);
   }, [selectedNodeId, config]);
 
   // Warn on navigation when there are unsaved changes. Two guards:
@@ -180,18 +180,6 @@ export default function PipelineGraphPage() {
 
   /** Apply a draft config change: update store, update canvas, mark dirty. */
   const applyDraft = useCallback((cfg: PipelineConfig) => {
-    const prev = useGraphStore.getState().config;
-    // Skip the dirty mark (and the canvas rebuild) when the new config is
-    // structurally identical to the live one. Editor-side onChange chains
-    // (e.g. ColumnExprEditor -> MappingEditor -> NodeDetailPanel) always
-    // produce a fresh top-level reference even when the user clicks into
-    // a field and clicks out without typing -- without this guard, every
-    // such "click-blur" surfaced the Save & Publish banner.
-    //
-    // Equality is via JSON.stringify because the editors only ever spread
-    // the existing entity (`{ ...value, foo }`), so key insertion order
-    // is preserved and JSON serialization is a stable structural digest.
-    if (prev && JSON.stringify(prev) === JSON.stringify(cfg)) return;
     useGraphStore.setState({ config: cfg });
     const built = buildGraph(cfg);
     canvasRef.current?.updateGraph(built.nodes, built.edges);

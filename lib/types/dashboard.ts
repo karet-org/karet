@@ -80,11 +80,7 @@ export type Panel =
       group_by: string;
       value: string;
       agg: Aggregation;
-      /**
-       * When set, group by `binDate(group_by, x_bin)` and render as
-       * vertical bars sorted chronologically (no `limit`). Otherwise
-       * the bar is the horizontal "top N by value" form.
-       */
+      /** When set, group by `binDate(group_by, x_bin)` as vertical, chronologically sorted bars (no `limit`). */
       x_bin?: "day" | "week" | "month" | "year";
       limit?: number;
       grid?: PanelGrid;
@@ -103,8 +99,7 @@ export type Panel =
       lat: string;
       /** Column containing the longitude (degrees). */
       lon: string;
-      /** Column whose values are aggregated per point. Optional -- omit
-       *  for `count` rows-per-point. */
+      /** Column aggregated per point. Omit for `count` rows-per-point. */
       value?: string;
       agg: Aggregation;
       /** Max circle radius in SVG units. Defaults to 20. */
@@ -114,11 +109,9 @@ export type Panel =
   | {
       kind: "choropleth_map";
       title: string;
-      /** Column containing the country identifier (alpha-2, alpha-3,
-       *  numeric, or common name -- resolved via the ISO-3166 lookup). */
+      /** Country identifier column (alpha-2, alpha-3, numeric, or common name; resolved via ISO-3166 lookup). */
       country: string;
-      /** Column whose values are aggregated per country. Optional -- omit
-       *  for `count` rows-per-country. */
+      /** Column aggregated per country. Omit for `count` rows-per-country. */
       value?: string;
       agg: Aggregation;
       grid?: PanelGrid;
@@ -126,38 +119,24 @@ export type Panel =
   | {
       kind: "sankey";
       title: string;
-      /**
-       * One or more flows; stack multiple for multi-stage diagrams
-       * (e.g. income → account → category). Each flow groups rows by a
-       * (from, to) column pair and aggregates the value column.
-       */
+      /** Stack multiple for multi-stage diagrams (e.g. income → account → category). */
       flows: SankeyFlow[];
-      /**
-       * Optional raw-value → display-label map applied to node labels.
-       * Useful for collapsing CSV variants into one display label
-       * without rewriting the underlying data.
-       */
+      /** Optional raw-value → display-label map applied to node labels. */
       labels?: Record<string, string>;
       grid?: PanelGrid;
     };
 
 /** One ribbon set in a Sankey panel. */
 export interface SankeyFlow {
-  /** Categorical column for the ribbon's source side. */
+  /** Source-side categorical column. */
   from: string;
-  /** Categorical column for the destination side. */
+  /** Destination-side categorical column. */
   to: string;
   /** Numeric column aggregated per (from, to) pair. */
   value: string;
-  /**
-   * `sum` (default), `abs_sum` (handy when income rows carry negative
-   * amounts), or `count` rows.
-   */
+  /** `sum` (default), `abs_sum`, or `count` rows. */
   agg?: "sum" | "abs_sum" | "count";
-  /**
-   * Optional per-flow row filter, ANDed. Same boolean AST subset as
-   * the dashboard-level `where`.
-   */
+  /** Optional per-flow row filter (ANDed). Same AST subset as `DashboardConfig.where`. */
   where?: AstNode[];
 }
 
@@ -168,16 +147,10 @@ export interface DashboardConfig {
   filters: DashboardFilter[];
   panels: Panel[];
   /**
-   * Optional baseline row filter applied before the interactive
-   * `FilterBar` and any cross-filter clicks. Each element is a boolean
-   * AstNode; rows must satisfy every predicate (implicit AND).
-   *
-   * Use it for "always exclude these rows" rules like dropping
-   * transfer/investment rows from a spending dashboard. For
-   * interactive exclusion, use a dropdown filter.
-   *
-   * Only the boolean subset of AstNode is evaluated; see
-   * `lib/dashboard/evalWhere.ts`.
+   * Optional baseline row filter, applied before the FilterBar and any
+   * cross-filter click. Each element is a boolean AstNode; rows must
+   * satisfy every predicate (implicit AND). See `lib/dashboard/evalWhere.ts`
+   * for the supported AST subset.
    */
   where?: AstNode[];
   layout?: {
