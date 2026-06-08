@@ -17,8 +17,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   KaretLogo,
   IconChevronDown,
+  IconClose,
   IconDownload,
   IconExternal,
+  IconMenu,
   IconSettings,
   IconTrash,
 } from "@/components/icons";
@@ -45,6 +47,7 @@ export default function TopNav({
   const [dashOpen, setDashOpen] = useState(false);
   const [pipelineOpen, setPipelineOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -56,8 +59,14 @@ export default function TopNav({
   const dashRef = useRef<HTMLDivElement>(null);
   const pipelineRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
 
   const base = `/p/${pipeline}`;
+
+  // Close the mobile menu on navigation.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   // Load dashboards for the current pipeline.
   useEffect(() => {
@@ -108,19 +117,21 @@ export default function TopNav({
 
   // Generic close-on-outside / close-on-Escape handler for any open menu.
   useEffect(() => {
-    const anyOpen = dashOpen || pipelineOpen || settingsOpen;
+    const anyOpen = dashOpen || pipelineOpen || settingsOpen || mobileOpen;
     if (!anyOpen) return;
     function onDocClick(e: MouseEvent) {
       const t = e.target as Node;
       if (dashOpen && !dashRef.current?.contains(t)) setDashOpen(false);
       if (pipelineOpen && !pipelineRef.current?.contains(t)) setPipelineOpen(false);
       if (settingsOpen && !settingsRef.current?.contains(t)) setSettingsOpen(false);
+      if (mobileOpen && !navRef.current?.contains(t)) setMobileOpen(false);
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setDashOpen(false);
         setPipelineOpen(false);
         setSettingsOpen(false);
+        setMobileOpen(false);
       }
     }
     document.addEventListener("mousedown", onDocClick);
@@ -129,7 +140,7 @@ export default function TopNav({
       document.removeEventListener("mousedown", onDocClick);
       document.removeEventListener("keydown", onKey);
     };
-  }, [dashOpen, pipelineOpen, settingsOpen]);
+  }, [dashOpen, pipelineOpen, settingsOpen, mobileOpen]);
 
   const tabClass = (active: boolean) =>
     `rounded-md px-3 py-1.5 text-[13.5px] transition-colors ${
@@ -142,36 +153,37 @@ export default function TopNav({
 
   return (
     <nav
+      ref={navRef}
       data-testid="top-nav"
       className="sticky top-0 z-20 flex items-center gap-1 border-b border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 sm:px-5"
       style={{ height: NAV_HEIGHT_PX }}
     >
       <Link
         href="/"
-        className="mr-3 flex items-center gap-2 text-[15px] font-semibold tracking-[-0.005em] text-[color:var(--color-ink)]"
+        className="mr-3 flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-[-0.005em] text-[color:var(--color-ink)]"
       >
         <KaretLogo size={20} />
         Karet
       </Link>
 
       {/* Pipeline switcher pill */}
-      <div ref={pipelineRef} className="relative mr-3">
+      <div ref={pipelineRef} className="relative mr-3 min-w-0">
         <button
           type="button"
           onClick={() => setPipelineOpen((o) => !o)}
-          className="inline-flex items-center gap-2 rounded-full border border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)] py-[3px] pl-1 pr-2.5 text-[11.5px] text-[color:var(--color-ink-2)] hover:border-[color:var(--color-ink-4)]"
+          className="inline-flex max-w-full items-center gap-2 rounded-full border border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)] py-[3px] pl-1 pr-2.5 text-[11.5px] text-[color:var(--color-ink-2)] hover:border-[color:var(--color-ink-4)]"
           aria-haspopup="menu"
           aria-expanded={pipelineOpen}
           data-testid="top-nav-pipeline-pill"
           title="Switch pipeline"
         >
           <span
-            className="rounded-full border border-[color:var(--color-rule)] bg-white px-1.5 py-[1px] text-[10px] uppercase tracking-[0.08em] text-[color:var(--color-ink-3)]"
+            className="shrink-0 rounded-full border border-[color:var(--color-rule)] bg-white px-1.5 py-[1px] text-[10px] uppercase tracking-[0.08em] text-[color:var(--color-ink-3)]"
           >
             Pipeline
           </span>
-          <span className="font-mono">{pipeline}</span>
-          <IconChevronDown size={12} className="text-[color:var(--color-ink-4)]" />
+          <span className="truncate font-mono">{pipeline}</span>
+          <IconChevronDown size={12} className="shrink-0 text-[color:var(--color-ink-4)]" />
         </button>
         {pipelineOpen ? (
           <div
@@ -213,7 +225,8 @@ export default function TopNav({
         ) : null}
       </div>
 
-      {/* Primary tabs */}
+      {/* Primary tabs (desktop) */}
+      <div className="hidden items-center gap-1 sm:flex">
       <Link href={`${base}/graph`} className={tabClass(isActive(`${base}/graph`))}>
         Graph
       </Link>
@@ -266,10 +279,11 @@ export default function TopNav({
           </div>
         ) : null}
       </div>
+      </div>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex shrink-0 items-center gap-1">
         {/* Settings dropdown -- holds Export, Rename, Delete, S3 console */}
-        <div ref={settingsRef} className="relative">
+        <div ref={settingsRef} className="relative hidden sm:block">
           <button
             type="button"
             onClick={() => setSettingsOpen((o) => !o)}
@@ -346,9 +360,118 @@ export default function TopNav({
           ) : null}
         </div>
 
-        <span className="mx-1 h-4 w-px bg-[color:var(--color-rule)]" aria-hidden />
+        <span className="mx-1 hidden h-4 w-px bg-[color:var(--color-rule)] sm:block" aria-hidden />
         <UserMenu />
+
+        {/* Hamburger (mobile) */}
+        <button
+          type="button"
+          onClick={() => setMobileOpen((o) => !o)}
+          className="ml-1 inline-flex items-center justify-center rounded-md p-2 text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] sm:hidden"
+          aria-haspopup="menu"
+          aria-expanded={mobileOpen}
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          data-testid="top-nav-mobile-toggle"
+        >
+          {mobileOpen ? <IconClose size={18} /> : <IconMenu size={18} />}
+        </button>
       </div>
+
+      {/* Mobile menu panel */}
+      {mobileOpen ? (
+        <div
+          role="menu"
+          data-testid="top-nav-mobile-menu"
+          className="absolute left-0 right-0 top-full border-b border-[color:var(--color-rule)] bg-[color:var(--color-surface)] shadow-md sm:hidden"
+        >
+          <div className="flex flex-col p-2">
+            <Link href={`${base}/graph`} role="menuitem" className={tabClass(isActive(`${base}/graph`))}>
+              Graph
+            </Link>
+            <Link href={`${base}/jobs`} role="menuitem" className={tabClass(isActive(`${base}/jobs`))}>
+              Jobs
+            </Link>
+            <Link href={`${base}/tables`} role="menuitem" className={tabClass(isActive(`${base}/tables`))}>
+              Tables
+            </Link>
+
+            <div className="mt-2 border-t border-[color:var(--color-rule)] pt-2">
+              <p className="px-3 pb-1 text-[10px] uppercase tracking-[0.08em] text-[color:var(--color-ink-4)]">
+                Dashboards
+              </p>
+              {dashboards.length === 0 ? (
+                <div className="px-3 py-1.5 text-[13px] text-[color:var(--color-ink-3)]">
+                  No dashboards yet
+                </div>
+              ) : (
+                dashboards.map(({ id, name }) => (
+                  <Link
+                    key={id}
+                    href={`${base}/dashboards/${id}`}
+                    role="menuitem"
+                    className={`block rounded-md px-3 py-1.5 text-[13px] ${
+                      pathname === `${base}/dashboards/${id}`
+                        ? "bg-[color:var(--color-carrot-soft)] text-[color:var(--color-carrot-deep)]"
+                        : "text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
+                    }`}
+                  >
+                    {name}
+                  </Link>
+                ))
+              )}
+            </div>
+
+            <div className="mt-2 border-t border-[color:var(--color-rule)] pt-2">
+              <a
+                href={`/api/p/${pipeline}/export`}
+                download
+                role="menuitem"
+                className="block rounded-md px-3 py-1.5 text-[13px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
+              >
+                Export pipeline
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  setRenameValue(pipeline);
+                  setRenameError(null);
+                  setRenameOpen(true);
+                }}
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-1.5 text-left text-[13px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
+              >
+                Rename pipeline
+              </button>
+              {s3ConsoleUrl ? (
+                <a
+                  href={s3ConsoleUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  role="menuitem"
+                  className="block rounded-md px-3 py-1.5 text-[13px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
+                >
+                  S3 console
+                </a>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  setDeleteConfirm("");
+                  setDeleteError(null);
+                  setDeleteOpen(true);
+                }}
+                disabled={deleting}
+                role="menuitem"
+                className="block w-full rounded-md px-3 py-1.5 text-left text-[13px] text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)] disabled:opacity-50"
+              >
+                Delete pipeline…
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {deleteOpen ? (
         <Modal

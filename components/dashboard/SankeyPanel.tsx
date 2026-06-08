@@ -32,9 +32,14 @@ interface LinkDatum {
 const NODE_WIDTH = 16;
 const NODE_PADDING = 10;
 const MIN_HEIGHT = 320;
+// Below this the label gutters crowd out the flows, so we render at this
+// width and let the container scroll horizontally.
+const MIN_RENDER_WIDTH = 560;
 const PADDING = 8;
-const LABEL_PAD_LEFT = 140;
-const LABEL_PAD_RIGHT = 140;
+// Node labels anchor inward (toward center), so these side gutters are just
+// breathing room that keeps the outermost nodes off the panel edge.
+const LABEL_PAD_LEFT = 80;
+const LABEL_PAD_RIGHT = 80;
 const DIM_OPACITY = 0.2;
 
 function colorFor(key: string): string {
@@ -64,6 +69,8 @@ export function SankeyPanel({
   const [width, setWidth] = useState(0);
   const [hover, setHover] = useState<Hover | null>(null);
   const height = parseSize(config.grid?.maxHeight) ?? MIN_HEIGHT;
+  // Draw at least MIN_RENDER_WIDTH; the container scrolls when narrower.
+  const renderWidth = Math.max(width, MIN_RENDER_WIDTH);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -79,7 +86,6 @@ export function SankeyPanel({
 
   // d3-sankey mutates its input; recompute every render.
   const computed = useMemo(() => {
-    if (width === 0) return null;
     const { links, columns, nodeColumns } = aggregateSankey(rows, config.flows);
     if (links.length === 0) return null;
 
@@ -109,7 +115,7 @@ export function SankeyPanel({
       .nodePadding(NODE_PADDING)
       .extent([
         [LABEL_PAD_LEFT, PADDING],
-        [Math.max(width - LABEL_PAD_RIGHT, LABEL_PAD_LEFT + 100), height - PADDING],
+        [Math.max(renderWidth - LABEL_PAD_RIGHT, LABEL_PAD_LEFT + 100), height - PADDING],
       ])
       .nodeAlign((node) => {
         const idx = (node as D3Node<NodeDatum, LinkDatum>).index;
@@ -132,7 +138,7 @@ export function SankeyPanel({
       // Re-pin each node's x to its declared column. d3-sankey collapses
       // disjoint chains into too few columns, stacking nodes vertically.
       const left = LABEL_PAD_LEFT;
-      const right = Math.max(width - LABEL_PAD_RIGHT, LABEL_PAD_LEFT + 100);
+      const right = Math.max(renderWidth - LABEL_PAD_RIGHT, LABEL_PAD_LEFT + 100);
       const colSpacing = maxCol > 0 ? (right - left - NODE_WIDTH) / maxCol : 0;
       for (const node of graph.nodes) {
         const col = node.columnHint ?? 0;
@@ -144,7 +150,7 @@ export function SankeyPanel({
       console.warn("Sankey layout failed; rendering empty panel:", err);
       return null;
     }
-  }, [rows, config.flows, width, height]);
+  }, [rows, config.flows, renderWidth, height]);
 
   return (
     <div
@@ -154,10 +160,10 @@ export function SankeyPanel({
       <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
       <div
         ref={containerRef}
-        className="relative mt-3 overflow-hidden"
+        className="relative mt-3 overflow-x-auto overflow-y-hidden"
         style={{ height }}
       >
-        {!computed ? (
+        {width === 0 ? null : !computed ? (
           <div className="flex h-full items-center justify-center text-sm text-gray-500">
             No data
           </div>
@@ -166,7 +172,7 @@ export function SankeyPanel({
             <SankeySvg
               layout={computed.graph}
               nodeColumns={computed.nodeColumns}
-              width={width}
+              width={renderWidth}
               height={height}
               labels={config.labels}
               activeFilter={activeFilter ?? null}
@@ -174,7 +180,7 @@ export function SankeyPanel({
               onHover={setHover}
             />
             {hover ? (
-              <SankeyTooltip hover={hover} labels={config.labels} containerWidth={width} />
+              <SankeyTooltip hover={hover} labels={config.labels} containerWidth={renderWidth} />
             ) : null}
           </>
         )}

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import { fetchObject, listParquetKeys } from "@/lib/services/config-service";
-import { parseParquet, serializeRow } from "@/lib/services/parquet-parser";
+import { loadTableRows } from "@/lib/services/parquet-parser";
 
 export async function GET(
   _request: Request,
@@ -15,16 +15,9 @@ export async function GET(
     const keys = await listParquetKeys(client, config, table);
     if (keys.length === 0) return NextResponse.json({ rows: [] });
 
-    const allRows: Record<string, unknown>[] = [];
-    for (const key of keys) {
-      try {
-        const buffer = await fetchObject(client, config.bucket, key);
-        const rows = await parseParquet(buffer);
-        for (const row of rows) allRows.push(serializeRow(row));
-      } catch (err) {
-        console.warn(`Skipping Parquet file ${key}:`, err);
-      }
-    }
-    return NextResponse.json({ rows: allRows });
+    const rows = await loadTableRows(keys, (key) =>
+      fetchObject(client, config.bucket, key),
+    );
+    return NextResponse.json({ rows });
   }, `GET /api/p/${pipeline}/tables/${table}/rows`);
 }

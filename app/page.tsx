@@ -259,7 +259,7 @@ function PipelineList({ pipelines }: { pipelines: PipelineSummary[] }) {
       aria-label="pipelines"
       className="mt-8 overflow-hidden rounded-[10px] border border-[color:var(--color-rule)] bg-[color:var(--color-surface)]"
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_90px_120px_110px] items-center gap-4 border-b border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)] px-5 py-3 text-[11px] font-medium uppercase tracking-[0.06em] text-[color:var(--color-ink-3)]">
+      <div className="hidden grid-cols-[minmax(0,1fr)_90px_120px_110px] items-center gap-4 border-b border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)] px-5 py-3 text-[11px] font-medium uppercase tracking-[0.06em] text-[color:var(--color-ink-3)] sm:grid">
         <div>Name</div>
         <div className="text-right">Tables</div>
         <div className="text-right">Last run</div>
@@ -269,7 +269,7 @@ function PipelineList({ pipelines }: { pipelines: PipelineSummary[] }) {
         <Link
           key={p.slug}
           href={`/p/${p.slug}/graph`}
-          className="group grid grid-cols-[minmax(0,1fr)_90px_120px_110px] items-center gap-4 border-b border-[color:var(--color-rule-soft)] px-5 py-4 last:border-b-0 hover:bg-[color:var(--color-surface-2)]"
+          className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-[color:var(--color-rule-soft)] px-4 py-4 last:border-b-0 hover:bg-[color:var(--color-surface-2)] sm:grid-cols-[minmax(0,1fr)_90px_120px_110px] sm:px-5"
         >
           <div className="min-w-0">
             <div className="truncate text-[15px] font-semibold text-[color:var(--color-ink)] group-hover:text-[color:var(--color-carrot-deep)]">
@@ -279,10 +279,10 @@ function PipelineList({ pipelines }: { pipelines: PipelineSummary[] }) {
               {p.slug}
             </div>
           </div>
-          <div className="text-right font-mono text-[13px] tabular-nums text-[color:var(--color-ink)]">
+          <div className="hidden text-right font-mono text-[13px] tabular-nums text-[color:var(--color-ink)] sm:block">
             {p.tableCount}
           </div>
-          <div className="text-right font-mono text-[12.5px] tabular-nums text-[color:var(--color-ink-2)]">
+          <div className="hidden text-right font-mono text-[12.5px] tabular-nums text-[color:var(--color-ink-2)] sm:block">
             {formatRelative(p.lastRunAt)}
           </div>
           <div className="text-right">

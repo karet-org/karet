@@ -75,3 +75,27 @@ export async function parseParquet(buffer: Buffer): Promise<ParquetRow[]> {
     return [];
   }
 }
+
+/**
+ * Fetch and parse every partition for a table in parallel, returning
+ * JSON-safe rows in partition-key order. A failed partition is logged and
+ * skipped so one bad file never blocks the rest.
+ */
+export async function loadTableRows<T extends Record<string, unknown>>(
+  keys: string[],
+  fetchBuffer: (key: string) => Promise<Buffer>,
+): Promise<T[]> {
+  const perFile = await Promise.all(
+    keys.map(async (key) => {
+      try {
+        const buffer = await fetchBuffer(key);
+        const parsed = await parseParquet(buffer);
+        return parsed.map((row) => serializeRow<T>(row));
+      } catch (err) {
+        console.warn(`Skipping Parquet file ${key}:`, err);
+        return [] as T[];
+      }
+    }),
+  );
+  return perFile.flat();
+}

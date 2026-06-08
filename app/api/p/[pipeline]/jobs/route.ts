@@ -25,6 +25,11 @@ const ORPHAN_JOB_TIMEOUT_MS = 10 * 60 * 1000;
  */
 const ORPHAN_SCHEDULED_TIMEOUT_MS = 2 * 60 * 1000;
 
+// Job keys sort lexicographically newest-first; we fetch only one page's
+// records, bounding the S3 fan-out regardless of total history.
+const DEFAULT_PAGE_SIZE = 25;
+const MAX_PAGE_SIZE = 100;
+
 function reconcileOrphans(jobs: JobRecord[]): JobRecord[] {
   const now = Date.now();
   const runningCutoff = now - ORPHAN_JOB_TIMEOUT_MS;
@@ -67,9 +72,9 @@ async function fetchJobRecord(
   }
 }
 
-/** GET -- list job history. */
+/** GET -- list job history (paginated, newest first). */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
   const { pipeline } = await context.params;
@@ -77,16 +82,37 @@ export async function GET(
   const client = createS3Client(base);
   const prefix = jobsPrefix(pipeline);
 
+  const url = new URL(request.url);
+  const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+  const pageSize = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(1, Number(url.searchParams.get("pageSize")) || DEFAULT_PAGE_SIZE),
+  );
+
   return wrapS3Error(async () => {
     const allKeys = await listAllObjectKeys(client, base.bucket, prefix);
-    const keys = allKeys.filter((k) => k.endsWith(".json"));
+    // Newest first; paginate over the key list so we only fetch the page's
+    // records, not the entire history.
+    const sorted = allKeys
+      .filter((k) => k.endsWith(".json"))
+      .sort((a, b) => b.localeCompare(a));
+    const total = sorted.length;
+    const start = (page - 1) * pageSize;
+    const pageKeys = sorted.slice(start, start + pageSize);
+
     const results = await Promise.all(
-      keys.map((key) => fetchJobRecord(client, base.bucket, key)),
+      pageKeys.map((key) => fetchJobRecord(client, base.bucket, key)),
     );
     const jobs = results.filter((j): j is JobRecord => j !== null);
     const reconciled = reconcileOrphans(jobs);
     reconciled.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
-    return NextResponse.json({ jobs: reconciled });
+    return NextResponse.json({
+      jobs: reconciled,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    });
   }, `GET /api/p/${pipeline}/jobs`);
 }
 

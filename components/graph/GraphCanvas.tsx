@@ -393,7 +393,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
       >
         <Background />
         <Controls position="bottom-left" />
-        <MiniMap position="bottom-right" />
+        <MiniMap position="bottom-right" className="!hidden sm:!block" />
       </ReactFlow>
 
       {contextMenu && (

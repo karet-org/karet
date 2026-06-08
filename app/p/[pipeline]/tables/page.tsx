@@ -2,9 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import alasql from "alasql";
-import { TOP_NAV_HEIGHT_PX } from "@/components/layout/TopNav";
+import type AlaSQL from "alasql";
 import { ExpandableTextField } from "@/components/ui/ExpandableTextField";
+
+// AlaSQL is a heavy in-browser SQL engine; load it on demand the first time
+// the Tables page mounts rather than shipping it in the route's main bundle.
+let alasqlInstance: typeof AlaSQL | null = null;
+async function loadAlaSQL(): Promise<typeof AlaSQL> {
+  if (!alasqlInstance) {
+    alasqlInstance = (await import("alasql")).default;
+  }
+  return alasqlInstance;
+}
 
 interface TableInfo { id: string; name: string; schema: { name: string; type: string }[]; fileCount: number }
 
@@ -98,25 +107,27 @@ export default function TablesPage() {
   useEffect(() => {
     if (resolvedTables.length === 0) return;
     setLoading(true);
-    Promise.all(
-      resolvedTables.map(async (t) => {
-        if (t.collidesWith) return;
-        if (loadedRef.current.has(t.slug)) return;
-        const res = await fetch(`/api/p/${pipeline}/tables/${t.id}/rows`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const rows = data.rows ?? [];
-        alasql(`DROP TABLE IF EXISTS ${t.slug}`);
-        alasql(`CREATE TABLE ${t.slug}`);
-        alasql.tables[t.slug].data = rows;
-        loadedRef.current.add(t.slug);
-      }),
-    ).then(() => {
+    (async () => {
+      const alasql = await loadAlaSQL();
+      await Promise.all(
+        resolvedTables.map(async (t) => {
+          if (t.collidesWith) return;
+          if (loadedRef.current.has(t.slug)) return;
+          const res = await fetch(`/api/p/${pipeline}/tables/${t.id}/rows`);
+          if (!res.ok) return;
+          const data = await res.json();
+          const rows = data.rows ?? [];
+          alasql(`DROP TABLE IF EXISTS ${t.slug}`);
+          alasql(`CREATE TABLE ${t.slug}`);
+          alasql.tables[t.slug].data = rows;
+          loadedRef.current.add(t.slug);
+        }),
+      );
       setLoadedTables(new Set(loadedRef.current));
       setLoading(false);
       const first = resolvedTables.find((t) => !t.collidesWith);
       if (first) runQuery(`SELECT * FROM ${first.slug} LIMIT 50`);
-    });
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedTables, pipeline]);
 
@@ -135,6 +146,8 @@ export default function TablesPage() {
 
   const runQuery = useCallback((query?: string) => {
     const q = query ?? sql;
+    const alasql = alasqlInstance;
+    if (!alasql) return;
     try {
       const res = alasql(q);
       if (!Array.isArray(res)) {
@@ -173,19 +186,17 @@ export default function TablesPage() {
     return "border-transparent bg-white hover:bg-gray-50";
   };
 
+  // 52 = TOP_NAV_HEIGHT_PX (Tailwind arbitrary values can't read the constant).
   return (
-    <div
-      className="flex"
-      style={{ height: `calc(100vh - ${TOP_NAV_HEIGHT_PX}px)` }}
-    >
-      <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-gray-50">
+    <div className="flex flex-col md:h-[calc(100vh-52px)] md:flex-row">
+      <aside className="flex w-full shrink-0 flex-col border-b border-gray-200 bg-gray-50 md:w-64 md:border-b-0 md:border-r">
         <div className="border-b border-gray-200 px-4 py-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tables</h2>
           <p className="mt-0.5 text-[11px] text-gray-400">
             {tables.length} table{tables.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <div className="flex-1 overflow-y-auto p-2">
+        <div className="max-h-[35vh] flex-1 overflow-y-auto p-2 md:max-h-none">
           {resolvedTables.map((t) => {
             const isOpen = expanded.has(t.id);
             return (
@@ -242,7 +253,7 @@ export default function TablesPage() {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
+      <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 md:overflow-y-auto">
         <h1 className="text-xl font-semibold text-gray-900">Tables</h1>
         <p className="mt-1 text-sm text-gray-500">
           Query analytic tables with SQL. Use the slug shown next to each

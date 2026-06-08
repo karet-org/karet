@@ -6,12 +6,10 @@ import {
   getPipelineConfig,
   listParquetKeys,
 } from "@/lib/services/config-service";
-import { parseParquet, serializeRow } from "@/lib/services/parquet-parser";
+import { loadTableRows } from "@/lib/services/parquet-parser";
 import type { ColumnSchema } from "@/lib/types/config";
 import DashboardView from "@/components/dashboard/DashboardView";
 import type { Row } from "@/components/dashboard/types";
-
-export const dynamic = "force-dynamic";
 
 async function loadRowsForTable(
   client: ReturnType<typeof createS3Client>,
@@ -20,17 +18,7 @@ async function loadRowsForTable(
 ): Promise<Row[]> {
   const keys = await listParquetKeys(client, cfg, tableId);
   if (keys.length === 0) return [];
-  const rows: Row[] = [];
-  for (const key of keys) {
-    try {
-      const buffer = await fetchObject(client, cfg.bucket, key);
-      const parsed = await parseParquet(buffer);
-      for (const row of parsed) rows.push(serializeRow<Row>(row));
-    } catch (err) {
-      console.warn(`Skipping Parquet file ${key}:`, err);
-    }
-  }
-  return rows;
+  return loadTableRows<Row>(keys, (key) => fetchObject(client, cfg.bucket, key));
 }
 
 export default async function PipelineDashboardPage({
@@ -45,8 +33,12 @@ export default async function PipelineDashboardPage({
   const dashboard = await getDashboard(client, cfg, name);
   if (!dashboard) notFound();
 
-  const pipelineCfg = await getPipelineConfig(client, cfg);
-  const rows = await loadRowsForTable(client, cfg, dashboard.analytic_table_id);
+  // pipeline config (for the schema) and the rows are independent; fetch
+  // them concurrently rather than one after the other.
+  const [pipelineCfg, rows] = await Promise.all([
+    getPipelineConfig(client, cfg),
+    loadRowsForTable(client, cfg, dashboard.analytic_table_id),
+  ]);
 
   let schema: ColumnSchema[] | null =
     pipelineCfg?.config.analytic_tables.find(

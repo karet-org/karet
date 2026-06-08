@@ -30,6 +30,8 @@ export const IconTable = (p: IconProps) => <Svg {...p}><rect x="3" y="3" width="
 export const IconTrash = (p: IconProps) => <Svg {...p}><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14" /></Svg>;
 export const IconPlay = (p: IconProps) => <Svg {...p}><polygon points="6 4 20 12 6 20" fill="currentColor" /></Svg>;
 export const IconChevronDown = (p: IconProps) => <Svg {...p}><polyline points="6 9 12 15 18 9" /></Svg>;
+export const IconMenu = (p: IconProps) => <Svg {...p}><path d="M3 6h18M3 12h18M3 18h18" /></Svg>;
+export const IconClose = (p: IconProps) => <Svg {...p}><path d="M18 6 6 18M6 6l12 12" /></Svg>;
 export const IconExternal = (p: IconProps) => <Svg {...p}><path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" /></Svg>;
 export const IconDownload = (p: IconProps) => <Svg {...p}><path d="M12 3v12m-5-5 5 5 5-5M5 21h14" /></Svg>;
 export const IconUpload = (p: IconProps) => <Svg {...p}><path d="M12 21V9m-5 5 5-5 5 5M5 3h14" /></Svg>;

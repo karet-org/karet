@@ -15,11 +15,17 @@ export default function JobsPage() {
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [bucketError, setBucketError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const loadJobs = useCallback(async () => {
     setRefreshing(true);
     try {
-      const r = await fetch(`/api/p/${pipeline}/jobs`);
+      const r = await fetch(
+        `/api/p/${pipeline}/jobs?page=${page}&pageSize=${pageSize}`,
+      );
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));
         if (body.error === "bucket_not_found") setBucketError(body.message);
@@ -27,14 +33,21 @@ export default function JobsPage() {
       }
       const d = await r.json();
       setJobs(d.jobs ?? []);
+      setTotalPages(d.totalPages ?? 1);
+      setTotal(d.total ?? 0);
     } finally {
       setRefreshing(false);
     }
-  }, [pipeline]);
+  }, [pipeline, page, pageSize]);
 
   useEffect(() => {
     loadJobs();
   }, [loadJobs]);
+
+  // Keep the page within range if the total shrinks (e.g. records change).
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   // Adaptive polling: 2s while a run is scheduled or running so the
   // countdown stays live and the row transitions are caught quickly,
@@ -59,25 +72,26 @@ export default function JobsPage() {
     setRunning(true);
     try {
       await fetch(`/api/p/${pipeline}/jobs?clean=true`, { method: "POST" });
-      loadJobs();
+      if (page !== 1) setPage(1);
+      else loadJobs();
     } finally {
       triggerInFlight.current = false;
       setRunning(false);
     }
   }
 
-  const statusBadge = (status: string) => {
+  const statusDot = (status: string) => {
     switch (status) {
       case "completed":
-        return "bg-green-100 text-green-700";
+        return "bg-green-500";
       case "failed":
-        return "bg-red-100 text-red-700";
+        return "bg-red-500";
       case "running":
-        return "bg-yellow-100 text-yellow-700";
+        return "bg-yellow-500 animate-pulse";
       case "scheduled":
-        return "bg-blue-100 text-blue-700";
+        return "bg-blue-500 animate-pulse";
       default:
-        return "bg-gray-100 text-gray-600";
+        return "bg-gray-400";
     }
   };
 
@@ -146,73 +160,60 @@ export default function JobsPage() {
             No jobs yet. Click &quot;Run Pipeline&quot; to start one.
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
             {jobs.map((job) => {
               const expanded = expandedJobId === job.id;
+              const terminal = job.status !== "running" && job.status !== "scheduled";
+              const stats = [
+                job.files_processed !== undefined ? `${job.files_processed} file(s)` : null,
+                job.partitions_written !== undefined ? `${job.partitions_written} partition(s)` : null,
+                job.completedAt ? formatDuration(job.startedAt, job.completedAt) : null,
+              ].filter(Boolean);
               return (
-                <div
-                  key={job.id}
-                  className="rounded-lg border border-gray-200 bg-white px-4 py-3"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <code className="text-xs text-gray-600">{job.id}</code>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${statusBadge(job.status)}`}
-                        >
-                          {job.status}
-                        </span>
-                        {job.trigger === "webhook" && (
-                          <span
-                            className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700"
-                            title="Auto-triggered by an upload to S3"
-                          >
-                            auto
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1 text-xs text-gray-400">
-                        {job.status === "scheduled" && job.nextRunAt ? (
-                          <>
-                            Queued: {new Date(job.startedAt).toLocaleString()}
-                            <> · {scheduledCountdown(job.nextRunAt)}</>
-                          </>
-                        ) : (
-                          <>
-                            Started: {new Date(job.startedAt).toLocaleString()}
-                            {job.completedAt && (
-                              <> · Completed: {new Date(job.completedAt).toLocaleString()}</>
-                            )}
-                          </>
-                        )}
-                      </div>
-                      {(job.partitions_written !== undefined || job.files_processed !== undefined) && (
-                        <div className="mt-1 text-xs text-gray-500">
-                          {job.files_processed !== undefined && <>{job.files_processed} file(s) · </>}
-                          {job.partitions_written !== undefined && <>{job.partitions_written} partition(s) written</>}
-                        </div>
-                      )}
-                      {job.error && (
-                        <p className="mt-1 truncate text-xs text-red-500" title={job.error}>
-                          {job.error}
-                        </p>
-                      )}
-                    </div>
-                    {job.status !== "running" && job.status !== "scheduled" && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedJobId(expanded ? null : job.id)
-                        }
-                        className="shrink-0 rounded border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-600 hover:bg-gray-50"
+                <div key={job.id}>
+                  <button
+                    type="button"
+                    onClick={() => terminal && setExpandedJobId(expanded ? null : job.id)}
+                    aria-expanded={terminal ? expanded : undefined}
+                    className={`flex w-full items-center gap-3 px-3 py-2 text-left ${
+                      terminal ? "hover:bg-gray-50" : "cursor-default"
+                    }`}
+                  >
+                    <span
+                      className={`h-2 w-2 shrink-0 rounded-full ${statusDot(job.status)}`}
+                      aria-hidden
+                    />
+                    <span className="sr-only">{job.status}</span>
+                    <code className="shrink-0 text-[11px] text-gray-500">{job.id}</code>
+                    {job.trigger === "webhook" && (
+                      <span
+                        className="shrink-0 rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700"
+                        title="Auto-triggered by an upload to S3"
                       >
-                        {expanded ? "Hide" : "Details"}
-                      </button>
+                        auto
+                      </span>
                     )}
-                  </div>
+                    <span className="min-w-0 flex-1 truncate text-xs text-gray-400">
+                      {job.status === "scheduled" && job.nextRunAt
+                        ? scheduledCountdown(job.nextRunAt)
+                        : job.status === "failed"
+                          ? <span className="text-red-500">Failed{stats.length > 0 ? ` · ${stats.join(" · ")}` : ""}</span>
+                          : stats.join(" · ")}
+                    </span>
+                    <span className="shrink-0 text-[11px] text-gray-400">
+                      {new Date(job.startedAt).toLocaleString()}
+                    </span>
+                    {terminal && (
+                      <span
+                        className={`shrink-0 text-gray-400 transition-transform ${expanded ? "rotate-90" : ""}`}
+                        aria-hidden
+                      >
+                        ›
+                      </span>
+                    )}
+                  </button>
                   {expanded && (
-                    <div className="mt-2 space-y-2 rounded bg-gray-50 p-2 text-[11px] text-gray-700">
+                    <div className="space-y-2 bg-gray-50 px-3 py-2 text-[11px] text-gray-700">
                       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                         <dt className="text-gray-500">Job ID</dt>
                         <dd className="font-mono">{job.id}</dd>
@@ -247,6 +248,12 @@ export default function JobsPage() {
                           </>
                         )}
                       </dl>
+                      {job.error && (
+                        <div className="rounded border border-red-200 bg-red-50 p-2 text-[11px] text-red-700">
+                          <div className="mb-0.5 font-medium">Error</div>
+                          <p className="whitespace-pre-wrap break-words font-mono">{job.error}</p>
+                        </div>
+                      )}
                       {job.errors && job.errors.length > 0 && (
                         <ul className="max-h-60 space-y-1 overflow-auto rounded border border-gray-200 bg-white p-2 font-mono text-[11px] text-gray-700">
                           {job.errors.map((e, i) => (
@@ -261,6 +268,51 @@ export default function JobsPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {!bucketError && total > 0 && (
+          <div className="mt-4 flex items-center justify-between gap-3 text-xs text-gray-500">
+            <div className="flex items-center gap-2">
+              <label htmlFor="job-page-size">Per page</label>
+              <select
+                id="job-page-size"
+                value={pageSize}
+                onChange={(e) => {
+                  setPage(1);
+                  setPageSize(Number(e.target.value));
+                }}
+                className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700"
+              >
+                {[25, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <span>{total} job{total !== 1 ? "s" : ""} total</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="rounded border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+              >
+                ← Prev
+              </button>
+              <span>
+                Page {page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="rounded border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+              >
+                Next →
+              </button>
+            </div>
           </div>
         )}
       </div>

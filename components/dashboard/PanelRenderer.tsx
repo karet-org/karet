@@ -1,17 +1,30 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import type { Panel } from "@/lib/types/dashboard";
-import BarPanel from "./BarPanel";
-import ChoroplethMapPanel from "./ChoroplethMapPanel";
-import DoughnutPanel from "./DoughnutPanel";
 import ErrorPanel from "./ErrorPanel";
 import KpiPanel from "./KpiPanel";
-import LinePanel from "./LinePanel";
-import SankeyPanel from "./SankeyPanel";
 import SummaryPanel from "./SummaryPanel";
-import SymbolMapPanel from "./SymbolMapPanel";
 import TablePanel from "./TablePanel";
 import { missingColumns, type CrossFilterProps, type PanelProps } from "./types";
+
+// Chart.js, chartjs-chart-geo, d3-sankey, and topojson are heavy and only
+// needed by these panels, so load them on demand. KPI/Summary/Table/Error
+// are light and stay in the main bundle.
+function PanelLoading() {
+  return (
+    <div className="flex flex-1 items-center justify-center rounded-lg border border-orange-100 bg-white p-4 text-sm text-gray-400 shadow-sm">
+      Loading…
+    </div>
+  );
+}
+const loading = () => <PanelLoading />;
+const BarPanel = dynamic(() => import("./BarPanel"), { loading });
+const DoughnutPanel = dynamic(() => import("./DoughnutPanel"), { loading });
+const LinePanel = dynamic(() => import("./LinePanel"), { loading });
+const SankeyPanel = dynamic(() => import("./SankeyPanel"), { loading });
+const SymbolMapPanel = dynamic(() => import("./SymbolMapPanel"), { loading });
+const ChoroplethMapPanel = dynamic(() => import("./ChoroplethMapPanel"), { loading });
 
 export function PanelRenderer({
   config,

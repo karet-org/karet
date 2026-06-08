@@ -29,16 +29,24 @@
   --color-rose-deep: #b4321a;
 
   --font-sans:
-    "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    Roboto, Helvetica, Arial, sans-serif;
+    var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono:
-    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, Consolas,
+    monospace;
 }
 
 html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
+}
+
+/* Reserve the vertical scrollbar's space so content doesn't shift when it
+   grows past the viewport (e.g. expanding a job row). Applies at the
+   viewport level, so it also insets the nav by the scrollbar width. */
+html {
+  scrollbar-gutter: stable;
 }
 
 body {

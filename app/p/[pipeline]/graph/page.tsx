@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { buildGraph, findNode, type GraphNode } from "@/lib/graph/build";
 import { autoLayout, layoutToConfig } from "@/lib/graph/layout";
@@ -16,9 +16,7 @@ import type { PipelineConfig } from "@/lib/types/config";
 import GraphCanvas, { type GraphCanvasHandle } from "@/components/graph/GraphCanvas";
 import { TOP_NAV_HEIGHT_PX } from "@/components/layout/TopNav";
 import Modal from "@/components/ui/Modal";
-import NodeDetailPanel, {
-  NODE_DETAIL_PANEL_WIDTH_PX,
-} from "@/components/graph/NodeDetailPanel";
+import NodeDetailPanel from "@/components/graph/NodeDetailPanel";
 
 type LoadState = "loading" | "error" | "ready";
 
@@ -432,14 +430,17 @@ export default function PipelineGraphPage() {
     );
   }
 
-  const canvasStyle: CSSProperties = selectedNodeValue
-    ? { width: `calc(100% - ${NODE_DETAIL_PANEL_WIDTH_PX}px)` }
-    : { width: "100%" };
+  // On mobile the detail panel is a full-width fixed overlay, so the canvas
+  // stays full-width underneath; only offset it at sm and up.
+  // 420 must match NodeDetailPanel's sm:w-[420px].
+  const canvasClass = selectedNodeValue
+    ? "relative h-full w-full sm:w-[calc(100%-420px)]"
+    : "relative h-full w-full";
   const initial = initialGraphRef.current ?? { nodes: [], edges: [] };
 
   return (
     <main className="flex w-screen" style={{ height: `calc(100vh - ${TOP_NAV_HEIGHT_PX}px)` }} data-testid="graph-page">
-      <div className="relative h-full" style={canvasStyle}>
+      <div className={canvasClass}>
         <GraphCanvas
           ref={canvasRef}
           nodes={initial.nodes}

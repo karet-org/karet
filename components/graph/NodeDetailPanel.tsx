@@ -30,9 +30,6 @@ export interface NodeDetailPanelProps {
   onEdit?: () => void;
 }
 
-/** Visual width of the drawer in pixels. Exposed for tests/integrators. */
-export const NODE_DETAIL_PANEL_WIDTH_PX = 420;
-
 type EditableEntity = SourceContainer | LookupMapping | Mapping | AnalyticTable;
 
 /**
@@ -99,12 +96,12 @@ export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps)
 
   if (!node) return null;
 
+  // sm:w-[420px] must match the graph page canvas offset (sm:w-[calc(100%-420px)]).
   return (
     <aside
       data-testid="node-detail-panel"
       aria-label="Node detail panel"
-      className="fixed right-0 top-0 z-20 flex h-screen flex-col border-l border-gray-200 bg-white shadow-lg"
-      style={{ width: `${NODE_DETAIL_PANEL_WIDTH_PX}px` }}
+      className="fixed right-0 top-0 z-20 flex h-screen w-full flex-col border-l border-gray-200 bg-white shadow-lg sm:w-[420px]"
     >
       <header className="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
         <div className="min-w-0">

@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    setupFiles: ["./vitest.setup.ts"],
     include: ["**/*.test.ts", "**/*.test.tsx", "**/*.property.test.ts"],
     // Playwright end-to-end tests live in `tests-e2e/` and use the
     // `.spec.ts` suffix. Exclude them from Vitest so `npm test` stays
