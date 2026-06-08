@@ -40,7 +40,7 @@ export default function TopNav({
 }) {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
-  const [dashboards, setDashboards] = useState<string[]>([]);
+  const [dashboards, setDashboards] = useState<{ id: string; name: string }[]>([]);
   const [pipelines, setPipelines] = useState<string[]>([]);
   const [dashOpen, setDashOpen] = useState(false);
   const [pipelineOpen, setPipelineOpen] = useState(false);
@@ -66,9 +66,16 @@ export default function TopNav({
       try {
         const res = await fetch(`/api/p/${pipeline}/dashboards`);
         if (!res.ok) return;
-        const body = (await res.json()) as { dashboards?: string[] };
-        if (!cancelled && Array.isArray(body.dashboards)) {
-          setDashboards(body.dashboards);
+        const body = (await res.json()) as {
+          dashboards?: string[];
+          listings?: { id: string; name: string }[];
+        };
+        if (cancelled) return;
+        if (Array.isArray(body.listings)) {
+          setDashboards(body.listings);
+        } else if (Array.isArray(body.dashboards)) {
+          // Backward compatibility: id-only payload, use id as the label.
+          setDashboards(body.dashboards.map((id) => ({ id, name: id })));
         }
       } catch {
         // Silent -- the nav stays useful even if the list can't load.
@@ -241,14 +248,14 @@ export default function TopNav({
                 No dashboards yet
               </div>
             ) : (
-              dashboards.map((name) => (
+              dashboards.map(({ id, name }) => (
                 <Link
-                  key={name}
-                  href={`${base}/dashboards/${name}`}
+                  key={id}
+                  href={`${base}/dashboards/${id}`}
                   onClick={() => setDashOpen(false)}
                   role="menuitem"
                   className={`block px-3 py-1.5 text-[13px] ${
-                    pathname === `${base}/dashboards/${name}`
+                    pathname === `${base}/dashboards/${id}`
                       ? "bg-[color:var(--color-carrot-soft)] text-[color:var(--color-carrot-deep)]"
                       : "text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
                   }`}

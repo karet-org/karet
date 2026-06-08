@@ -218,6 +218,39 @@ export async function listDashboards(
   return names;
 }
 
+/** A dashboard's stem id plus its human-readable display name. */
+export interface DashboardListing {
+  /** File stem; the URL slug and S3 key. */
+  id: string;
+  /** `DashboardConfig.name`, falling back to the id when unset/unreadable. */
+  name: string;
+}
+
+/**
+ * Lists dashboards with their display names. Reads each dashboard JSON to
+ * pull `name`; a dashboard that fails to read or parse falls back to its id
+ * so the nav still lists it. Results are sorted by display name.
+ */
+export async function listDashboardsWithNames(
+  client: S3Client,
+  config: S3Config,
+): Promise<DashboardListing[]> {
+  const ids = await listDashboards(client, config);
+  const listings = await Promise.all(
+    ids.map(async (id): Promise<DashboardListing> => {
+      try {
+        const dash = await getDashboard(client, config, id);
+        const name = dash?.name?.trim();
+        return { id, name: name && name.length > 0 ? name : id };
+      } catch {
+        return { id, name: id };
+      }
+    }),
+  );
+  listings.sort((a, b) => a.name.localeCompare(b.name));
+  return listings;
+}
+
 /** Reads a dashboard by stem. Returns `null` when missing. */
 export async function getDashboard(
   client: S3Client,

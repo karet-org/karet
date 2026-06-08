@@ -7,6 +7,7 @@
 
 import type { ColumnSchema } from "@/lib/types/config";
 import type { Panel } from "@/lib/types/dashboard";
+import { valueFieldColumns } from "@/lib/dashboard/evalValue";
 
 /** A single analytic-table row, keyed by column name. */
 export type Row = Record<string, unknown>;
@@ -80,16 +81,16 @@ export function requiredColumns(panel: Panel): string[] {
   switch (panel.kind) {
     case "kpi":
       return panel.value_column
-        ? [panel.column, panel.value_column]
-        : [panel.column];
+        ? [...valueFieldColumns(panel.column), ...valueFieldColumns(panel.value_column)]
+        : [...valueFieldColumns(panel.column)];
     case "summary":
       return [...panel.columns];
     case "doughnut":
-      return [panel.group_by, panel.value];
+      return [panel.group_by, ...valueFieldColumns(panel.value)];
     case "line":
-      return [panel.x, panel.y];
+      return [panel.x, ...valueFieldColumns(panel.y)];
     case "bar":
-      return [panel.group_by, panel.value];
+      return [panel.group_by, ...valueFieldColumns(panel.value)];
     case "table":
       return [...panel.columns];
     case "symbol_map":

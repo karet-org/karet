@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import { listDashboards } from "@/lib/services/config-service";
+import { listDashboardsWithNames } from "@/lib/services/config-service";
 
 export async function GET(
   _request: Request,
@@ -11,7 +11,12 @@ export async function GET(
   const client = createS3Client(config);
 
   return wrapS3Error(async () => {
-    const dashboards = await listDashboards(client, config);
-    return NextResponse.json({ dashboards });
+    const listings = await listDashboardsWithNames(client, config);
+    // `dashboards` (id strings) kept for backward compatibility; `listings`
+    // carries the display name so the nav can show it while routing by id.
+    return NextResponse.json({
+      dashboards: listings.map((l) => l.id),
+      listings,
+    });
   }, `GET /api/p/${pipeline}/dashboards`);
 }

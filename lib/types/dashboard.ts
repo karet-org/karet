@@ -12,6 +12,14 @@ export interface DashboardFilter {
 
 export type Aggregation = "sum" | "count" | "avg" | "min" | "max";
 
+/**
+ * A numeric measure: either a column name, or a small arithmetic AstNode
+ * expression (col / num / add / sub / mul / div) evaluated per row before
+ * aggregation. Lets a panel aggregate e.g. `-amount` or `inflow - outflow`
+ * without a precomputed column. See `lib/dashboard/evalValue.ts`.
+ */
+export type ValueField = string | AstNode;
+
 /** Per-panel CSS grid placement and chart-area sizing. */
 export interface PanelGrid {
   gridColumn?: string;
@@ -37,7 +45,12 @@ export type Panel =
   | {
       kind: "kpi";
       title: string;
-      column: string;
+      /**
+       * The measure to aggregate. A column name, or an arithmetic
+       * expression (see {@link ValueField}) for numeric aggs. For
+       * `agg: "mode"` this must be a plain column name (the grouping key).
+       */
+      column: ValueField;
       agg: KpiAgg;
       format?: KpiFormat;
       /** ISO 4217 currency code used when `format: "currency"`. Defaults to USD. */
@@ -48,7 +61,7 @@ export type Panel =
        * dominant `column` group. The result reads like
        * `Food ($7,632.01)`. Ignored for other aggs.
        */
-      value_column?: string;
+      value_column?: ValueField;
       grid?: PanelGrid;
     }
   | {
@@ -61,7 +74,7 @@ export type Panel =
       kind: "doughnut";
       title: string;
       group_by: string;
-      value: string;
+      value: ValueField;
       agg: Aggregation;
       grid?: PanelGrid;
     }
@@ -70,7 +83,7 @@ export type Panel =
       title: string;
       x: string;
       x_bin?: "day" | "week" | "month" | "year";
-      y: string;
+      y: ValueField;
       agg: Aggregation;
       /** Plot the running total of the aggregated values (chronological cumulative sum). */
       cumulative?: boolean;
@@ -82,7 +95,7 @@ export type Panel =
       kind: "bar";
       title: string;
       group_by: string;
-      value: string;
+      value: ValueField;
       agg: Aggregation;
       /** When set, group by `binDate(group_by, x_bin)` as vertical, chronologically sorted bars (no `limit`). */
       x_bin?: "day" | "week" | "month" | "year";

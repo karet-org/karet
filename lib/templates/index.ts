@@ -143,31 +143,6 @@ const spendingPipeline: PipelineConfig = {
           name: "category",
           expr: { kind: "lookup_ref", lookup_id: "categories", input: CLEANED_DESCRIPTION },
         },
-        // Signed-amount convention: income is negative, spending positive.
-        // Split into non-negative inflow/outflow plus a signed net so the
-        // dashboards can sum each directly. net = inflow - outflow = -amount.
-        {
-          name: "inflow",
-          expr: {
-            kind: "if",
-            cond: { kind: "lt", left: AMOUNT_FLOAT, right: { kind: "num", value: 0 } },
-            then: { kind: "mul", left: AMOUNT_FLOAT, right: { kind: "num", value: -1 } },
-            else: { kind: "num", value: 0 },
-          },
-        },
-        {
-          name: "outflow",
-          expr: {
-            kind: "if",
-            cond: { kind: "gt", left: AMOUNT_FLOAT, right: { kind: "num", value: 0 } },
-            then: AMOUNT_FLOAT,
-            else: { kind: "num", value: 0 },
-          },
-        },
-        {
-          name: "net",
-          expr: { kind: "mul", left: AMOUNT_FLOAT, right: { kind: "num", value: -1 } },
-        },
       ],
     },
   ],
@@ -183,9 +158,6 @@ const spendingPipeline: PipelineConfig = {
         { name: "amount", type: "float64" },
         { name: "account", type: "string" },
         { name: "category", type: "string" },
-        { name: "inflow", type: "float64" },
-        { name: "outflow", type: "float64" },
-        { name: "net", type: "float64" },
       ],
     },
   ],
@@ -283,15 +255,18 @@ const spendingCashFlow: DashboardConfig = {
             { kind: "eq", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INCOME" } },
           ],
         },
-        // Transfers need a to_account column to render properly; skip them.
+        // Spending and other outflows by category. abs_sum for ribbon
+        // magnitude; exclude income, transfers, and investment contributions
+        // (out of scope, consistent with the Net Income dashboard).
         {
           from: "account",
           to: "category",
           value: "amount",
-          agg: "sum",
+          agg: "abs_sum",
           where: [
             { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INCOME" } },
             { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "TRANSFER" } },
+            { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INVESTMENT" } },
           ],
         },
       ],
@@ -299,7 +274,7 @@ const spendingCashFlow: DashboardConfig = {
     },
     {
       kind: "table",
-      title: "Income & Transfers",
+      title: "Transactions",
       columns: ["date", "description", "amount", "account", "category"],
       page_size: 10,
       grid: { gridColumn: "1 / -1" },
@@ -309,6 +284,30 @@ const spendingCashFlow: DashboardConfig = {
     gridTemplateColumns: "repeat(auto-fit, minmax(max(18rem, calc((100% - 2rem) / 3)), 1fr))",
     gap: "1rem",
   },
+};
+
+// `-amount`: net per row, since income is negative and spending positive.
+// Computed inline by the panel so no `net` column is needed.
+const NEG_AMOUNT: AstNode = {
+  kind: "mul",
+  left: { kind: "col", name: "amount" },
+  right: { kind: "num", value: -1 },
+};
+
+// `if(amount < 0, -amount, 0)`: the income (inflow) portion of a row.
+const INFLOW: AstNode = {
+  kind: "if",
+  cond: { kind: "lt", left: { kind: "col", name: "amount" }, right: { kind: "num", value: 0 } },
+  then: NEG_AMOUNT,
+  else: { kind: "num", value: 0 },
+};
+
+// `if(amount > 0, amount, 0)`: the spending (outflow) portion of a row.
+const OUTFLOW: AstNode = {
+  kind: "if",
+  cond: { kind: "gt", left: { kind: "col", name: "amount" }, right: { kind: "num", value: 0 } },
+  then: { kind: "col", name: "amount" },
+  else: { kind: "num", value: 0 },
 };
 
 const spendingNetIncome: DashboardConfig = {
@@ -327,33 +326,29 @@ const spendingNetIncome: DashboardConfig = {
     { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INVESTMENT" } },
   ],
   panels: [
-    { kind: "kpi", title: "Net Savings", column: "net", agg: "sum", format: "currency", currency: "CAD", icon: "dollar", grid: { gridColumn: "span 2" } },
-    { kind: "kpi", title: "Total Income", column: "inflow", agg: "sum", format: "currency", currency: "CAD", icon: "dollar", grid: { gridColumn: "span 2" } },
-    { kind: "kpi", title: "Total Expenses", column: "outflow", agg: "sum", format: "currency", currency: "CAD", icon: "dollar", grid: { gridColumn: "span 2" } },
+    { kind: "kpi", title: "Net Savings", column: NEG_AMOUNT, agg: "sum", format: "currency", currency: "CAD", icon: "dollar", grid: { gridColumn: "span 2" } },
+    { kind: "kpi", title: "Total Income", column: INFLOW, agg: "sum", format: "currency", currency: "CAD", icon: "dollar", grid: { gridColumn: "span 2" } },
+    { kind: "kpi", title: "Total Expenses", column: OUTFLOW, agg: "sum", format: "currency", currency: "CAD", icon: "dollar", grid: { gridColumn: "span 2" } },
     // Primary trend: net contribution to savings each month.
     {
       kind: "line",
       title: "Net by Month",
       x: "date",
       x_bin: "month",
-      y: "net",
+      y: NEG_AMOUNT,
       agg: "sum",
       grid: { gridColumn: "span 3", maxHeight: "20rem" },
     },
-    // Cumulative running total: net income growth after each month.
-    // Floored at the start of reliable income coverage so the curve isn't
-    // dragged down by early months that have spending but no imported income.
+    // Cumulative running total: net income growth over time. Use the
+    // dashboard's date-range filter to set where the curve starts counting.
     {
       kind: "line",
       title: "Cumulative Net Income",
       x: "date",
       x_bin: "month",
-      y: "net",
+      y: NEG_AMOUNT,
       agg: "sum",
       cumulative: true,
-      where: [
-        { kind: "ge", left: { kind: "col", name: "date" }, right: { kind: "str", value: "2024-06-01" } },
-      ],
       grid: { gridColumn: "span 3", maxHeight: "20rem" },
     },
     // No grouped/series bars in the platform, so income is a monthly bar
@@ -362,7 +357,7 @@ const spendingNetIncome: DashboardConfig = {
       kind: "bar",
       title: "Income by Month",
       group_by: "date",
-      value: "inflow",
+      value: INFLOW,
       agg: "sum",
       x_bin: "month",
       grid: { gridColumn: "span 3" },
@@ -371,7 +366,7 @@ const spendingNetIncome: DashboardConfig = {
       kind: "bar",
       title: "Top Income Sources",
       group_by: "description",
-      value: "inflow",
+      value: INFLOW,
       agg: "sum",
       limit: 10,
       grid: { gridColumn: "span 3" },
@@ -379,7 +374,7 @@ const spendingNetIncome: DashboardConfig = {
     {
       kind: "table",
       title: "Monthly Detail",
-      columns: ["date", "description", "inflow", "outflow", "net", "account", "category"],
+      columns: ["date", "description", "amount", "account", "category"],
       page_size: 10,
       grid: { gridColumn: "1 / -1" },
     },

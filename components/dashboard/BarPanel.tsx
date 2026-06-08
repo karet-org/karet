@@ -21,7 +21,7 @@ import {
 import { Bar } from "react-chartjs-2";
 import type { Panel } from "@/lib/types/dashboard";
 import { CHART_ACCENT, CHART_PALETTE } from "@/lib/dashboard/palette";
-import { toNum } from "@/lib/dashboard/format";
+import { resolveValue } from "@/lib/dashboard/evalValue";
 import { aggregateValues, binDate, groupAndAggregate } from "./aggregate";
 import { chartAreaProps, type CrossFilterProps, type PanelProps } from "./types";
 
@@ -45,7 +45,7 @@ function computeData(
     const buckets = new Map<string, number[]>();
     for (const row of rows) {
       const key = binDate(row[config.group_by], config.x_bin);
-      const v = toNum(row[config.value]) ?? 0;
+      const v = resolveValue(row, config.value) ?? 0;
       const bucket = buckets.get(key);
       if (bucket) bucket.push(v);
       else buckets.set(key, [v]);

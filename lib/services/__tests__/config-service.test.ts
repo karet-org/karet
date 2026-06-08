@@ -22,6 +22,7 @@ import {
   getDashboard,
   getPipelineConfig,
   listDashboards,
+  listDashboardsWithNames,
   listParquetKeys,
   PreconditionFailedError,
   putPipelineConfig,
@@ -347,6 +348,43 @@ describe("config-service", () => {
       const client = buildStubClient();
       const names = await listDashboards(client, DEFAULT_CONFIG);
       expect(names).toEqual([]);
+    });
+  });
+
+  describe("listDashboardsWithNames", () => {
+    it("pairs each id with its display name, sorted by name", async () => {
+      const client = buildStubClient({
+        "dashboards/net_income.json": {
+          body: JSON.stringify({ id: "net_income", name: "Net Income" }),
+          etag: "a",
+        },
+        "dashboards/cash_flow.json": {
+          body: JSON.stringify({ id: "cash_flow", name: "Cash Flow" }),
+          etag: "b",
+        },
+      });
+
+      const listings = await listDashboardsWithNames(client, DEFAULT_CONFIG);
+      expect(listings).toEqual([
+        { id: "cash_flow", name: "Cash Flow" },
+        { id: "net_income", name: "Net Income" },
+      ]);
+    });
+
+    it("falls back to the id when name is missing or blank", async () => {
+      const client = buildStubClient({
+        "dashboards/no_name.json": { body: JSON.stringify({ id: "no_name" }), etag: "a" },
+        "dashboards/blank.json": {
+          body: JSON.stringify({ id: "blank", name: "   " }),
+          etag: "b",
+        },
+      });
+
+      const listings = await listDashboardsWithNames(client, DEFAULT_CONFIG);
+      expect(listings).toEqual([
+        { id: "blank", name: "blank" },
+        { id: "no_name", name: "no_name" },
+      ]);
     });
   });
 

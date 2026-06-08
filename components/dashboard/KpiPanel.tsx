@@ -4,8 +4,9 @@
 // Modeled on the headline tiles from the legacy spending-tracker dashboard.
 
 import type { ReactElement } from "react";
-import type { Panel, KpiAgg, KpiFormat, KpiIcon } from "@/lib/types/dashboard";
-import { formatValue, toNum } from "@/lib/dashboard/format";
+import type { Panel, KpiAgg, KpiFormat, KpiIcon, ValueField } from "@/lib/types/dashboard";
+import { formatValue } from "@/lib/dashboard/format";
+import { resolveValue } from "@/lib/dashboard/evalValue";
 import { aggregateValues } from "./aggregate";
 import type { PanelProps } from "./types";
 
@@ -45,13 +46,13 @@ function computeMode(rows: Record<string, unknown>[], column: string): { key: st
 
 function computeNumeric(
   rows: Record<string, unknown>[],
-  column: string,
+  field: ValueField,
   agg: Exclude<KpiAgg, "mode">,
 ): number {
   if (agg === "count") return rows.length;
   const nums: number[] = [];
   for (const row of rows) {
-    const n = toNum(row[column]);
+    const n = resolveValue(row, field);
     if (n !== null) nums.push(n);
   }
   return aggregateValues(nums, agg);
@@ -85,7 +86,10 @@ const ICONS: Record<KpiIcon, ReactElement> = {
 export function KpiPanel({ config, rows }: PanelProps<KpiPanelConfig>) {
   let display: string;
   if (config.agg === "mode") {
-    const mode = computeMode(rows, config.column);
+    // `mode` is a categorical aggregation: the grouping key must be a plain
+    // column, not an arithmetic expression.
+    const column = typeof config.column === "string" ? config.column : null;
+    const mode = column ? computeMode(rows, column) : null;
     if (!mode) {
       display = "--";
     } else if (config.value_column) {

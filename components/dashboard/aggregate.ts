@@ -1,7 +1,7 @@
 // Aggregation helpers shared by doughnut, bar, and line panels.
 
-import type { Aggregation } from "@/lib/types/dashboard";
-import { toNum } from "@/lib/dashboard/format";
+import type { Aggregation, ValueField } from "@/lib/types/dashboard";
+import { resolveValue } from "@/lib/dashboard/evalValue";
 import type { Row } from "./types";
 
 function toKey(v: unknown): string {
@@ -82,17 +82,17 @@ export function previousPeriodLabel(
   }
 }
 
-/** Group rows by a column and aggregate a numeric column per group. */
+/** Group rows by a column and aggregate a numeric value (column or expression) per group. */
 export function groupAndAggregate(
   rows: Row[],
   groupBy: string,
-  valueCol: string,
+  value: ValueField,
   agg: Aggregation,
 ): Map<string, number> {
   const buckets = new Map<string, number[]>();
   for (const row of rows) {
     const key = toKey(row[groupBy]);
-    const num = toNum(row[valueCol]) ?? 0;
+    const num = resolveValue(row, value) ?? 0;
     const bucket = buckets.get(key);
     if (bucket) bucket.push(num);
     else buckets.set(key, [num]);

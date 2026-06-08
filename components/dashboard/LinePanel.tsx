@@ -15,8 +15,8 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import type { Panel } from "@/lib/types/dashboard";
-import { toNum } from "@/lib/dashboard/format";
 import { applyWhere } from "@/lib/dashboard/evalWhere";
+import { resolveValue } from "@/lib/dashboard/evalValue";
 import { aggregateValues, binDate, previousPeriodLabel, runningTotal } from "./aggregate";
 import { chartAreaProps, type PanelProps } from "./types";
 
@@ -39,7 +39,7 @@ export function LinePanel({ config, rows }: PanelProps<LinePanelConfig>) {
   const buckets = new Map<string, number[]>();
   for (const row of scopedRows) {
     const key = binDate(row[config.x], config.x_bin);
-    const y = toNum(row[config.y]) ?? 0;
+    const y = resolveValue(row, config.y) ?? 0;
     const bucket = buckets.get(key);
     if (bucket) bucket.push(y);
     else buckets.set(key, [y]);
