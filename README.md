@@ -4,7 +4,7 @@ Next.js frontend for the Karet analytics platform. Renders
 configurable dashboards and the React Flow Data Flow Graph editor over an
 ETL pipeline configuration stored in S3.
 
-See the top-level `docker-compose.yaml` for the full stack (rustfs +
+See the top-level `compose.yml` for the full stack (rustfs +
 worker + web).
 
 ## Features

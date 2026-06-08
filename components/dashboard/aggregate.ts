@@ -32,6 +32,56 @@ export function aggregateValues(values: number[], agg: Aggregation): number {
   }
 }
 
+/** Cumulative running total: each element is the sum of all prior values plus itself. */
+export function runningTotal(values: number[]): number[] {
+  let acc = 0;
+  return values.map((v) => (acc += v));
+}
+
+/**
+ * The period-key one bin before `label`, used to anchor a cumulative line at
+ * zero. Returns `"Start"` when there's no meaningful prior period (no bin, or
+ * an unparseable label).
+ */
+export function previousPeriodLabel(
+  label: string,
+  bin: "day" | "week" | "month" | "year" | undefined,
+): string {
+  switch (bin) {
+    case "year": {
+      const y = Number(label);
+      return Number.isFinite(y) ? String(y - 1) : "Start";
+    }
+    case "month": {
+      const m = /^(\d{4})-(\d{2})$/.exec(label);
+      if (!m) return "Start";
+      let y = Number(m[1]);
+      let mo = Number(m[2]) - 1; // 0-based, step back one
+      if (mo === 0) {
+        y -= 1;
+        mo = 12;
+      }
+      return `${y}-${String(mo).padStart(2, "0")}`;
+    }
+    case "day": {
+      const d = new Date(`${label}T00:00:00Z`);
+      if (Number.isNaN(d.getTime())) return "Start";
+      d.setUTCDate(d.getUTCDate() - 1);
+      return d.toISOString().slice(0, 10);
+    }
+    case "week": {
+      const m = /^(\d{4})-W(\d{2})$/.exec(label);
+      if (!m) return "Start";
+      const y = Number(m[1]);
+      const w = Number(m[2]);
+      if (w <= 1) return `${y - 1}-W52`;
+      return `${y}-W${String(w - 1).padStart(2, "0")}`;
+    }
+    default:
+      return "Start";
+  }
+}
+
 /** Group rows by a column and aggregate a numeric column per group. */
 export function groupAndAggregate(
   rows: Row[],

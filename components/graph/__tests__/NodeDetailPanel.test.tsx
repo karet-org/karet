@@ -6,9 +6,7 @@ import { render, cleanup } from "@testing-library/react";
 import type { GraphNode } from "@/lib/graph/build";
 import { NODE_TYPE } from "@/lib/graph/build";
 import type { Mapping, SourceContainer } from "@/lib/types/config";
-import NodeDetailPanel, {
-  NODE_DETAIL_PANEL_WIDTH_PX,
-} from "../NodeDetailPanel";
+import NodeDetailPanel from "../NodeDetailPanel";
 
 const sourceContainer: SourceContainer = {
   id: "src_visa",
@@ -57,22 +55,6 @@ describe("NodeDetailPanel", () => {
     expect(
       container.querySelector('[data-testid="node-detail-panel"]'),
     ).toBeNull();
-    cleanup();
-  });
-
-  it("is fixed 420px wide on the right edge", () => {
-    const node = makeNode("sourceContainer", sourceContainer.id, sourceContainer);
-    const { container } = render(
-      React.createElement(NodeDetailPanel, { node }),
-    );
-    const panel = container.querySelector<HTMLElement>(
-      '[data-testid="node-detail-panel"]',
-    );
-    expect(panel).not.toBeNull();
-    expect(panel!.style.width).toBe(`${NODE_DETAIL_PANEL_WIDTH_PX}px`);
-    expect(NODE_DETAIL_PANEL_WIDTH_PX).toBe(420);
-    expect(panel!.className).toContain("fixed");
-    expect(panel!.className).toContain("right-0");
     cleanup();
   });
 

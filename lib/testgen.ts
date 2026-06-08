@@ -214,7 +214,7 @@ export const arbLookupRow: fc.Arbitrary<LookupRow> = fc.record(
   {
     input_patterns: fc.array(arbName, { minLength: 1, maxLength: 3 }),
     output: arbName,
-    parent_output: fc.option(arbName, { nil: undefined }),
+    priority: fc.option(fc.integer({ min: -10, max: 10 }), { nil: undefined }),
   },
   { requiredKeys: ["input_patterns", "output"] },
 );
@@ -232,7 +232,6 @@ export const arbLookupMapping: fc.Arbitrary<LookupMapping> = fc.record(
     match: fc.option(fc.constant("keyword_substring"), { nil: undefined }),
     case_insensitive: fc.option(fc.boolean(), { nil: undefined }),
     rows: fc.array(arbLookupRow, { minLength: 1, maxLength: 5 }),
-    parent_output_column: fc.option(arbName, { nil: undefined }),
   },
   { requiredKeys: ["id", "rows"] },
 );

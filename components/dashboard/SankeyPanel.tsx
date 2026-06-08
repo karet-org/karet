@@ -123,11 +123,27 @@ export function SankeyPanel({
         return Math.floor(maxCol / 2);
       });
 
-    const graph: SankeyGraph<NodeDatum, LinkDatum> = sankeyGen({
-      nodes: nodes.map((n) => ({ ...n })),
-      links: linkData.map((l) => ({ ...l })),
-    });
-    return { graph, nodeColumns };
+    // Guard the layout: d3-sankey throws "circular link" on any cycle.
+    try {
+      const graph: SankeyGraph<NodeDatum, LinkDatum> = sankeyGen({
+        nodes: nodes.map((n) => ({ ...n })),
+        links: linkData.map((l) => ({ ...l })),
+      });
+      // Re-pin each node's x to its declared column. d3-sankey collapses
+      // disjoint chains into too few columns, stacking nodes vertically.
+      const left = LABEL_PAD_LEFT;
+      const right = Math.max(width - LABEL_PAD_RIGHT, LABEL_PAD_LEFT + 100);
+      const colSpacing = maxCol > 0 ? (right - left - NODE_WIDTH) / maxCol : 0;
+      for (const node of graph.nodes) {
+        const col = node.columnHint ?? 0;
+        node.x0 = left + col * colSpacing;
+        node.x1 = node.x0 + NODE_WIDTH;
+      }
+      return { graph, nodeColumns };
+    } catch (err) {
+      console.warn("Sankey layout failed; rendering empty panel:", err);
+      return null;
+    }
   }, [rows, config.flows, width, height]);
 
   return (

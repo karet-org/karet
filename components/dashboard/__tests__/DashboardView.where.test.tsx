@@ -59,7 +59,7 @@ function makeConfig(where: DashboardConfig["where"]): DashboardConfig {
   };
 }
 
-describe("DashboardView — config.where", () => {
+describe("DashboardView: config.where", () => {
   it("with no where, renders all rows", () => {
     const { container } = render(
       React.createElement(DashboardView, {

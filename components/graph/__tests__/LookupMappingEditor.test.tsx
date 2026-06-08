@@ -8,7 +8,7 @@
 
 import React from "react";
 import { describe, expect, it } from "vitest";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { LookupMapping } from "@/lib/types/config";
 import {
   LookupMappingEditor,
@@ -72,6 +72,38 @@ describe("LookupMappingEditor", () => {
         `[data-testid="${LOOKUP_MAPPING_EDITOR_ERROR_TESTID}"]`,
       ),
     ).not.toBeNull();
+    cleanup();
+  });
+
+  it("renders a priority input for each row, reflecting the current value", () => {
+    const { getByLabelText } = renderEditor({
+      id: "L",
+      rows: [{ input_patterns: ["A"], output: "X", priority: 7 }],
+    });
+    const input = getByLabelText("row 0 priority") as HTMLInputElement;
+    expect(input).not.toBeNull();
+    expect(input.value).toBe("7");
+    cleanup();
+  });
+
+  it("propagates an edited priority as an integer", () => {
+    let latest: LookupMapping | undefined;
+    const value: LookupMapping = {
+      id: "L",
+      rows: [{ input_patterns: ["A"], output: "X" }],
+    };
+    const { getByLabelText } = render(
+      React.createElement(LookupMappingEditor, {
+        value,
+        onChange: (next: LookupMapping) => {
+          latest = next;
+        },
+      }),
+    );
+    fireEvent.change(getByLabelText("row 0 priority"), {
+      target: { value: "5" },
+    });
+    expect(latest?.rows[0].priority).toBe(5);
     cleanup();
   });
 });

@@ -133,4 +133,65 @@ describe("aggregateSankey", () => {
       expect(nodeColumns.in).toBe("kind");
     });
   });
+
+  describe("cycle safety (d3-sankey rejects circular links)", () => {
+    it("drops a self-link (from === to)", () => {
+      const rows = [{ a: "X", b: "X", v: 5 }];
+      const flow: SankeyFlow = { from: "a", to: "b", value: "v" };
+      const { links } = aggregateSankey(rows, [flow]);
+      expect(links).toEqual([]);
+    });
+
+    it("drops a link that would close a 2-cycle across flows", () => {
+      // flow 0: X -> Y ; flow 1: Y -> X would complete X -> Y -> X.
+      const rows = [
+        { s: "X", d: "Y", v: 5, stage: "first" },
+        { s: "Y", d: "X", v: 3, stage: "second" },
+      ];
+      const flows: SankeyFlow[] = [
+        { from: "s", to: "d", value: "v", where: [{ kind: "eq", left: { kind: "col", name: "stage" }, right: { kind: "str", value: "first" } }] },
+        { from: "s", to: "d", value: "v", where: [{ kind: "eq", left: { kind: "col", name: "stage" }, right: { kind: "str", value: "second" } }] },
+      ];
+      const { links } = aggregateSankey(rows, flows);
+      // The first link is admitted; the second (Y -> X) is dropped as it
+      // would create a cycle.
+      expect(links).toContainEqual({ from: "X", to: "Y", flow: 5 });
+      expect(links.find((l) => l.from === "Y" && l.to === "X")).toBeUndefined();
+    });
+
+    it("drops a link that would close a longer cycle (A->B->C->A)", () => {
+      const rows = [
+        { s: "A", d: "B", v: 1, stage: "1" },
+        { s: "B", d: "C", v: 1, stage: "2" },
+        { s: "C", d: "A", v: 1, stage: "3" },
+      ];
+      const mk = (stage: string): SankeyFlow => ({
+        from: "s",
+        to: "d",
+        value: "v",
+        where: [{ kind: "eq", left: { kind: "col", name: "stage" }, right: { kind: "str", value: stage } }],
+      });
+      const { links } = aggregateSankey(rows, [mk("1"), mk("2"), mk("3")]);
+      expect(links).toContainEqual({ from: "A", to: "B", flow: 1 });
+      expect(links).toContainEqual({ from: "B", to: "C", flow: 1 });
+      expect(links.find((l) => l.from === "C" && l.to === "A")).toBeUndefined();
+    });
+
+    it("keeps a node legitimately reused across non-cyclic columns", () => {
+      // A -> B and B -> C share node B but form no cycle; all kept.
+      const rows = [
+        { s: "A", d: "B", v: 2, stage: "1" },
+        { s: "B", d: "C", v: 4, stage: "2" },
+      ];
+      const mk = (stage: string): SankeyFlow => ({
+        from: "s",
+        to: "d",
+        value: "v",
+        where: [{ kind: "eq", left: { kind: "col", name: "stage" }, right: { kind: "str", value: stage } }],
+      });
+      const { links } = aggregateSankey(rows, [mk("1"), mk("2")]);
+      expect(links).toContainEqual({ from: "A", to: "B", flow: 2 });
+      expect(links).toContainEqual({ from: "B", to: "C", flow: 4 });
+    });
+  });
 });

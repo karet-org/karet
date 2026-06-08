@@ -21,6 +21,7 @@ import type {
 import { astSummary, astExpression } from "../astSummary";
 import { parseExpression } from "@/lib/graph/expressionParser";
 import { useGraphStore } from "@/lib/graph/store";
+import { ExpandableTextField } from "@/components/ui/ExpandableTextField";
 import { EditorField, inputClass } from "./editorPrimitives";
 import { validateMapping } from "./validation";
 
@@ -402,13 +403,19 @@ function ColumnExprEditor({ value, onChange, sourceColumns }: ColumnExprEditorPr
           />
         </EditorField>
         <EditorField label="expression" className="flex-1">
-          <input
-            aria-label="expression"
-            className={inputClass(`font-mono w-full ${error ? "border-red-400" : ""}`)}
+          <ExpandableTextField
+            ariaLabel="expression"
             value={exprText}
-            onChange={(e) => setExprText(e.target.value)}
+            onChange={setExprText}
             onBlur={handleBlur}
+            onModalAction={handleBlur}
             spellCheck={false}
+            error={error}
+            modalTitle={`Expression: ${value.name}`}
+            modalActionLabel="Done"
+            inputClassName={inputClass(
+              `font-mono w-full ${error ? "border-red-400" : ""}`,
+            )}
           />
         </EditorField>
       </div>

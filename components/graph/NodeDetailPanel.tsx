@@ -13,6 +13,7 @@ import type {
   Mapping,
   SourceContainer,
 } from "@/lib/types/config";
+import { CloseButton } from "@/components/ui/CloseButton";
 import {
   AnalyticTableEditor,
   LookupMappingEditor,
@@ -23,7 +24,7 @@ import {
 export interface NodeDetailPanelProps {
   /** Currently selected node, or null when the panel should close. */
   node: GraphNode | null;
-  /** Called when the user clicks the close (×) button. */
+  /** Called when the user clicks the close button. */
   onClose?: () => void;
   /** Called when the user edits an entity. */
   onEdit?: () => void;
@@ -119,15 +120,12 @@ export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps)
         </div>
         <div className="flex items-center gap-2">
           {onClose ? (
-            <button
-              type="button"
+            <CloseButton
+              size="md"
               onClick={onClose}
-              aria-label="Close detail panel"
+              label="Close detail panel"
               data-testid="node-detail-panel-close"
-              className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
-            >
-              ×
-            </button>
+            />
           ) : null}
         </div>
       </header>

@@ -68,6 +68,9 @@ export function aggregateSankey(
       for (const [to, vs] of inner) {
         const flowVal = reduceFlow(vs, flow.agg);
         if (flowVal > 0) {
+          // Skip self-links and links that would close a cycle; d3-sankey
+          // throws "circular link" on either.
+          if (from === to || wouldCreateCycle(links, from, to)) continue;
           links.push({ from, to, flow: flowVal });
           place(from, i);
           place(to, i + 1);
@@ -77,11 +80,43 @@ export function aggregateSankey(
       }
     }
   }
-  // Shift hints so the lowest used column is 0. d3-sankey requires
-  // nodeAlign values in [0, n-1] where n is the graph's actual depth.
-  const minCol = Math.min(...Object.values(columns));
+  // Shift hints so the lowest used column is 0.
+  const usedCols = Object.values(columns);
+  const minCol = usedCols.length > 0 ? Math.min(...usedCols) : 0;
   if (minCol > 0) {
     for (const k of Object.keys(columns)) columns[k] -= minCol;
   }
   return { links, columns, nodeColumns };
+}
+
+/**
+ * True if adding `from -> to` would close a directed cycle, i.e. `to` can
+ * already reach `from` along existing links.
+ */
+function wouldCreateCycle(
+  links: SankeyLink[],
+  from: string,
+  to: string,
+): boolean {
+  if (from === to) return true;
+  // BFS from `to`, following edges; if we reach `from`, a cycle would form.
+  const adjacency = new Map<string, string[]>();
+  for (const l of links) {
+    const outs = adjacency.get(l.from);
+    if (outs) outs.push(l.to);
+    else adjacency.set(l.from, [l.to]);
+  }
+  const queue = [to];
+  const seen = new Set<string>([to]);
+  while (queue.length > 0) {
+    const node = queue.shift() as string;
+    if (node === from) return true;
+    for (const next of adjacency.get(node) ?? []) {
+      if (!seen.has(next)) {
+        seen.add(next);
+        queue.push(next);
+      }
+    }
+  }
+  return false;
 }

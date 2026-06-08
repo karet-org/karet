@@ -69,7 +69,13 @@ export interface SourceContainer {
 export interface LookupRow {
   input_patterns: string[];
   output: string;
-  parent_output?: string;
+  /**
+   * Tie-breaker when more than one row in the same lookup node matches an
+   * input. The matcher picks the matching row with the highest `priority`;
+   * ties fall back to definition order. Defaults to `0`, so omitting the
+   * field preserves first-match-wins behavior.
+   */
+  priority?: number;
 }
 
 export interface LookupMapping {
@@ -79,7 +85,6 @@ export interface LookupMapping {
   case_insensitive?: boolean;
   rows: LookupRow[];
   children?: LookupMapping[];
-  parent_output_column?: string;
   /**
    * Fallback hit emitted when no row's patterns match (after children
    * have also missed). Unset = miss yields `null` in the output column,
@@ -91,7 +96,6 @@ export interface LookupMapping {
 /** Output for a {@link LookupMapping.catch_all} fallback. */
 export interface LookupCatchAll {
   output: string;
-  parent_output?: string;
 }
 
 export interface PartitionBy {

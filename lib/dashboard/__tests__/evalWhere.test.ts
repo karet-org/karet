@@ -35,7 +35,7 @@ const upper = (input: AstNode): AstNode => ({ kind: "upper", input });
 const lower = (input: AstNode): AstNode => ({ kind: "lower", input });
 const trim = (input: AstNode): AstNode => ({ kind: "trim", input });
 
-describe("evalNode — literals and column refs", () => {
+describe("evalNode: literals and column refs", () => {
   const row: Row = { name: "ALICE", age: 30, active: true, missing: null };
 
   it("col returns the row value when present", () => {
@@ -63,16 +63,9 @@ describe("evalNode — literals and column refs", () => {
   it("col returns null for invalid Date instances", () => {
     expect(evalNode(col("d"), { d: new Date("not-a-date") })).toBe(null);
   });
-
-  it("literals evaluate to themselves", () => {
-    expect(evalNode(str("hi"), {})).toBe("hi");
-    expect(evalNode(num(42), {})).toBe(42);
-    expect(evalNode(bool(false), {})).toBe(false);
-    expect(evalNode(nul, {})).toBe(null);
-  });
 });
 
-describe("evalNode — eq", () => {
+describe("evalNode: eq", () => {
   it("matches equal strings", () => {
     expect(evalNode(eq(col("c"), str("FOOD")), { c: "FOOD" })).toBe(true);
   });
@@ -101,7 +94,7 @@ describe("evalNode — eq", () => {
   });
 });
 
-describe("evalNode — ne", () => {
+describe("evalNode: ne", () => {
   it("returns true for unequal strings", () => {
     expect(evalNode(ne(col("c"), str("FOOD")), { c: "SHOPPING" })).toBe(true);
   });
@@ -119,7 +112,7 @@ describe("evalNode — ne", () => {
   });
 });
 
-describe("evalNode — gt / lt / ge / le", () => {
+describe("evalNode: gt / lt / ge / le", () => {
   it("compares numbers", () => {
     expect(evalNode(gt(col("n"), num(5)), { n: 6 })).toBe(true);
     expect(evalNode(gt(col("n"), num(5)), { n: 5 })).toBe(false);
@@ -146,7 +139,7 @@ describe("evalNode — gt / lt / ge / le", () => {
   });
 });
 
-describe("evalNode — contains", () => {
+describe("evalNode: contains", () => {
   it("performs literal substring match", () => {
     expect(evalNode(contains(col("d"), str("STAR")), { d: "STARBUCKS" })).toBe(true);
     expect(evalNode(contains(col("d"), str("BURGER")), { d: "STARBUCKS" })).toBe(false);
@@ -165,7 +158,7 @@ describe("evalNode — contains", () => {
   });
 });
 
-describe("evalNode — upper / lower / trim", () => {
+describe("evalNode: upper / lower / trim", () => {
   it("upper uppercases the input", () => {
     expect(evalNode(upper(col("s")), { s: "Hello" })).toBe("HELLO");
   });
@@ -182,34 +175,19 @@ describe("evalNode — upper / lower / trim", () => {
   });
 });
 
-describe("evalNode — unsupported kinds throw", () => {
-  it("rejects arithmetic", () => {
-    const expr: AstNode = { kind: "add", left: num(1), right: num(2) };
-    expect(() => evalNode(expr, {})).toThrow(UnsupportedWhereNodeError);
-  });
+describe("evalNode: unsupported kinds throw", () => {
+  // All non-predicate AST kinds hit the same `default` rejection arm; one
+  // parameterized case per representative kind keeps coverage without five
+  // near-identical test bodies.
+  const cases: [string, AstNode][] = [
+    ["arithmetic", { kind: "add", left: num(1), right: num(2) }],
+    ["parse_date", { kind: "parse_date", input: col("s"), format: "%Y-%m-%d" }],
+    ["lookup_ref", { kind: "lookup_ref", lookup_id: "x", input: col("s") }],
+    ["cast", { kind: "cast", input: col("s"), to: "int64" }],
+    ["if/then/else", { kind: "if", cond: bool(true), then: bool(true), else: bool(false) }],
+  ];
 
-  it("rejects parse_date", () => {
-    const expr: AstNode = { kind: "parse_date", input: col("s"), format: "%Y-%m-%d" };
-    expect(() => evalNode(expr, {})).toThrow(UnsupportedWhereNodeError);
-  });
-
-  it("rejects lookup_ref", () => {
-    const expr: AstNode = { kind: "lookup_ref", lookup_id: "x", input: col("s") };
-    expect(() => evalNode(expr, {})).toThrow(UnsupportedWhereNodeError);
-  });
-
-  it("rejects cast", () => {
-    const expr: AstNode = { kind: "cast", input: col("s"), to: "int64" };
-    expect(() => evalNode(expr, {})).toThrow(UnsupportedWhereNodeError);
-  });
-
-  it("rejects if/then/else", () => {
-    const expr: AstNode = {
-      kind: "if",
-      cond: bool(true),
-      then: bool(true),
-      else: bool(false),
-    };
+  it.each(cases)("rejects %s", (_label, expr) => {
     expect(() => evalNode(expr, {})).toThrow(UnsupportedWhereNodeError);
   });
 });

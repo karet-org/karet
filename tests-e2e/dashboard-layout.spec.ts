@@ -51,7 +51,7 @@ const VIEWPORT_WIDTHS = [
 const AUTO_FIT_MIN_PX = 288; // 18rem
 const SQUASH_TOLERANCE_PX = 8;
 
-test.describe("Spending dashboard layout — no panel overlap at narrow widths", () => {
+test.describe("Spending dashboard layout: no panel overlap at narrow widths", () => {
   test.beforeEach(async ({ context }) => {
     const { value, expiresAt } = signSession(loadSessionSecret());
     await context.addCookies([

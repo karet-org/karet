@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import alasql from "alasql";
 import { TOP_NAV_HEIGHT_PX } from "@/components/layout/TopNav";
+import { ExpandableTextField } from "@/components/ui/ExpandableTextField";
 
 interface TableInfo { id: string; name: string; schema: { name: string; type: string }[]; fileCount: number }
 
@@ -256,14 +257,20 @@ export default function TablesPage() {
 
         <div className="mt-6 rounded-lg border border-gray-200 bg-white p-5">
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={sql}
-              onChange={(e) => setSql(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") runQuery(); }}
-              placeholder="SELECT * FROM transactions JOIN cashflow ON ..."
-              className="flex-1 rounded border border-gray-300 px-3 py-1.5 font-mono text-xs text-gray-800 focus:border-orange-400 focus:outline-none"
-            />
+            <div className="flex-1">
+              <ExpandableTextField
+                ariaLabel="SQL query"
+                value={sql}
+                onChange={setSql}
+                onKeyDown={(e) => { if (e.key === "Enter") runQuery(); }}
+                onModalAction={() => runQuery()}
+                placeholder="SELECT * FROM transactions JOIN cashflow ON ..."
+                spellCheck={false}
+                modalTitle="SQL query"
+                modalActionLabel="Run"
+                inputClassName="w-full rounded border border-gray-300 px-3 py-1.5 font-mono text-xs text-gray-800 focus:border-orange-400 focus:outline-none"
+              />
+            </div>
             <button
               type="button"
               onClick={() => runQuery()}

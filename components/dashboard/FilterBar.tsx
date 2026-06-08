@@ -7,6 +7,7 @@
 
 import { useMemo } from "react";
 import type { DashboardFilter } from "@/lib/types/dashboard";
+import { CloseIcon } from "@/components/ui/CloseButton";
 import type { ChartFilter, Row } from "./types";
 
 export interface FilterState {
@@ -167,10 +168,11 @@ export function FilterBar({
             <button
               type="button"
               onClick={onClearChartFilter}
-              className="cursor-pointer text-xs text-gray-400 hover:text-gray-600"
+              className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
               aria-label="Clear chart filter"
             >
-              ✕ Clear
+              <CloseIcon size={12} />
+              Clear
             </button>
           )}
         </div>

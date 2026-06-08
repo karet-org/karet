@@ -13,6 +13,7 @@
 
 import { useMemo } from "react";
 import type { ColumnSchema, SourceContainer } from "@/lib/types/config";
+import { DeleteButton } from "@/components/ui/DeleteButton";
 import {
   EditorField,
   InlineErrorList,
@@ -130,14 +131,10 @@ export function SourceContainerEditor({
                     </option>
                   ))}
                 </select>
-                <button
-                  type="button"
-                  aria-label={`remove column ${i}`}
+                <DeleteButton
+                  label={`remove column ${i}`}
                   onClick={() => removeColumn(i)}
-                  className="rounded border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] text-gray-600 hover:bg-gray-50"
-                >
-                  ×
-                </button>
+                />
               </li>
             ))}
           </ul>

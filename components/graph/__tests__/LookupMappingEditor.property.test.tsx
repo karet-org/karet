@@ -32,9 +32,7 @@ const arbRow: fc.Arbitrary<LookupRow> = fc.record(
     // minLength 0 so the "empty patterns" branch is reachable.
     input_patterns: fc.array(arbPattern, { minLength: 0, maxLength: 3 }),
     output: fc.stringMatching(/^[A-Za-z]{1,4}$/),
-    parent_output: fc.option(fc.stringMatching(/^[A-Za-z]{1,4}$/), {
-      nil: undefined,
-    }),
+    priority: fc.option(fc.integer({ min: -10, max: 10 }), { nil: undefined }),
   },
   { requiredKeys: ["input_patterns", "output"] },
 );

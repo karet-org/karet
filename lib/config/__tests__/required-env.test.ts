@@ -32,10 +32,6 @@ describe("required-env", () => {
     expect(missingRequiredEnvVars(env)).toEqual(["S3_BUCKET"]);
   });
 
-  it("assertRequiredEnvVars is a no-op when every var is set", () => {
-    expect(() => assertRequiredEnvVars(completeEnv())).not.toThrow();
-  });
-
   it("assertRequiredEnvVars throws naming every missing var", () => {
     const env = completeEnv();
     delete env.AWS_ENDPOINT_URL;

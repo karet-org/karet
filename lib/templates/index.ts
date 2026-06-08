@@ -36,6 +36,14 @@ const CLEANED_DESCRIPTION: AstNode = {
   },
 };
 
+// `cast(col(amount), float64)`. Reused by amount and the inflow/outflow/net
+// derived columns.
+const AMOUNT_FLOAT: AstNode = {
+  kind: "cast",
+  input: { kind: "col", name: "amount" },
+  to: "float64",
+};
+
 const spendingPipeline: PipelineConfig = {
   version: 1,
   source_containers: [
@@ -75,7 +83,9 @@ const spendingPipeline: PipelineConfig = {
         // Bank-internal rows. The dashboard's `where` clause excludes
         // these from the spending view by default.
         { input_patterns: ["CUSTOMER TRANSFER", "PAYMENT THANK YOU", "WITHDRAWAL"], output: "TRANSFER" },
-        { input_patterns: ["DEPOSIT", "PAYROLL", "TAX REFUND"], output: "INCOME" },
+        // INCOME outranks SHOPPING so an "AMAZON PAYROLL DEPOSIT" resolves
+        // to INCOME instead of matching the earlier SHOPPING row on "AMAZON".
+        { input_patterns: ["DEPOSIT", "PAYROLL", "TAX REFUND"], output: "INCOME", priority: 10 },
         { input_patterns: ["INVESTMENT"], output: "INVESTMENT" },
       ],
       children: [],
@@ -127,11 +137,36 @@ const spendingPipeline: PipelineConfig = {
             ],
           },
         },
-        { name: "amount", expr: { kind: "cast", input: { kind: "col", name: "amount" }, to: "float64" } },
+        { name: "amount", expr: AMOUNT_FLOAT },
         { name: "account", expr: { kind: "col", name: "account" } },
         {
           name: "category",
           expr: { kind: "lookup_ref", lookup_id: "categories", input: CLEANED_DESCRIPTION },
+        },
+        // Signed-amount convention: income is negative, spending positive.
+        // Split into non-negative inflow/outflow plus a signed net so the
+        // dashboards can sum each directly. net = inflow - outflow = -amount.
+        {
+          name: "inflow",
+          expr: {
+            kind: "if",
+            cond: { kind: "lt", left: AMOUNT_FLOAT, right: { kind: "num", value: 0 } },
+            then: { kind: "mul", left: AMOUNT_FLOAT, right: { kind: "num", value: -1 } },
+            else: { kind: "num", value: 0 },
+          },
+        },
+        {
+          name: "outflow",
+          expr: {
+            kind: "if",
+            cond: { kind: "gt", left: AMOUNT_FLOAT, right: { kind: "num", value: 0 } },
+            then: AMOUNT_FLOAT,
+            else: { kind: "num", value: 0 },
+          },
+        },
+        {
+          name: "net",
+          expr: { kind: "mul", left: AMOUNT_FLOAT, right: { kind: "num", value: -1 } },
         },
       ],
     },
@@ -148,6 +183,9 @@ const spendingPipeline: PipelineConfig = {
         { name: "amount", type: "float64" },
         { name: "account", type: "string" },
         { name: "category", type: "string" },
+        { name: "inflow", type: "float64" },
+        { name: "outflow", type: "float64" },
+        { name: "net", type: "float64" },
       ],
     },
   ],
@@ -273,6 +311,87 @@ const spendingCashFlow: DashboardConfig = {
   },
 };
 
+const spendingNetIncome: DashboardConfig = {
+  id: "net_income",
+  name: "Net Income",
+  analytic_table_id: "transactions",
+  filters: [
+    { kind: "dropdown", column: "account", label: "Account" },
+    { kind: "date_range", column: "date", label: "Date range" },
+  ],
+  // Internal transfers and contributions to investment accounts (which this
+  // pipeline doesn't import) are neither income nor spending; exclude both so
+  // net reflects income minus real spending.
+  where: [
+    { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "TRANSFER" } },
+    { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INVESTMENT" } },
+  ],
+  panels: [
+    { kind: "kpi", title: "Net Savings", column: "net", agg: "sum", format: "currency", currency: "CAD", icon: "dollar", grid: { gridColumn: "span 2" } },
+    { kind: "kpi", title: "Total Income", column: "inflow", agg: "sum", format: "currency", currency: "CAD", icon: "dollar", grid: { gridColumn: "span 2" } },
+    { kind: "kpi", title: "Total Expenses", column: "outflow", agg: "sum", format: "currency", currency: "CAD", icon: "dollar", grid: { gridColumn: "span 2" } },
+    // Primary trend: net contribution to savings each month.
+    {
+      kind: "line",
+      title: "Net by Month",
+      x: "date",
+      x_bin: "month",
+      y: "net",
+      agg: "sum",
+      grid: { gridColumn: "span 3", maxHeight: "20rem" },
+    },
+    // Cumulative running total: net income growth after each month.
+    // Floored at the start of reliable income coverage so the curve isn't
+    // dragged down by early months that have spending but no imported income.
+    {
+      kind: "line",
+      title: "Cumulative Net Income",
+      x: "date",
+      x_bin: "month",
+      y: "net",
+      agg: "sum",
+      cumulative: true,
+      where: [
+        { kind: "ge", left: { kind: "col", name: "date" }, right: { kind: "str", value: "2024-06-01" } },
+      ],
+      grid: { gridColumn: "span 3", maxHeight: "20rem" },
+    },
+    // No grouped/series bars in the platform, so income is a monthly bar
+    // panel. Expense breakdowns live on the Spending Overview dashboard.
+    {
+      kind: "bar",
+      title: "Income by Month",
+      group_by: "date",
+      value: "inflow",
+      agg: "sum",
+      x_bin: "month",
+      grid: { gridColumn: "span 3" },
+    },
+    {
+      kind: "bar",
+      title: "Top Income Sources",
+      group_by: "description",
+      value: "inflow",
+      agg: "sum",
+      limit: 10,
+      grid: { gridColumn: "span 3" },
+    },
+    {
+      kind: "table",
+      title: "Monthly Detail",
+      columns: ["date", "description", "inflow", "outflow", "net", "account", "category"],
+      page_size: 10,
+      grid: { gridColumn: "1 / -1" },
+    },
+  ],
+  // 6-column grid: KPIs span 2 (3 across the top), charts span 3 (2 per row,
+  // half-width with no empty trailing column), table spans the full width.
+  layout: {
+    gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+    gap: "1rem",
+  },
+};
+
 export const TEMPLATES: Record<TemplateId, Template> = {
   blank: {
     id: "blank",
@@ -288,6 +407,7 @@ export const TEMPLATES: Record<TemplateId, Template> = {
       "pipeline.json": spendingPipeline,
       "dashboards/spending_overview.json": spendingDashboard,
       "dashboards/cash_flow.json": spendingCashFlow,
+      "dashboards/net_income.json": spendingNetIncome,
     },
     rawFiles: {
       "raw/transactions/seed.csv": SPENDING_SEED_CSV,

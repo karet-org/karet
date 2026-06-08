@@ -58,6 +58,17 @@ body {
   cursor: pointer !important;
 }
 
+/* Tailwind v4 Preflight resets buttons to `cursor: default`; restore it. */
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* Dashboard panel grid: container queries collapse `grid-column: span N`
    to full-width below the 2-col threshold (37rem = 2×18rem + 1rem gap).
    Without this, an `auto-fit` grid with one explicit column materializes

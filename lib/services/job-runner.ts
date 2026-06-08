@@ -210,7 +210,12 @@ async function runPipelineInBackground(args: BackgroundJobArgs): Promise<void> {
   } catch (err) {
     job.status = "failed";
     job.completedAt = new Date().toISOString();
-    job.error = err instanceof Error ? err.message : String(err);
+    const message = err instanceof Error ? err.message : String(err);
+    // Surface the errno code (ECONNREFUSED, ENOTFOUND, ...) that Node tucks
+    // away on the error's `cause`, so a bare "fetch failed" becomes
+    // actionable.
+    const code = (err as { cause?: { code?: unknown } })?.cause?.code;
+    job.error = code ? `${message} (${code})` : message;
   }
 
   try {

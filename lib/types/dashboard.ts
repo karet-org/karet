@@ -72,6 +72,10 @@ export type Panel =
       x_bin?: "day" | "week" | "month" | "year";
       y: string;
       agg: Aggregation;
+      /** Plot the running total of the aggregated values (chronological cumulative sum). */
+      cumulative?: boolean;
+      /** Optional per-panel row filter (ANDed), applied on top of the dashboard filters. Same AST subset as `DashboardConfig.where`. */
+      where?: AstNode[];
       grid?: PanelGrid;
     }
   | {
