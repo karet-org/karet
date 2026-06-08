@@ -255,9 +255,7 @@ const spendingCashFlow: DashboardConfig = {
             { kind: "eq", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INCOME" } },
           ],
         },
-        // Spending and other outflows by category. abs_sum for ribbon
-        // magnitude; exclude income, transfers, and investment contributions
-        // (out of scope, consistent with the Net Income dashboard).
+        // Spending by category; exclude income, transfers, and investment.
         {
           from: "account",
           to: "category",
@@ -287,7 +285,6 @@ const spendingCashFlow: DashboardConfig = {
 };
 
 // `-amount`: net per row, since income is negative and spending positive.
-// Computed inline by the panel so no `net` column is needed.
 const NEG_AMOUNT: AstNode = {
   kind: "mul",
   left: { kind: "col", name: "amount" },
@@ -318,9 +315,7 @@ const spendingNetIncome: DashboardConfig = {
     { kind: "dropdown", column: "account", label: "Account" },
     { kind: "date_range", column: "date", label: "Date range" },
   ],
-  // Internal transfers and contributions to investment accounts (which this
-  // pipeline doesn't import) are neither income nor spending; exclude both so
-  // net reflects income minus real spending.
+  // Exclude transfers and investment contributions; neither is income or spending.
   where: [
     { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "TRANSFER" } },
     { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INVESTMENT" } },
@@ -339,8 +334,7 @@ const spendingNetIncome: DashboardConfig = {
       agg: "sum",
       grid: { gridColumn: "span 3", maxHeight: "20rem" },
     },
-    // Cumulative running total: net income growth over time. Use the
-    // dashboard's date-range filter to set where the curve starts counting.
+    // Cumulative net; use the date-range filter to set where it starts.
     {
       kind: "line",
       title: "Cumulative Net Income",

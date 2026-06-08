@@ -1,15 +1,5 @@
-// Dashboard numeric value-expression evaluator.
-//
-// Panels that aggregate a numeric measure (`kpi.column`, `bar.value`,
-// `doughnut.value`, `line.y`) accept either a plain column name (string) or
-// a small arithmetic AstNode expression. This evaluates the expression
-// subset that produces a number, so a panel can sum `-amount` or
-// `inflow - outflow` without a precomputed column.
-//
-// Supported kinds: col, num, add, sub, mul, div, plus `if` with a boolean
-// condition (eq/ne/gt/lt/ge/le over col/num/str/bool). Anything else throws
-// UnsupportedValueNodeError. A null operand (missing column, non-numeric
-// string) propagates as null; div-by-zero yields null.
+// Numeric value expressions for dashboard panels: a measure field is either
+// a column name or a small AstNode (col, num, add/sub/mul/div, if + comparisons).
 
 import type { AstNode } from "@/lib/types/config";
 import type { Row } from "@/components/dashboard/types";
@@ -126,19 +116,13 @@ export function evalValue(node: AstNode, row: Row): number | null {
   }
 }
 
-/**
- * Resolve a panel value field to a number for one row. A string field reads
- * that column; an AstNode field evaluates the expression.
- */
+/** Resolve a value field to a number for one row. */
 export function resolveValue(row: Row, field: ValueField): number | null {
   if (typeof field === "string") return toNum(row[field]);
   return evalValue(field, row);
 }
 
-/**
- * Column names referenced by a value field, for missing-column detection.
- * A string field is itself a column; an expression is walked for `col`s.
- */
+/** Column names referenced by a value field, for missing-column detection. */
 export function valueFieldColumns(field: ValueField): string[] {
   if (typeof field === "string") return [field];
   const cols: string[] = [];

@@ -33,8 +33,6 @@ ChartJS.register(
 type LinePanelConfig = Extract<Panel, { kind: "line" }>;
 
 export function LinePanel({ config, rows }: PanelProps<LinePanelConfig>) {
-  // Per-panel `where` (e.g. a cumulative start floor) applies on top of the
-  // dashboard-level filters before bucketing.
   const scopedRows = applyWhere(rows, config.where);
   const buckets = new Map<string, number[]>();
   for (const row of scopedRows) {
@@ -52,10 +50,7 @@ export function LinePanel({ config, rows }: PanelProps<LinePanelConfig>) {
   let labels = sortedLabels;
   let values: number[];
   if (config.cumulative) {
-    // `sortedLabels` is chronological, so the running total per bucket is a
-    // left-to-right scan. Anchor at 0 on the period just before the first
-    // bucket so the curve reads as growth since the start, not from an
-    // arbitrary nonzero level.
+    // Anchor at 0 on the period before the first bucket so the curve reads as growth.
     const totals = runningTotal(aggregated);
     if (sortedLabels.length > 0) {
       labels = [previousPeriodLabel(sortedLabels[0], config.x_bin), ...sortedLabels];

@@ -12,8 +12,7 @@ export async function GET(
 
   return wrapS3Error(async () => {
     const listings = await listDashboardsWithNames(client, config);
-    // `dashboards` (id strings) kept for backward compatibility; `listings`
-    // carries the display name so the nav can show it while routing by id.
+    // `dashboards` (ids) kept for backward compatibility.
     return NextResponse.json({
       dashboards: listings.map((l) => l.id),
       listings,

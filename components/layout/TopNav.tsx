@@ -74,11 +74,10 @@ export default function TopNav({
         if (Array.isArray(body.listings)) {
           setDashboards(body.listings);
         } else if (Array.isArray(body.dashboards)) {
-          // Backward compatibility: id-only payload, use id as the label.
           setDashboards(body.dashboards.map((id) => ({ id, name: id })));
         }
       } catch {
-        // Silent -- the nav stays useful even if the list can't load.
+        // Nav stays usable if the list can't load.
       }
     })();
     return () => {

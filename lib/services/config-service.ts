@@ -218,19 +218,13 @@ export async function listDashboards(
   return names;
 }
 
-/** A dashboard's stem id plus its human-readable display name. */
+/** A dashboard's stem id plus its display name. */
 export interface DashboardListing {
-  /** File stem; the URL slug and S3 key. */
   id: string;
-  /** `DashboardConfig.name`, falling back to the id when unset/unreadable. */
   name: string;
 }
 
-/**
- * Lists dashboards with their display names. Reads each dashboard JSON to
- * pull `name`; a dashboard that fails to read or parse falls back to its id
- * so the nav still lists it. Results are sorted by display name.
- */
+/** Lists dashboards with display names, falling back to the id, sorted by name. */
 export async function listDashboardsWithNames(
   client: S3Client,
   config: S3Config,

@@ -38,11 +38,7 @@ export function runningTotal(values: number[]): number[] {
   return values.map((v) => (acc += v));
 }
 
-/**
- * The period-key one bin before `label`, used to anchor a cumulative line at
- * zero. Returns `"Start"` when there's no meaningful prior period (no bin, or
- * an unparseable label).
- */
+/** The period-key one bin before `label`, or `"Start"` if there's none. */
 export function previousPeriodLabel(
   label: string,
   bin: "day" | "week" | "month" | "year" | undefined,
@@ -56,7 +52,7 @@ export function previousPeriodLabel(
       const m = /^(\d{4})-(\d{2})$/.exec(label);
       if (!m) return "Start";
       let y = Number(m[1]);
-      let mo = Number(m[2]) - 1; // 0-based, step back one
+      let mo = Number(m[2]) - 1;
       if (mo === 0) {
         y -= 1;
         mo = 12;
