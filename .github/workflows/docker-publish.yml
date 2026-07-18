@@ -1,12 +1,9 @@
 name: Publish Docker image
 
 on:
-  push:
-    branches: [main]
-    tags: ["v*"]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
+  push:
+    tags: ["v*"]
 
 concurrency:
   group: docker-publish-${{ github.ref }}
