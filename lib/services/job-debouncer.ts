@@ -12,7 +12,7 @@
 // the record to `running` (same ID, same key) by passing `existingJobId`
 // to `startJob`.
 //
-// State lives in module scope. Single-replica deployment only -- if you
+// State lives in module scope. Single-replica deployment only, if you
 // scale `web` horizontally, two replicas could each schedule a run for the
 // same slug. Move this to a shared lock (Redis, Postgres advisory lock,
 // etc.) only if/when that happens.
@@ -39,7 +39,7 @@ function fireNow(slug: string): void {
   clearTimeout(entry.quietTimer);
   clearTimeout(entry.maxTimer);
   pending.delete(slug);
-  // Auto-runs are not "clean" by default -- only fresh partitions for
+  // Auto-runs are not "clean" by default, only fresh partitions for
   // CSVs we've seen. The user can still manually trigger a clean run.
   // Reuse the existing job ID so the `scheduled` row in S3 transitions
   // to `running` in place rather than leaving a stale entry behind.
@@ -56,7 +56,7 @@ function fireNow(slug: string): void {
 /**
  * Record an upload event for `slug`. Schedules a pipeline run after
  * `QUIET_MS` of inactivity, or `MAX_WAIT_MS` since the first event in this
- * batch -- whichever is sooner. Returns the time (ms) until the run will
+ * batch, whichever is sooner. Returns the time (ms) until the run will
  * fire, useful for logging.
  */
 export function scheduleRun(slug: string): number {
@@ -67,7 +67,7 @@ export function scheduleRun(slug: string): number {
     clearTimeout(existing.quietTimer);
     existing.quietTimer = setTimeout(() => fireNow(slug), QUIET_MS);
     // Refresh the record so the UI countdown stays accurate. Fire and
-    // forget -- the in-memory timer is the source of truth for *when*
+    // forget, the in-memory timer is the source of truth for *when*
     // the job runs; the S3 write is purely for visibility.
     updateScheduledAt({
       pipeline: slug,
@@ -100,13 +100,4 @@ export function scheduleRun(slug: string): number {
     });
 
   return QUIET_MS;
-}
-
-/** Test/admin helper -- drop any in-flight debounce state. */
-export function clearAllPending(): void {
-  for (const entry of pending.values()) {
-    clearTimeout(entry.quietTimer);
-    clearTimeout(entry.maxTimer);
-  }
-  pending.clear();
 }

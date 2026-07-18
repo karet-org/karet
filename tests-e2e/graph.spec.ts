@@ -50,7 +50,7 @@ test.describe("Data Flow Graph smoke", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/graph");
     // Wait for either the graph page to finish loading or an error to
-    // surface. If an error surfaces we skip -- the smoke test needs a
+    // surface. If an error surfaces we skip, the smoke test needs a
     // live backend.
     const graphPage = page.getByTestId("graph-page");
     const errorPanel = page.getByTestId("graph-error");
@@ -61,7 +61,7 @@ test.describe("Data Flow Graph smoke", () => {
     const errorVisible = await errorPanel.isVisible().catch(() => false);
     test.skip(
       errorVisible,
-      "Graph page surfaced a load error -- backend not ready; skipping.",
+      "Graph page surfaced a load error, backend not ready; skipping.",
     );
   });
 
@@ -81,7 +81,7 @@ test.describe("Data Flow Graph smoke", () => {
     await expect(panel).toBeVisible();
 
     const editButton = page.getByTestId("node-detail-panel-edit");
-    // Edit is only rendered for editable node kinds -- if the first node
+    // Edit is only rendered for editable node kinds, if the first node
     // we clicked was an analytic-table, fall back to clicking through
     // subsequent nodes until we find an editable one.
     if ((await editButton.count()) === 0) {

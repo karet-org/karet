@@ -2,7 +2,7 @@
 // Kept in lockstep with `src/karet-worker/src/config.rs` and `ast.rs`.
 
 // ---------------------------------------------------------------------------
-// AstNode -- discriminated union on `kind`.
+// AstNode, discriminated union on `kind`.
 // ---------------------------------------------------------------------------
 
 export type CastType = "int64" | "float64" | "string" | "date";

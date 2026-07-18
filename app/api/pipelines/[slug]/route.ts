@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { DeleteObjectsCommand, type ObjectIdentifier } from "@aws-sdk/client-s3";
-import { createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import { allBuckets, createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import { sanitizeSlug } from "@/lib/config/slug";
 import {
   renamePipelinePrefix,
@@ -10,8 +10,8 @@ import {
 import { listAllObjectKeys } from "@/lib/services/s3-helpers";
 
 /**
- * Delete a pipeline by slug -- removes every object under
- * `pipelines/<slug>/`. Backs the "Delete pipeline" button in TopNav.
+ * Delete a pipeline by slug, removes every object under
+ * `pipelines/<slug>/` across all three data-plane buckets.
  */
 export async function DELETE(
   _request: Request,
@@ -28,34 +28,39 @@ export async function DELETE(
   const prefix = `${config.pipelinesPrefix}${safeSlug}/`;
 
   return wrapS3Error(async () => {
-    const keys = await listAllObjectKeys(client, config.bucket, prefix);
-    if (keys.length === 0) {
+    let totalDeleted = 0;
+
+    for (const bucket of allBuckets(config)) {
+      const keys = await listAllObjectKeys(client, bucket, prefix);
+      if (keys.length === 0) continue;
+      const toDelete: ObjectIdentifier[] = keys.map((Key) => ({ Key }));
+      for (let i = 0; i < toDelete.length; i += 1000) {
+        const chunk = toDelete.slice(i, i + 1000);
+        await client.send(
+          new DeleteObjectsCommand({
+            Bucket: bucket,
+            Delete: { Objects: chunk, Quiet: true },
+          }),
+        );
+      }
+      totalDeleted += keys.length;
+    }
+
+    if (totalDeleted === 0) {
       return NextResponse.json(
         { error: "not_found", pipeline: safeSlug },
         { status: 404 },
       );
     }
 
-    // DeleteObjectsCommand accepts up to 1000 keys per call.
-    const toDelete: ObjectIdentifier[] = keys.map((Key) => ({ Key }));
-    for (let i = 0; i < toDelete.length; i += 1000) {
-      const chunk = toDelete.slice(i, i + 1000);
-      await client.send(
-        new DeleteObjectsCommand({
-          Bucket: config.bucket,
-          Delete: { Objects: chunk, Quiet: true },
-        }),
-      );
-    }
-
-    return NextResponse.json({ ok: true, pipeline: safeSlug, deleted: keys.length });
+    return NextResponse.json({ ok: true, pipeline: safeSlug, deleted: totalDeleted });
   }, `DELETE /api/pipelines/${safeSlug}`);
 }
 
 /**
  * Rename a pipeline slug. Copies every object under `pipelines/<slug>/`
- * to `pipelines/<newSlug>/` then deletes the originals. External links
- * to the old slug break by design.
+ * to `pipelines/<newSlug>/` across all three data-plane buckets, then
+ * deletes the originals. External links to the old slug break by design.
  *
  * 4xx cases:
  *   - 422 invalid_slug   : either slug is empty after sanitization
@@ -94,8 +99,7 @@ export async function PATCH(
     try {
       const moved = await renamePipelinePrefix(
         client,
-        config.bucket,
-        config.pipelinesPrefix,
+        config,
         safeFrom,
         safeTo,
       );

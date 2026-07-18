@@ -1,6 +1,6 @@
 "use client";
 
-// "Account · Sign out" -- confirms an active session via /api/auth/me on
+// "Account · Sign out", confirms an active session via /api/auth/me on
 // mount, opens an Account modal for password edits, and hits
 // /api/auth/logout on sign-out. Karet is single-admin and password-only,
 // so no username is shown.
@@ -23,7 +23,7 @@ export default function UserMenu() {
         if (cancelled) return;
         setAuthenticated(res.ok);
       } catch {
-        // Stay silent -- the server-rendered page already required a session.
+        // Stay silent, the server-rendered page already required a session.
       }
     })();
     return () => {

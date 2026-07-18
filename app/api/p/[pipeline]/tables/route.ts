@@ -15,6 +15,7 @@ export async function GET(
     const pcfg = await getPipelineConfig(client, cfg);
     if (!pcfg) return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
 
+    // Analytic tables (warehouse). fileCount is the number of Parquet parts.
     const tables = [];
     for (const t of pcfg.config.analytic_tables) {
       const keys = await listParquetKeys(client, cfg, t.id);

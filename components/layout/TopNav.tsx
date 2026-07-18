@@ -3,7 +3,7 @@
 // Top navigation bar shown on every pipeline page.
 //
 // Layout:
-//   [Karet logo] [Pipeline pill ▾] | [Graph] [Jobs] [Tables] [Dashboards ▾] ... [Settings ▾] [Account]
+//   [Karet logo] [Pipeline pill ▾] | [Graph] [Jobs] [Data] [Dashboards ▾] ... [Settings ▾] [Account]
 //
 // The pipeline pill on the left is a switcher: clicking it shows every
 // pipeline in the bucket so users can hop between them without going
@@ -94,7 +94,7 @@ export default function TopNav({
     };
   }, [pipeline]);
 
-  // Load the full pipeline list lazily -- only when the switcher opens.
+  // Load the full pipeline list lazily, only when the switcher opens.
   useEffect(() => {
     if (!pipelineOpen) return;
     let cancelled = false;
@@ -162,7 +162,7 @@ export default function TopNav({
         href="/"
         className="mr-3 flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-[-0.005em] text-[color:var(--color-ink)]"
       >
-        <KaretLogo size={20} />
+        <KaretLogo size={28} />
         Karet
       </Link>
 
@@ -233,8 +233,8 @@ export default function TopNav({
       <Link href={`${base}/jobs`} className={tabClass(isActive(`${base}/jobs`))}>
         Jobs
       </Link>
-      <Link href={`${base}/tables`} className={tabClass(isActive(`${base}/tables`))}>
-        Tables
+      <Link href={`${base}/data`} className={tabClass(isActive(`${base}/data`))}>
+        Data
       </Link>
 
       <div ref={dashRef} className="relative">
@@ -282,7 +282,7 @@ export default function TopNav({
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
-        {/* Settings dropdown -- holds Export, Rename, Delete, S3 console */}
+        {/* Settings dropdown, holds Export, Rename, Delete, S3 console */}
         <div ref={settingsRef} className="relative hidden sm:block">
           <button
             type="button"
@@ -391,8 +391,8 @@ export default function TopNav({
             <Link href={`${base}/jobs`} role="menuitem" className={tabClass(isActive(`${base}/jobs`))}>
               Jobs
             </Link>
-            <Link href={`${base}/tables`} role="menuitem" className={tabClass(isActive(`${base}/tables`))}>
-              Tables
+            <Link href={`${base}/data`} role="menuitem" className={tabClass(isActive(`${base}/data`))}>
+              Data
             </Link>
 
             <div className="mt-2 border-t border-[color:var(--color-rule)] pt-2">

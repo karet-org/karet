@@ -5,6 +5,7 @@
 
 import {
   CopyObjectCommand,
+  DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -14,9 +15,10 @@ import {
   S3Client,
   S3ServiceException,
 } from "@aws-sdk/client-s3";
-import type { S3Config } from "../config/s3-client";
+import { allBuckets, type S3Config } from "../config/s3-client";
 import type { PipelineConfig } from "../types/config";
 import type { DashboardConfig } from "../types/dashboard";
+import type { SavedQuery } from "../types/query";
 import { listAllObjectKeys, readBodyToBuffer } from "./s3-helpers";
 
 // ---------------------------------------------------------------------------
@@ -100,7 +102,7 @@ export async function listPipelines(
   client: S3Client,
   config: S3Config,
 ): Promise<string[]> {
-  const allKeys = await listAllObjectKeys(client, config.bucket, config.pipelinesPrefix);
+  const allKeys = await listAllObjectKeys(client, config.pipelinesBucket, config.pipelinesPrefix);
   const slugs: string[] = [];
   for (const key of allKeys) {
     if (!key.endsWith("/pipeline.json")) continue;
@@ -133,7 +135,7 @@ export async function getPipelineConfig(
   try {
     const response = await client.send(
       new GetObjectCommand({
-        Bucket: config.bucket,
+        Bucket: config.pipelinesBucket,
         Key: config.pipelineConfigKey,
       }),
     );
@@ -176,7 +178,7 @@ export async function putPipelineConfig(
 
   await client.send(
     new PutObjectCommand({
-      Bucket: config.bucket,
+      Bucket: config.pipelinesBucket,
       Key: config.pipelineConfigKey,
       Body: body,
       ContentType: "application/json",
@@ -186,7 +188,7 @@ export async function putPipelineConfig(
   try {
     const head = await client.send(
       new HeadObjectCommand({
-        Bucket: config.bucket,
+        Bucket: config.pipelinesBucket,
         Key: config.pipelineConfigKey,
       }),
     );
@@ -206,7 +208,7 @@ export async function listDashboards(
   client: S3Client,
   config: S3Config,
 ): Promise<string[]> {
-  const allKeys = await listAllObjectKeys(client, config.bucket, config.dashboardsPrefix);
+  const allKeys = await listAllObjectKeys(client, config.pipelinesBucket, config.dashboardsPrefix);
   const names: string[] = [];
   for (const key of allKeys) {
     if (!key.endsWith(".json")) continue;
@@ -254,7 +256,7 @@ export async function getDashboard(
   const key = `${config.dashboardsPrefix}${name}.json`;
   try {
     const response = await client.send(
-      new GetObjectCommand({ Bucket: config.bucket, Key: key }),
+      new GetObjectCommand({ Bucket: config.pipelinesBucket, Key: key }),
     );
     const body = await streamToString(response.Body);
     return JSON.parse(body) as DashboardConfig;
@@ -265,18 +267,104 @@ export async function getDashboard(
 }
 
 // ---------------------------------------------------------------------------
+// Saved queries
+// ---------------------------------------------------------------------------
+
+/** Reads a saved query by stem. Returns `null` when missing. */
+export async function getQuery(
+  client: S3Client,
+  config: S3Config,
+  id: string,
+): Promise<SavedQuery | null> {
+  const key = `${config.queriesPrefix}${id}.json`;
+  try {
+    const response = await client.send(
+      new GetObjectCommand({ Bucket: config.pipelinesBucket, Key: key }),
+    );
+    const body = await streamToString(response.Body);
+    return JSON.parse(body) as SavedQuery;
+  } catch (err) {
+    if (isNotFound(err)) return null;
+    throw err;
+  }
+}
+
+/** Lists saved queries (id + name), sorted by name. */
+export async function listQueries(
+  client: S3Client,
+  config: S3Config,
+): Promise<SavedQuery[]> {
+  const allKeys = await listAllObjectKeys(client, config.pipelinesBucket, config.queriesPrefix);
+  const ids: string[] = [];
+  for (const key of allKeys) {
+    if (!key.endsWith(".json")) continue;
+    const rel = key.slice(config.queriesPrefix.length);
+    if (rel.includes("/")) continue; // skip nested keys
+    ids.push(rel.slice(0, -".json".length));
+  }
+  const queries = await Promise.all(ids.map((id) => getQuery(client, config, id)));
+  return queries
+    .filter((q): q is SavedQuery => q !== null)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Writes a saved query. When `overwrite` is false (the default), a query
+ * already stored under the same id throws `TargetExistsError` so a create
+ * can't clobber an existing name.
+ */
+export async function putQuery(
+  client: S3Client,
+  config: S3Config,
+  q: SavedQuery,
+  overwrite = false,
+): Promise<void> {
+  if (!overwrite) {
+    const existing = await getQuery(client, config, q.id);
+    if (existing) {
+      throw new TargetExistsError(`A query named "${q.name}" already exists`);
+    }
+  }
+  await client.send(
+    new PutObjectCommand({
+      Bucket: config.pipelinesBucket,
+      Key: `${config.queriesPrefix}${q.id}.json`,
+      Body: JSON.stringify(q, null, 2),
+      ContentType: "application/json",
+    }),
+  );
+}
+
+/** Deletes a saved query by stem. No-op if it doesn't exist. */
+export async function deleteQuery(
+  client: S3Client,
+  config: S3Config,
+  id: string,
+): Promise<void> {
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket: config.pipelinesBucket,
+      Key: `${config.queriesPrefix}${id}.json`,
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Rename (slug move)
 // ---------------------------------------------------------------------------
 
 /**
  * Move every object from `pipelines/<from>/` to `pipelines/<to>/` by
- * copying then deleting. S3 has no atomic rename; this performs:
+ * copying then deleting, across all three data-plane buckets (a pipeline's
+ * config, raw data, and warehouse output each live in their own bucket).
+ * S3 has no atomic rename; this performs:
  *
- *   1. Pre-flight HEAD on `<to>/pipeline.json` -- throws `TargetExistsError`
- *      (409) before touching any data if the destination is occupied.
- *   2. Lists every object under the source prefix -- throws
- *      `SourceNotFoundError` (404) if empty.
- *   3. Copies each object to the new prefix.
+ *   1. Pre-flight HEAD on `<to>/pipeline.json` in the pipelines bucket,
+ *      throws `TargetExistsError` (409) before touching any data if the
+ *      destination is occupied.
+ *   2. Lists every object under the source prefix across all buckets,
+ *      throws `SourceNotFoundError` (404) if none exist anywhere.
+ *   3. Copies each object to the new prefix within its own bucket.
  *   4. Deletes the originals in batches of 1000 (S3's API cap).
  *
  * If a copy fails the old prefix is intact and the caller can retry. If a
@@ -284,21 +372,24 @@ export async function getDashboard(
  * slug while orphaned bytes remain at the old one (subsequent rename to
  * the same target hits the 409 pre-flight; cleanup is out-of-band).
  *
- * Returns the number of objects moved.
+ * Returns the total number of objects moved across all buckets.
  */
 export async function renamePipelinePrefix(
   client: S3Client,
-  bucket: string,
-  pipelinesPrefix: string,
+  config: S3Config,
   fromSlug: string,
   toSlug: string,
 ): Promise<number> {
+  const { pipelinesPrefix } = config;
   const fromPrefix = `${pipelinesPrefix}${fromSlug}/`;
   const toPrefix = `${pipelinesPrefix}${toSlug}/`;
 
   try {
     await client.send(
-      new HeadObjectCommand({ Bucket: bucket, Key: `${toPrefix}pipeline.json` }),
+      new HeadObjectCommand({
+        Bucket: config.pipelinesBucket,
+        Key: `${toPrefix}pipeline.json`,
+      }),
     );
     throw new TargetExistsError(`Pipeline "${toSlug}" already exists`);
   } catch (err) {
@@ -306,61 +397,61 @@ export async function renamePipelinePrefix(
     if (!isNotFound(err)) throw err;
   }
 
-  const keys = await listAllObjectKeys(client, bucket, fromPrefix);
-  if (keys.length === 0) {
+  let moved = 0;
+  let sawAny = false;
+
+  for (const bucket of allBuckets(config)) {
+    const keys = await listAllObjectKeys(client, bucket, fromPrefix);
+    if (keys.length === 0) continue;
+    sawAny = true;
+
+    for (const key of keys) {
+      const destKey = `${toPrefix}${key.slice(fromPrefix.length)}`;
+      await client.send(
+        new CopyObjectCommand({
+          Bucket: bucket,
+          // CopySource is `/<bucket>/<key>`, URL-encoded except slashes.
+          CopySource: `/${bucket}/${encodeURIComponent(key).replace(/%2F/g, "/")}`,
+          Key: destKey,
+        }),
+      );
+    }
+
+    const toDelete: ObjectIdentifier[] = keys.map((Key) => ({ Key }));
+    for (let i = 0; i < toDelete.length; i += 1000) {
+      const chunk = toDelete.slice(i, i + 1000);
+      await client.send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: { Objects: chunk, Quiet: true },
+        }),
+      );
+    }
+
+    moved += keys.length;
+  }
+
+  if (!sawAny) {
     throw new SourceNotFoundError(`Pipeline "${fromSlug}" not found`);
   }
 
-  for (const key of keys) {
-    const destKey = `${toPrefix}${key.slice(fromPrefix.length)}`;
-    await client.send(
-      new CopyObjectCommand({
-        Bucket: bucket,
-        // CopySource is `/<bucket>/<key>`, URL-encoded except slashes.
-        CopySource: `/${bucket}/${encodeURIComponent(key).replace(/%2F/g, "/")}`,
-        Key: destKey,
-      }),
-    );
-  }
-
-  const toDelete: ObjectIdentifier[] = keys.map((Key) => ({ Key }));
-  for (let i = 0; i < toDelete.length; i += 1000) {
-    const chunk = toDelete.slice(i, i + 1000);
-    await client.send(
-      new DeleteObjectsCommand({
-        Bucket: bucket,
-        Delete: { Objects: chunk, Quiet: true },
-      }),
-    );
-  }
-
-  return keys.length;
+  return moved;
 }
 
 // ---------------------------------------------------------------------------
 // Analytic table rows (Parquet)
 // ---------------------------------------------------------------------------
 
-/** Lists every `*.parquet` key under `clean/<table>/` (recursive). */
+/**
+ * Lists every `*.parquet` key under `<pipeline>/<table>/` (recursive) in the
+ * warehouse bucket.
+ */
 export async function listParquetKeys(
   client: S3Client,
   config: S3Config,
   table: string,
 ): Promise<string[]> {
-  const prefix = `${config.cleanPrefix}${table}/`;
-  const allKeys = await listAllObjectKeys(client, config.bucket, prefix);
+  const prefix = `${config.warehousePrefix}${table}/`;
+  const allKeys = await listAllObjectKeys(client, config.warehouseBucket, prefix);
   return allKeys.filter((k) => k.endsWith(".parquet"));
-}
-
-/** Fetches a single object from S3 as a Buffer. */
-export async function fetchObject(
-  client: S3Client,
-  bucket: string,
-  key: string,
-): Promise<Buffer> {
-  const response = await client.send(
-    new GetObjectCommand({ Bucket: bucket, Key: key }),
-  );
-  if (!response.Body) throw new Error(`Empty body for s3://${bucket}/${key}`);
-  return readBodyToBuffer(response.Body);
 }

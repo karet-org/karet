@@ -1,6 +1,6 @@
 "use client";
 
-// GraphCanvas -- React Flow wrapper for the Data Flow Graph.
+// GraphCanvas, React Flow wrapper for the Data Flow Graph.
 
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
@@ -196,7 +196,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
 
   const handleNodesChange = useCallback(
     (changes: NodeChange<GraphNode>[]) => {
-      // Block all remove changes -- deletion only via right-click menu
+      // Block all remove changes, deletion only via right-click menu
       const filtered = changes.filter((c) => c.type !== "remove");
       if (filtered.length > 0) {
         setInternalNodes((prev) => applyNodeChanges(filtered, prev));

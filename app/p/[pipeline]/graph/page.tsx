@@ -38,7 +38,7 @@ export default function PipelineGraphPage() {
   const clear = useGraphStore((s) => s.clear);
   const setConfig = useGraphStore((s) => s.setConfig);
   // Subscribe to config so the page re-renders when editors mutate the
-  // store -- otherwise `selectedNodeValue` stays stale and controlled
+  // store, otherwise `selectedNodeValue` stays stale and controlled
   // `<input value=...>` reverts on every keystroke after the first.
   const config = useGraphStore((s) => s.config);
 
@@ -116,7 +116,7 @@ export default function PipelineGraphPage() {
     };
 
     const onClick = (e: MouseEvent) => {
-      // Ignore modified clicks and non-primary buttons -- those are the
+      // Ignore modified clicks and non-primary buttons, those are the
       // user explicitly asking for a new tab/window, not navigating
       // away from the current view.
       if (e.defaultPrevented) return;
@@ -131,7 +131,7 @@ export default function PipelineGraphPage() {
       ) ?? null) as HTMLAnchorElement | null;
       if (!anchor || !anchor.href) return;
 
-      // Skip new-tab links and downloads -- those don't navigate the
+      // Skip new-tab links and downloads, those don't navigate the
       // current page, so the warning would be a false positive.
       if (anchor.target && anchor.target !== "" && anchor.target !== "_self") return;
       if (anchor.hasAttribute("download")) return;
@@ -159,7 +159,7 @@ export default function PipelineGraphPage() {
 
       // Block the navigation entirely so the synchronous click never
       // turns into a route change, then surface a Modal asking whether
-      // to leave. Resolution lives in `pendingNav` -- confirm =
+      // to leave. Resolution lives in `pendingNav`, confirm =
       // router.push, cancel = drop.
       e.preventDefault();
       e.stopPropagation();
@@ -208,7 +208,7 @@ export default function PipelineGraphPage() {
       }
 
       // Validate via the worker before saving. Network failures are
-      // surfaced to the user instead of silently skipping validation --
+      // surfaced to the user instead of silently skipping validation,
       // a worker-down save risks landing a config that's already known
       // to be invalid, so the user must explicitly accept the risk
       // (here, by retrying after the worker is back).
@@ -240,7 +240,7 @@ export default function PipelineGraphPage() {
 
       // Honor the ETag we read at load time so a concurrent edit by
       // another session doesn't get silently overwritten. Failures here
-      // (5xx, 412 ETag mismatch, network) MUST be surfaced -- previously
+      // (5xx, 412 ETag mismatch, network) MUST be surfaced, previously
       // they were swallowed and the dirty banner cleared as if the save
       // had succeeded.
       const etag = useGraphStore.getState().etag;
@@ -296,7 +296,7 @@ export default function PipelineGraphPage() {
     if (!saved) return;
     useGraphStore.setState({ config: saved });
     const built = buildGraph(saved);
-    // Honor the saved `layout` map -- `buildGraph` already reads
+    // Honor the saved `layout` map, `buildGraph` already reads
     // positions out of it. Only fall back to `autoLayout` when the
     // saved config has no layout at all (e.g. a fresh template-created
     // pipeline). The previous version unconditionally re-ran
@@ -542,7 +542,7 @@ export default function PipelineGraphPage() {
  *   - empty / duplicate analytic-table column names
  *   - empty node names (source / lookup / mapping / table)
  *   - duplicate node names *within* a single kind (two tables both
- *     called "Transactions" -- the user can't tell them apart in the
+ *     called "Transactions", the user can't tell them apart in the
  *     sidebar or graph header). Cross-kind name reuse is fine since
  *     the node type is part of the visual identity.
  *
@@ -555,7 +555,7 @@ function validateConfigForSave(cfg: PipelineConfig): string[] {
 
   // Per-kind name uniqueness + non-empty checks. Each kind keeps its
   // own scope so a Source named "Transactions" doesn't collide with a
-  // Table named "Transactions" -- they're different shapes in the UI.
+  // Table named "Transactions", they're different shapes in the UI.
   const kinds: { label: string; entities: { id: string; name?: string }[] }[] = [
     { label: "Source", entities: cfg.source_containers },
     { label: "Lookup", entities: cfg.lookup_mappings },

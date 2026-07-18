@@ -1,4 +1,4 @@
-// Single-admin store -- one S3 object at `_auth/admin.json`.
+// Single-admin store, one S3 object at `_auth/admin.json`.
 
 import { randomBytes } from "node:crypto";
 import {
@@ -95,7 +95,7 @@ export type UpdateAdminResult =
   | { ok: false; reason: "wrong_password" | "no_admin" | "invalid_password" };
 
 /**
- * Change the admin password. Always requires the current password --
+ * Change the admin password. Always requires the current password,
  * relying solely on the session cookie would let a stolen cookie reset
  * credentials silently. Password rule (≥8 chars) matches the setup endpoint.
  */
@@ -129,7 +129,7 @@ const SENTINEL_HASH_PROMISE: Promise<string> = hashPassword(
 
 /**
  * Verify a password against the stored admin hash. Returns true on match.
- * Always runs `verifyPassword` once -- even when no admin exists -- so
+ * Always runs `verifyPassword` once, even when no admin exists, so
  * timing doesn't leak the unprovisioned state.
  */
 export async function verifyAdminPassword(

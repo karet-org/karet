@@ -9,7 +9,7 @@ import {
 /**
  * List every object key under `prefix` in `bucket`, walking continuation
  * tokens so the result is complete. Callers that only want a subset
- * (e.g. a particular extension) should filter the returned list --
+ * (e.g. a particular extension) should filter the returned list,
  * there's no point offering a predicate since the pagination cost is in
  * the S3 round trips, not the client-side filter.
  */

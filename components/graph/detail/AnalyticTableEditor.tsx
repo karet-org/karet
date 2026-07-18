@@ -69,7 +69,7 @@ export function AnalyticTableEditor({
         return rest;
       }
       const next: ColumnAssertions = { ...(c.assertions ?? {}), ...patch };
-      // If every field is unset, drop the object -- the worker treats
+      // If every field is unset, drop the object, the worker treats
       // missing and all-empty the same, but omitting keeps pipeline.json
       // tidy.
       const cleaned = pruneEmptyAssertions(next);

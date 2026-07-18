@@ -2,11 +2,14 @@
 //
 // RustFS POSTs S3-style event payloads here when configured with
 // `RUSTFS_NOTIFY_WEBHOOK_*` (mirrors MinIO's webhook target). Each event
-// references one bucket key; we filter for `pipelines/<slug>/raw/...`
-// and schedule a debounced pipeline run for that slug so a batch upload
-// becomes a single job.
+// references one bucket + key; we react only to uploads into the lake
+// bucket (raw CSV data), pull the pipeline slug from the key, and schedule
+// a debounced run so a batch upload becomes a single job. Events for the
+// pipelines or warehouse buckets are ignored, notably warehouse writes,
+// which would otherwise loop.
 
 import { NextResponse } from "next/server";
+import { loadS3Config } from "@/lib/config/s3-client";
 import { sanitizeSlug } from "@/lib/config/slug";
 import { scheduleRun } from "@/lib/services/job-debouncer";
 
@@ -25,9 +28,8 @@ interface S3EventPayload {
 }
 
 /**
- * Pull `<slug>` out of `pipelines/<slug>/raw/...` style keys. Returns null
- * if the key doesn't match the layout (e.g. clean output, jobs records,
- * or auth files we don't want to react to).
+ * Pull `<slug>` out of a `pipelines/<slug>/...` key. Returns null if the key
+ * doesn't match the layout.
  */
 function pipelineSlugFromKey(rawKey: string): string | null {
   // RustFS URL-encodes some characters in the event payload (consistent
@@ -38,7 +40,7 @@ function pipelineSlugFromKey(rawKey: string): string | null {
   } catch {
     key = rawKey;
   }
-  const match = /^pipelines\/([^/]+)\/raw\//.exec(key);
+  const match = /^pipelines\/([^/]+)\//.exec(key);
   if (!match) return null;
   const slug = sanitizeSlug(match[1]);
   return slug || null;
@@ -55,13 +57,13 @@ function timingSafeEqual(a: string, b: string): boolean {
  * Verifies the shared-secret. Accepts the value via three channels so
  * different webhook clients can use whichever they support:
  *
- *   - `Authorization: Bearer <secret>` (preferred -- what most clients send)
+ *   - `Authorization: Bearer <secret>` (preferred, what most clients send)
  *   - `X-Webhook-Secret: <secret>`     (fallback header)
  *   - `?secret=<secret>` query param   (last resort for clients that
  *     can't customize headers; safe when the receiver is on a private
  *     compose network)
  *
- * Returns false if no secret is configured -- fail closed.
+ * Returns false if no secret is configured, fail closed.
  */
 function isAuthorized(request: Request): boolean {
   const expected = process.env.KARET_WEBHOOK_SECRET;
@@ -93,6 +95,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
+  const { lakeBucket } = loadS3Config();
   const records = Array.isArray(payload.Records) ? payload.Records : [];
   const scheduled = new Set<string>();
   for (const rec of records) {
@@ -100,6 +103,9 @@ export async function POST(request: Request) {
     // restore events that we don't want to trigger pipeline runs.
     const eventName = rec.eventName ?? "";
     if (!eventName.startsWith("s3:ObjectCreated:")) continue;
+    // Only raw uploads (lake bucket) trigger runs. Ignore warehouse writes
+    //, reacting to the pipeline's own Parquet output would loop.
+    if (rec.s3?.bucket?.name !== lakeBucket) continue;
     const key = rec.s3?.object?.key;
     if (!key) continue;
     const slug = pipelineSlugFromKey(key);

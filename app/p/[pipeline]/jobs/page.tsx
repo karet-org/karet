@@ -14,7 +14,9 @@ export default function JobsPage() {
   const [running, setRunning] = useState(false);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [bucketError, setBucketError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
@@ -29,14 +31,19 @@ export default function JobsPage() {
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));
         if (body.error === "bucket_not_found") setBucketError(body.message);
+        else setLoadError(body.message ?? "Could not load jobs.");
         return;
       }
       const d = await r.json();
       setJobs(d.jobs ?? []);
       setTotalPages(d.totalPages ?? 1);
       setTotal(d.total ?? 0);
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : String(e));
     } finally {
       setRefreshing(false);
+      setLoaded(true);
     }
   }, [pipeline, page, pageSize]);
 
@@ -152,8 +159,22 @@ export default function JobsPage() {
 
       <div className="mt-6">
         {bucketError ? (
-          <div className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
             <strong>S3 bucket not found.</strong> {bucketError}
+          </div>
+        ) : loadError ? (
+          <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <strong>Couldn&apos;t load jobs.</strong> {loadError}
+          </div>
+        ) : !loaded ? (
+          <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-gray-200" />
+                <span className="h-3 w-24 animate-pulse rounded bg-gray-200" />
+                <span className="h-3 flex-1 animate-pulse rounded bg-gray-100" />
+              </div>
+            ))}
           </div>
         ) : jobs.length === 0 ? (
           <p className="py-8 text-center text-sm text-gray-400">

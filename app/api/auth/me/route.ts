@@ -43,7 +43,7 @@ export async function PATCH(request: Request) {
   return withS3("PATCH /api/auth/me", async (client, cfg) => {
     const result = await updateAdminPassword(
       client,
-      cfg.bucket,
+      cfg.pipelinesBucket,
       currentPassword,
       newPassword,
     );

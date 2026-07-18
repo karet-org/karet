@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   return withS3("POST /api/auth/login", async (client, cfg) => {
-    const ok = await verifyAdminPassword(client, cfg.bucket, password);
+    const ok = await verifyAdminPassword(client, cfg.pipelinesBucket, password);
     if (!ok) {
       return NextResponse.json(
         { error: "invalid_credentials" },

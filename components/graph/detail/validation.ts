@@ -6,8 +6,6 @@
 // property tests assert the DOM indicator equals the predicate.
 
 import type {
-  AstNode,
-  ColumnSchema,
   LookupMapping,
   Mapping,
   SourceContainer,
@@ -124,41 +122,4 @@ export function validateMapping(
     errors.push("Not connected to an analytic table");
   }
   return { errors };
-}
-
-/**
- * Parse a user-entered JSON string as an `AstNode`.
- *
- * Returns `{ ok: true, value }` when the text parses as JSON and the root
- * has a string `kind` field. Structural validity of the entire tree is
- * surfaced at config-load time; the editor only checks JSON-parsability and
- * the presence of a `kind` tag so the user knows the root is at least a
- * node. Returns `{ ok: false, error }` otherwise.
- */
-export type AstJsonParseResult =
-  | { ok: true; value: AstNode }
-  | { ok: false; error: string };
-
-export function parseAstJson(text: string): AstJsonParseResult {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch (e) {
-    return { ok: false, error: (e as Error).message };
-  }
-  if (
-    parsed === null ||
-    typeof parsed !== "object" ||
-    Array.isArray(parsed)
-  ) {
-    return {
-      ok: false,
-      error: "AST root must be an object with a `kind` field",
-    };
-  }
-  const maybeKind = (parsed as Record<string, unknown>).kind;
-  if (typeof maybeKind !== "string") {
-    return { ok: false, error: "AST root is missing a string `kind` field" };
-  }
-  return { ok: true, value: parsed as AstNode };
 }

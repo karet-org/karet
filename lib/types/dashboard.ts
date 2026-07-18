@@ -161,6 +161,13 @@ export interface DashboardConfig {
   id: string;
   name: string;
   analytic_table_id: string;
+  /**
+   * Optional saved-query id (stem of a `queries/<id>.json`). When set, the
+   * dashboard's rows come from running that query against the warehouse
+   * instead of reading `analytic_table_id`'s Parquet directly. The query's
+   * result columns become the dashboard's schema.
+   */
+  query_id?: string;
   filters: DashboardFilter[];
   panels: Panel[];
   /**

@@ -130,7 +130,7 @@ function LoginForm() {
         data-testid="login-form"
       >
         <div className="mb-6 flex items-center gap-2.5 text-[15px] font-semibold text-[color:var(--color-ink)]">
-          <KaretLogo size={22} />
+          <KaretLogo size={28} />
           Karet
         </div>
         <h2 className="text-[19px] font-semibold tracking-[-0.01em] text-[color:var(--color-ink)]">

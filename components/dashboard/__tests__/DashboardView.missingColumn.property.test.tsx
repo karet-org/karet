@@ -18,7 +18,7 @@ import { arbDashboardConfig } from "@/lib/testgen";
 import DashboardView from "../DashboardView";
 import { requiredColumns } from "../types";
 
-// Mock chart.js rendering -- see DashboardView.order.property.test.tsx.
+// Mock chart.js rendering, see DashboardView.order.property.test.tsx.
 vi.mock("react-chartjs-2", () => {
   const stub = () => null;
   return { Doughnut: stub, Line: stub, Bar: stub };

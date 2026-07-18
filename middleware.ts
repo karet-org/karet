@@ -1,4 +1,4 @@
-// Next.js edge middleware -- login wall.
+// Next.js edge middleware, login wall.
 //
 // Behavior:
 //   - Browser routes (anything except /login, public assets, /api/*): if no
@@ -48,7 +48,7 @@ export async function middleware(request: NextRequest) {
 
   const secret = process.env.KARET_SESSION_SECRET;
   if (!secret) {
-    // Missing configuration -- fail closed instead of silently letting
+    // Missing configuration, fail closed instead of silently letting
     // requests through. The startup check in `instrumentation.ts` should
     // have caught this; this is the belt-and-braces.
     if (isApi) {
@@ -73,7 +73,7 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  // Browser route -- bounce to /login, preserving the original target.
+  // Browser route, bounce to /login, preserving the original target.
   const loginUrl = request.nextUrl.clone();
   loginUrl.pathname = "/login";
   loginUrl.search = "";

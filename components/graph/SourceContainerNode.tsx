@@ -1,4 +1,4 @@
-// Source_Container node -- rectangular card with a "SOURCE" header and a
+// Source_Container node, rectangular card with a "SOURCE" header and a
 // compact column list underneath. Design: right handle only.
 
 import { Handle, Position, type NodeProps } from "@xyflow/react";
@@ -22,7 +22,7 @@ export function SourceContainerNode({
         <div className="text-sm font-semibold text-gray-800">{entity.name}</div>
         <ul className="mt-1 space-y-0.5 text-xs text-gray-600">
           {entity.schema.map((col, i) => (
-            // Key by index, not name -- newly-added columns share an
+            // Key by index, not name, newly-added columns share an
             // empty name string and would collide as duplicate keys.
             <li key={i} className="flex justify-between gap-2">
               <span className="truncate">{col.name}</span>

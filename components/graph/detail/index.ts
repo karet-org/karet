@@ -8,7 +8,6 @@ export type { SourceContainerEditorProps } from "./SourceContainerEditor";
 export {
   MappingEditor,
   AST_JSON_PARSE_ERROR_TESTID,
-  AST_JSON_TEXTAREA_TESTID,
   MAPPING_COLUMN_EDITOR_TESTID,
 } from "./MappingEditor";
 export type { MappingEditorProps } from "./MappingEditor";
@@ -26,14 +25,10 @@ export {
   validateSourceContainer,
   validateLookupMapping,
   validateMapping,
-  parseAstJson,
   KNOWN_COLUMN_TYPES,
   isKnownColumnType,
 } from "./validation";
 export type {
   ValidationResult,
-  AstJsonParseResult,
   KnownColumnType,
 } from "./validation";
-export { AST_KINDS, defaultAst } from "./astDefaults";
-export type { AstKind } from "./astDefaults";

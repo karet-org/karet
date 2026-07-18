@@ -28,12 +28,13 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8080"
-      S3_BUCKET: ${S3_BUCKET:-karet-data}
+      S3_BUCKET_PIPELINES: ${S3_BUCKET_PIPELINES:-karet-pipelines}
+      S3_BUCKET_LAKE: ${S3_BUCKET_LAKE:-karet-lake}
+      S3_BUCKET_WAREHOUSE: ${S3_BUCKET_WAREHOUSE:-karet-warehouse}
       AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL:-http://rustfs:9000}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-rustfsadmin}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-rustfsadmin}
       AWS_REGION: ${AWS_REGION:-us-east-1}
-      POLARS_MAX_THREADS: "2"
     depends_on:
       - rustfs
 
@@ -44,7 +45,9 @@ services:
       - "3000:3000"
     environment:
       PORT: "3000"
-      S3_BUCKET: ${S3_BUCKET:-karet-data}
+      S3_BUCKET_PIPELINES: ${S3_BUCKET_PIPELINES:-karet-pipelines}
+      S3_BUCKET_LAKE: ${S3_BUCKET_LAKE:-karet-lake}
+      S3_BUCKET_WAREHOUSE: ${S3_BUCKET_WAREHOUSE:-karet-warehouse}
       AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL:-http://rustfs:9000}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-rustfsadmin}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-rustfsadmin}

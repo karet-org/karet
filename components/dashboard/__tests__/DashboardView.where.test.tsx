@@ -35,7 +35,7 @@ const ROWS: Row[] = [
   { date: "2025-01-02", description: "WIRE OUT", amount: 1000, category: "TRANSFER" },
   { date: "2025-01-03", description: "WEALTHSIMPLE", amount: 500, category: "INVESTMENT" },
   { date: "2025-01-04", description: "WALMART", amount: 25, category: "SHOPPING" },
-  // pre-recategorization row -- where clause is forgiving on null
+  // pre-recategorization row, where clause is forgiving on null
   { date: "2025-01-05", description: "MYSTERY", amount: 9, category: null },
 ];
 

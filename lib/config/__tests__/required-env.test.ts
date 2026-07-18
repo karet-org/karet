@@ -21,15 +21,15 @@ describe("required-env", () => {
 
   it("missingRequiredEnvVars lists undefined vars in declared order", () => {
     const env = completeEnv();
-    delete env.S3_BUCKET;
+    delete env.S3_BUCKET_PIPELINES;
     delete env.AWS_REGION;
-    expect(missingRequiredEnvVars(env)).toEqual(["S3_BUCKET", "AWS_REGION"]);
+    expect(missingRequiredEnvVars(env)).toEqual(["S3_BUCKET_PIPELINES", "AWS_REGION"]);
   });
 
   it("missingRequiredEnvVars treats empty string as missing", () => {
     const env = completeEnv();
-    env.S3_BUCKET = "";
-    expect(missingRequiredEnvVars(env)).toEqual(["S3_BUCKET"]);
+    env.S3_BUCKET_LAKE = "";
+    expect(missingRequiredEnvVars(env)).toEqual(["S3_BUCKET_LAKE"]);
   });
 
   it("assertRequiredEnvVars throws naming every missing var", () => {
@@ -42,7 +42,7 @@ describe("required-env", () => {
 
   it("assertRequiredEnvVars message is descriptive", () => {
     const env = completeEnv();
-    delete env.S3_BUCKET;
+    delete env.S3_BUCKET_WAREHOUSE;
     let thrown: unknown;
     try {
       assertRequiredEnvVars(env);
@@ -52,7 +52,7 @@ describe("required-env", () => {
     expect(thrown).toBeInstanceOf(Error);
     const message = (thrown as Error).message;
     expect(message).toContain("karet");
-    expect(message).toContain("S3_BUCKET");
+    expect(message).toContain("S3_BUCKET_WAREHOUSE");
     expect(message).toContain("docker-compose.yaml");
   });
 });

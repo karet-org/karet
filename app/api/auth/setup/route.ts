@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 
 export async function GET() {
   return withS3("GET /api/auth/setup", async (client, cfg) => {
-    return NextResponse.json({ needsSetup: !(await hasAdmin(client, cfg.bucket)) });
+    return NextResponse.json({ needsSetup: !(await hasAdmin(client, cfg.pipelinesBucket)) });
   });
 }
 
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   }
 
   return withS3("POST /api/auth/setup", async (client, cfg) => {
-    const result = await createInitialAdmin(client, cfg.bucket, password);
+    const result = await createInitialAdmin(client, cfg.pipelinesBucket, password);
     if (!result.created) {
       return NextResponse.json(
         { error: "already_initialized" },

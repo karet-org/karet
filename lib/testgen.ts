@@ -2,7 +2,7 @@
 //
 // Mirrors the proptest generators in `src/karet-worker/src/testgen.rs` so
 // the TypeScript and Rust property tests draw from the same distribution.
-// Generators are intentionally bounded -- `arbAstNode` caps depth at ~6 via
+// Generators are intentionally bounded, `arbAstNode` caps depth at ~6 via
 // `fc.letrec`'s depth-identifier so shrinking stays fast.
 
 import fc from "fast-check";
@@ -77,7 +77,7 @@ const arbFiniteNumber: fc.Arbitrary<number> = fc.double({
 });
 
 // ---------------------------------------------------------------------------
-// AstNode -- recursive generator via fc.letrec (depth-limited).
+// AstNode, recursive generator via fc.letrec (depth-limited).
 // ---------------------------------------------------------------------------
 
 /**
@@ -92,7 +92,7 @@ export const arbAstNode: fc.Arbitrary<AstNode> = fc.letrec<{
 }>((tie) => ({
   node: fc.oneof(
     { depthIdentifier: "astNode", depthSize: "small", withCrossShrink: true },
-    // Leaves (non-recursive) -- listed first so they're picked as depth grows.
+    // Leaves (non-recursive), listed first so they're picked as depth grows.
     arbName.map<AstNode>((name) => ({ kind: "col", name })),
     fc.string().map<AstNode>((value) => ({ kind: "str", value })),
     arbFiniteNumber.map<AstNode>((value) => ({ kind: "num", value })),
@@ -201,7 +201,7 @@ export const arbAnalyticTableSchema: fc.Arbitrary<ColumnSchema[]> = fc.array(
   { minLength: 1, maxLength: 5 },
 );
 
-/** {@link SourceContainer} -- non-empty schema (1..=5 cols). */
+/** {@link SourceContainer}, non-empty schema (1..=5 cols). */
 export const arbSourceContainer: fc.Arbitrary<SourceContainer> = fc.record({
   id: arbId,
   name: arbName,
@@ -220,7 +220,7 @@ export const arbLookupRow: fc.Arbitrary<LookupRow> = fc.record(
 );
 
 /**
- * {@link LookupMapping} -- flat (no recursive children).
+ * {@link LookupMapping}, flat (no recursive children).
  *
  * Mirrors the Rust generator: `children` is omitted so the generator stays
  * bounded; validator tests build hierarchies explicitly.
@@ -289,7 +289,7 @@ export const arbLayoutPosition: fc.Arbitrary<LayoutPosition> = fc.record({
  * the returned config is globally unique. Appends `_1`, `_2`, ... to the
  * second and subsequent occurrences of a previously seen id.
  *
- * Only the entity `id` fields are rewritten -- cross-entity reference fields
+ * Only the entity `id` fields are rewritten, cross-entity reference fields
  * (`Mapping.source_container_id`, `Mapping.analytic_table_id`, AST
  * `lookup_ref.lookup_id`) are left untouched, preserving the existing
  * contract that references are not guaranteed to resolve.
@@ -330,13 +330,13 @@ function uniquifyEntityIds(cfg: PipelineConfig): PipelineConfig {
 
 /**
  * Full {@link PipelineConfig}. References across collections are NOT
- * guaranteed to resolve -- validator tests construct valid configs explicitly.
+ * guaranteed to resolve, validator tests construct valid configs explicitly.
  *
  * The entity `id` fields in `source_containers`, `lookup_mappings`,
  * `mappings`, and `analytic_tables` are guaranteed to be globally unique
  * across all four collections (colliding ids emitted by the sub-generators
  * are disambiguated with a `_N` suffix after generation). This keeps graph
- * rendering -- which emits one node per entity, keyed by `id` -- well-defined
+ * rendering, which emits one node per entity, keyed by `id`, well-defined
  * on arbitrary configs.
  */
 export const arbPipelineConfig: fc.Arbitrary<PipelineConfig> = fc
@@ -400,7 +400,7 @@ export const arbDashboardFilter: fc.Arbitrary<DashboardFilter> = fc.record({
   label: arbName,
 });
 
-/** {@link Panel} -- uniform choice over the supported panel kinds. */
+/** {@link Panel}, uniform choice over the supported panel kinds. */
 export const arbPanel: fc.Arbitrary<Panel> = fc.oneof(
   fc.record(
     {

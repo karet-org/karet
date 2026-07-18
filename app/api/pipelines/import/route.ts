@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import JSZip from "jszip";
-import { createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import { bucketForRelPath, createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import { sanitizeSlug } from "@/lib/config/slug";
 
 export async function POST(request: Request) {
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
       await client.send(
         new PutObjectCommand({
-          Bucket: base.bucket,
+          Bucket: bucketForRelPath(base, relPath),
           Key: key,
           Body: data,
           ContentType: contentType,

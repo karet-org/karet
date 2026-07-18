@@ -39,7 +39,7 @@ describe("LookupMappingEditor", () => {
   });
 
   it("hides the error indicator when no rows exist", () => {
-    // Vacuously true -- no row violates the predicate.
+    // Vacuously true, no row violates the predicate.
     const { container } = renderEditor({ id: "L", rows: [] });
     expect(
       container.querySelector(

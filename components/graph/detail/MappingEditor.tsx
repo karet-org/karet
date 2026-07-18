@@ -5,7 +5,7 @@
 // shows a hint prompting the user to make that connection first. Once a
 // final table is selected, the editor renders exactly one row per column
 // in that table's schema (in order) and the user edits only the
-// expression for each. Columns can't be freely added or removed -- the
+// expression for each. Columns can't be freely added or removed, the
 // set is the target table's schema.
 //
 // Expressions are parsed on blur using the existing expression parser.
@@ -18,7 +18,7 @@ import type {
   MappingColumn,
   PartitionBy,
 } from "@/lib/types/config";
-import { astSummary, astExpression } from "../astSummary";
+import { astExpression } from "../astSummary";
 import { parseExpression } from "@/lib/graph/expressionParser";
 import { useGraphStore } from "@/lib/graph/store";
 import { ExpandableTextField } from "@/components/ui/ExpandableTextField";
@@ -32,7 +32,6 @@ export interface MappingEditorProps {
 
 export const MAPPING_COLUMN_EDITOR_TESTID = "mapping-column-editor";
 export const AST_JSON_PARSE_ERROR_TESTID = "ast-json-parse-error";
-export const AST_JSON_TEXTAREA_TESTID = "ast-json-textarea";
 export const MAPPING_EDITOR_UNCONNECTED_TESTID = "mapping-editor-unconnected";
 export const PARTITION_BY_EDITOR_TESTID = "partition-by-editor";
 
@@ -63,7 +62,7 @@ export function MappingEditor({ value, onChange }: MappingEditorProps) {
   //
   // The zustand selector returns the resolved `SourceContainer` (or
   // `null` / `undefined`) rather than a derived `string[]` so the
-  // default Object.is equality doesn't fire on every render -- deriving
+  // default Object.is equality doesn't fire on every render, deriving
   // column names inline would mint a new array each call and trigger
   // an infinite re-render loop.
   const source = useGraphStore((s) => {
@@ -97,7 +96,7 @@ export function MappingEditor({ value, onChange }: MappingEditorProps) {
       </EditorField>
       {(() => {
         // Suppress the "No final table connected" amber entry when the
-        // dashed placeholder below is already showing it -- otherwise the
+        // dashed placeholder below is already showing it, otherwise the
         // user sees the same warning twice.
         const shown = validationResult.errors.filter(
           (e) => table || !/analytic table/i.test(e),
@@ -243,7 +242,7 @@ function PartitionByEditor({ value, columns, tableSchema, onChange }: PartitionB
               onChange={(e) => setColumn(e.target.value)}
             >
               {/* Keep the current value in the list even if it's not a
-                  produced date column so the validator -- not the UI -- is
+                  produced date column so the validator, not the UI, is
                   the source of truth about what's acceptable. */}
               {(missing ||
                 !dateColumns.includes(value.column)) && (
@@ -311,7 +310,7 @@ function stripPartitionBy(m: Mapping): Mapping {
  *   - `undefined`: no source configured at all (either newly-created or
  *     source was deleted and its reference cleared). Any `col` reference
  *     in the expression is unresolvable. We still flag it so the user
- *     sees the per-column error immediately on opening the mapping -- the
+ *     sees the per-column error immediately on opening the mapping, the
  *     amber banner at the top complements this, it doesn't replace it.
  */
 function validateExprText(

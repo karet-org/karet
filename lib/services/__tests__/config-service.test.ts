@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { Readable } from "node:stream";
 import {
   CopyObjectCommand,
+  DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -19,13 +20,17 @@ import {
 } from "@aws-sdk/client-s3";
 import type { S3Config } from "@/lib/config/s3-client";
 import {
+  deleteQuery,
   getDashboard,
   getPipelineConfig,
+  getQuery,
   listDashboards,
   listDashboardsWithNames,
   listParquetKeys,
+  listQueries,
   PreconditionFailedError,
   putPipelineConfig,
+  putQuery,
   renamePipelinePrefix,
   SourceNotFoundError,
   TargetExistsError,
@@ -113,6 +118,12 @@ function buildStubClient(initial: Record<string, Stored> = {}): S3Client {
       return { CopyObjectResult: { ETag: `"${etag}"` } };
     }
 
+    if (command instanceof DeleteObjectCommand) {
+      const key = command.input.Key!;
+      store.delete(key);
+      return {};
+    }
+
     if (command instanceof DeleteObjectsCommand) {
       const objects = command.input.Delete?.Objects ?? [];
       for (const o of objects) {
@@ -128,12 +139,15 @@ function buildStubClient(initial: Record<string, Stored> = {}): S3Client {
 }
 
 const DEFAULT_CONFIG: S3Config = {
-  bucket: "karet-data",
+  pipelinesBucket: "karet-pipelines",
+  lakeBucket: "karet-lake",
+  warehouseBucket: "karet-warehouse",
   region: "us-east-1",
   forcePathStyle: true,
   pipelineConfigKey: "config/pipeline.json",
   dashboardsPrefix: "dashboards/",
-  cleanPrefix: "clean/",
+  queriesPrefix: "queries/",
+  warehousePrefix: "",
   pipelinesPrefix: "pipelines/",
 };
 
@@ -424,22 +438,22 @@ describe("config-service", () => {
 
     it("lists only parquet keys under the requested table prefix", async () => {
       const client = buildStubClient({
-        "clean/transactions/year=2024/month=01/a.parquet": {
+        "transactions/year=2024/month=01/a.parquet": {
           body: "",
           etag: "1",
         },
-        "clean/transactions/year=2024/month=02/b.parquet": {
+        "transactions/year=2024/month=02/b.parquet": {
           body: "",
           etag: "2",
         },
-        "clean/transactions/manifest.json": { body: "{}", etag: "3" },
-        "clean/other/y.parquet": { body: "", etag: "4" },
+        "transactions/manifest.json": { body: "{}", etag: "3" },
+        "other/y.parquet": { body: "", etag: "4" },
       });
 
       const keys = await listParquetKeys(client, DEFAULT_CONFIG, "transactions");
       expect(keys.sort()).toEqual([
-        "clean/transactions/year=2024/month=01/a.parquet",
-        "clean/transactions/year=2024/month=02/b.parquet",
+        "transactions/year=2024/month=01/a.parquet",
+        "transactions/year=2024/month=02/b.parquet",
       ]);
     });
   });
@@ -457,18 +471,17 @@ describe("config-service", () => {
       const client = buildStubClient({
         "pipelines/old/pipeline.json": { body: MINIMAL_CONFIG_JSON, etag: "1" },
         "pipelines/old/dashboards/overview.json": { body: "{}", etag: "2" },
-        "pipelines/old/clean/t/year=2024/month=01/data.parquet": {
+        "pipelines/old/t/year=2024/month=01/data.parquet": {
           body: "PAR1",
           etag: "3",
         },
-        // Unrelated pipeline -- must be left alone.
+        // Unrelated pipeline, must be left alone.
         "pipelines/other/pipeline.json": { body: MINIMAL_CONFIG_JSON, etag: "4" },
       });
 
       const moved = await renamePipelinePrefix(
         client,
-        "karet-data",
-        "pipelines/",
+        DEFAULT_CONFIG,
         "old",
         "new",
       );
@@ -478,16 +491,16 @@ describe("config-service", () => {
       // The old prefix is empty after the rename.
       const oldKeys = await listParquetKeys(
         client,
-        { ...DEFAULT_CONFIG, cleanPrefix: "pipelines/old/" },
+        { ...DEFAULT_CONFIG, warehousePrefix: "pipelines/old/" },
         "",
       );
       expect(oldKeys).toEqual([]);
 
       // New keys exist with the same relative paths.
-      const newCfg = { ...DEFAULT_CONFIG, cleanPrefix: "pipelines/new/clean/" };
+      const newCfg = { ...DEFAULT_CONFIG, warehousePrefix: "pipelines/new/" };
       const newParquet = await listParquetKeys(client, newCfg, "t");
       expect(newParquet).toEqual([
-        "pipelines/new/clean/t/year=2024/month=01/data.parquet",
+        "pipelines/new/t/year=2024/month=01/data.parquet",
       ]);
 
       // The unrelated pipeline's pipeline.json still loads.
@@ -502,7 +515,7 @@ describe("config-service", () => {
     it("throws SourceNotFoundError when no objects exist under the old prefix", async () => {
       const client = buildStubClient({});
       await expect(
-        renamePipelinePrefix(client, "karet-data", "pipelines/", "ghost", "new"),
+        renamePipelinePrefix(client, DEFAULT_CONFIG, "ghost", "new"),
       ).rejects.toBeInstanceOf(SourceNotFoundError);
     });
 
@@ -512,7 +525,7 @@ describe("config-service", () => {
         "pipelines/new/pipeline.json": { body: MINIMAL_CONFIG_JSON, etag: "2" },
       });
       await expect(
-        renamePipelinePrefix(client, "karet-data", "pipelines/", "old", "new"),
+        renamePipelinePrefix(client, DEFAULT_CONFIG, "old", "new"),
       ).rejects.toBeInstanceOf(TargetExistsError);
 
       // Pre-flight failed before any copy ran, so the old pipeline is intact.
@@ -524,7 +537,7 @@ describe("config-service", () => {
     });
 
     it("handles keys containing characters that need URL-encoding in CopySource", async () => {
-      // Spaces, plus signs, parens -- all legal in S3 keys, all require
+      // Spaces, plus signs, parens, all legal in S3 keys, all require
       // encoding in the CopySource header.
       const client = buildStubClient({
         "pipelines/old/raw/weird name (1).csv": { body: "a,b\n1,2", etag: "1" },
@@ -532,8 +545,7 @@ describe("config-service", () => {
       });
       const moved = await renamePipelinePrefix(
         client,
-        "karet-data",
-        "pipelines/",
+        DEFAULT_CONFIG,
         "old",
         "new",
       );
@@ -546,6 +558,57 @@ describe("config-service", () => {
       };
       const pc = await getPipelineConfig(client, cfg);
       expect(pc).not.toBeNull();
+    });
+  });
+
+  describe("saved queries", () => {
+    it("putQuery then getQuery round-trips", async () => {
+      const client = buildStubClient();
+      await putQuery(client, DEFAULT_CONFIG, {
+        id: "monthly_spend",
+        name: "Monthly spend",
+        sql: "SELECT * FROM transactions",
+      });
+      const got = await getQuery(client, DEFAULT_CONFIG, "monthly_spend");
+      expect(got).toEqual({
+        id: "monthly_spend",
+        name: "Monthly spend",
+        sql: "SELECT * FROM transactions",
+      });
+    });
+
+    it("getQuery returns null for a missing query", async () => {
+      const client = buildStubClient();
+      expect(await getQuery(client, DEFAULT_CONFIG, "nope")).toBeNull();
+    });
+
+    it("putQuery rejects a duplicate id unless overwrite is set", async () => {
+      const client = buildStubClient();
+      const q = { id: "dup", name: "Dup", sql: "SELECT 1" };
+      await putQuery(client, DEFAULT_CONFIG, q);
+      await expect(putQuery(client, DEFAULT_CONFIG, q)).rejects.toBeInstanceOf(
+        TargetExistsError,
+      );
+      // overwrite bypasses the guard.
+      await expect(
+        putQuery(client, DEFAULT_CONFIG, { ...q, sql: "SELECT 2" }, true),
+      ).resolves.toBeUndefined();
+      expect((await getQuery(client, DEFAULT_CONFIG, "dup"))?.sql).toBe("SELECT 2");
+    });
+
+    it("listQueries returns saved queries sorted by name", async () => {
+      const client = buildStubClient();
+      await putQuery(client, DEFAULT_CONFIG, { id: "b", name: "Beta", sql: "SELECT 1" });
+      await putQuery(client, DEFAULT_CONFIG, { id: "a", name: "Alpha", sql: "SELECT 2" });
+      const list = await listQueries(client, DEFAULT_CONFIG);
+      expect(list.map((q) => q.name)).toEqual(["Alpha", "Beta"]);
+    });
+
+    it("deleteQuery removes a saved query", async () => {
+      const client = buildStubClient();
+      await putQuery(client, DEFAULT_CONFIG, { id: "x", name: "X", sql: "SELECT 1" });
+      await deleteQuery(client, DEFAULT_CONFIG, "x");
+      expect(await getQuery(client, DEFAULT_CONFIG, "x")).toBeNull();
     });
   });
 });

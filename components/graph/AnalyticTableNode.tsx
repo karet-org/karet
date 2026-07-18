@@ -1,4 +1,4 @@
-// Analytic_Table node -- card with a grid icon, "TABLE" header, and the
+// Analytic_Table node, card with a grid icon, "TABLE" header, and the
 // output column list. Design: left handle only (terminal node).
 
 import { Handle, Position, type NodeProps } from "@xyflow/react";
@@ -27,7 +27,7 @@ export function AnalyticTableNode({
             // Key by index, not name. Newly-added columns start with an
             // empty name; if we keyed by `col.name`, two empty columns
             // would collide and React's reconciler would mis-match them
-            // against the previous render -- visibly doubling the row
+            // against the previous render, visibly doubling the row
             // count until the page reloads.
             <li key={i} className="flex justify-between gap-2">
               <span className="truncate">{col.name}</span>

@@ -1,7 +1,7 @@
 "use client";
 
 // Summary panel: shows the row count plus a small card per declared column
-// with a sensible default aggregate -- sum for numeric columns, distinct
+// with a sensible default aggregate, sum for numeric columns, distinct
 // count for non-numeric ones. Matches the design's "Summary" panel kind.
 
 import type { Panel } from "@/lib/types/dashboard";
@@ -13,7 +13,7 @@ type SummaryPanelConfig = Extract<Panel, { kind: "summary" }>;
 /**
  * A column is "numeric" iff the first non-null value in `rows` for that
  * column coerces to a finite number via `toNum`. Rows after the first
- * non-null are not inspected -- dashboards are expected to have
+ * non-null are not inspected, dashboards are expected to have
  * type-consistent columns because they're backed by typed Parquet schemas.
  */
 function isNumericColumn(rows: Record<string, unknown>[], col: string): boolean {

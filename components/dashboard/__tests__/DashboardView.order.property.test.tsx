@@ -17,7 +17,7 @@ import { requiredColumns } from "../types";
 
 // Chart.js pulls `canvas` into jsdom, which isn't available. Stub the
 // chart primitives with no-op components so the tree still renders
-// deterministically. The mock factory is hoisted -- it must avoid JSX and
+// deterministically. The mock factory is hoisted, it must avoid JSX and
 // outer-scope references.
 vi.mock("react-chartjs-2", () => {
   const stub = () => null;

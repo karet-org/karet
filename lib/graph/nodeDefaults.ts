@@ -20,7 +20,7 @@ function defaultSourceContainer(): SourceContainer {
   return {
     id,
     name: "New Source",
-    path_prefix: `raw/${id}/`,
+    path_prefix: `${id}/`,
     schema: [{ name: "id", type: "string" }],
   };
 }
@@ -53,7 +53,7 @@ function defaultAnalyticTable(): AnalyticTable {
   return {
     id,
     name: "New Table",
-    output_prefix: `clean/${id}/`,
+    output_prefix: `${id}/`,
     schema: [{ name: "id", type: "string" }],
   };
 }
@@ -168,7 +168,7 @@ export function syncMappingColumnsToSchema(
     const newName = nextSchema[i].name;
     if (oldName === newName) continue;
     // Only treat as a rename if the new name didn't exist before and
-    // the old name doesn't exist now -- otherwise we'd misclassify a
+    // the old name doesn't exist now, otherwise we'd misclassify a
     // delete-then-add at the same index as a rename.
     if (!oldNames.has(newName) && !newNames.has(oldName)) {
       renamedTo.set(oldName, newName);
@@ -189,7 +189,7 @@ export function syncMappingColumnsToSchema(
       }
     }
 
-    // Otherwise this is a fresh add -- seed with `null`.
+    // Otherwise this is a fresh add, seed with `null`.
     return { name: col.name, expr: { kind: "null" as const } };
   });
 
@@ -200,7 +200,7 @@ export function syncMappingColumnsToSchema(
  * Cascading damage that deleting `nodeId` would cause beyond the node
  * itself. Used by the graph-page delete-confirm modal so users see the
  * downstream impact before they commit. Empty arrays mean "no
- * cascading damage" -- the node can be deleted cleanly.
+ * cascading damage", the node can be deleted cleanly.
  */
 export interface DeleteImpact {
   /** Mappings whose `source_container_id` points at the doomed node. */
@@ -257,7 +257,7 @@ export function analyzeNodeDeleteImpact(
   //   - Deleting a Source breaks any `{ kind: "col" }` whose `name`
   //     resolves to a column in *that* source's schema (only when
   //     the column also belongs to a mapping connected to that
-  //     source -- otherwise the col-ref points at some other source).
+  //     source, otherwise the col-ref points at some other source).
   //   - Deleting a Lookup breaks any `{ kind: "lookup_ref" }` whose
   //     `lookup_id` (after dotted-root extraction) matches the
   //     doomed lookup's id.
@@ -295,7 +295,7 @@ export function analyzeNodeDeleteImpact(
   }
 
   // Deleting a Mapping or Table doesn't break expressions inside
-  // *other* mappings -- no expression syntax references those by id.
+  // *other* mappings, no expression syntax references those by id.
   // The mapping/table delete is captured by node removal alone.
   if (isMapping) {
     // No expression-level cascades; the mapping's own columns are
@@ -308,7 +308,7 @@ export function analyzeNodeDeleteImpact(
 /**
  * Replace every `lookup_ref` whose root id matches `lookupId` with a
  * `null` AST atom. Used when a Lookup is deleted so the surviving
- * mapping columns at least parse against the worker schema -- the
+ * mapping columns at least parse against the worker schema, the
  * user still has to rewrite the affected columns, but they won't get
  * a cryptic worker error on next save.
  */

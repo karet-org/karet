@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { withS3 } from "@/lib/config/s3-client";
+import { bucketForRelPath, withS3 } from "@/lib/config/s3-client";
 import { sanitizeSlug } from "@/lib/config/slug";
 import { listPipelines } from "@/lib/services/config-service";
 import { TEMPLATES, type TemplateId } from "@/lib/templates";
@@ -30,16 +30,16 @@ export async function POST(request: Request) {
 
     // Reject if a pipeline.json already exists at this slug
     try {
-      await client.send(new HeadObjectCommand({ Bucket: config.bucket, Key: pipelineKey }));
+      await client.send(new HeadObjectCommand({ Bucket: config.pipelinesBucket, Key: pipelineKey }));
       return NextResponse.json({ error: "already_exists", pipeline: slug }, { status: 409 });
     } catch {
-      // not found -- ok to create
+      // not found, ok to create
     }
 
     for (const [relPath, content] of Object.entries(template.files)) {
       await client.send(
         new PutObjectCommand({
-          Bucket: config.bucket,
+          Bucket: bucketForRelPath(config, relPath),
           Key: `${prefix}${relPath}`,
           Body: JSON.stringify(content, null, 2),
           ContentType: "application/json",
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       for (const [relPath, content] of Object.entries(template.rawFiles)) {
         await client.send(
           new PutObjectCommand({
-            Bucket: config.bucket,
+            Bucket: bucketForRelPath(config, relPath),
             Key: `${prefix}${relPath}`,
             Body: content,
             ContentType: relPath.endsWith(".csv")

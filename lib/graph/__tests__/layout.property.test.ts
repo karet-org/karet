@@ -44,7 +44,7 @@ function makeNode(id: string): GraphNode {
 const arbDag: fc.Arbitrary<{ nodes: GraphNode[]; edges: GraphEdge[] }> = fc
   .integer({ min: 2, max: 10 })
   .chain((k) => {
-    // Upper-triangular pairs (u < v) -- the full candidate edge set for k nodes.
+    // Upper-triangular pairs (u < v), the full candidate edge set for k nodes.
     const candidates: Array<[number, number]> = [];
     for (let u = 0; u < k; u++) {
       for (let v = u + 1; v < k; v++) {

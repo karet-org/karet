@@ -72,7 +72,7 @@ async function fetchJobRecord(
   }
 }
 
-/** GET -- list job history (paginated, newest first). */
+/** GET, list job history (paginated, newest first). */
 export async function GET(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
@@ -90,7 +90,7 @@ export async function GET(
   );
 
   return wrapS3Error(async () => {
-    const allKeys = await listAllObjectKeys(client, base.bucket, prefix);
+    const allKeys = await listAllObjectKeys(client, base.pipelinesBucket, prefix);
     // Newest first; paginate over the key list so we only fetch the page's
     // records, not the entire history.
     const sorted = allKeys
@@ -101,7 +101,7 @@ export async function GET(
     const pageKeys = sorted.slice(start, start + pageSize);
 
     const results = await Promise.all(
-      pageKeys.map((key) => fetchJobRecord(client, base.bucket, key)),
+      pageKeys.map((key) => fetchJobRecord(client, base.pipelinesBucket, key)),
     );
     const jobs = results.filter((j): j is JobRecord => j !== null);
     const reconciled = reconcileOrphans(jobs);
@@ -117,7 +117,7 @@ export async function GET(
 }
 
 /**
- * POST -- trigger a new job. Returns immediately with the initial
+ * POST, trigger a new job. Returns immediately with the initial
  * `running` record; the pipeline runs in the background of this Node
  * process. Poll GET `/jobs` to watch the status transition to
  * `completed` | `failed`.

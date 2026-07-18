@@ -4,7 +4,7 @@
 // order. Panels referencing a column missing from the table render as
 // ErrorPanel; the rest of the dashboard continues to render.
 //
-// Pure in its inputs (config, rows, schema) -- the property tests rely
+// Pure in its inputs (config, rows, schema), the property tests rely
 // on that.
 
 import { useMemo, useState } from "react";

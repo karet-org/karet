@@ -1,25 +1,15 @@
 import { notFound } from "next/navigation";
 import { createS3Client, loadS3Config, pipelineS3Config } from "@/lib/config/s3-client";
 import {
-  fetchObject,
   getDashboard,
   getPipelineConfig,
-  listParquetKeys,
+  getQuery,
 } from "@/lib/services/config-service";
-import { loadTableRows } from "@/lib/services/parquet-parser";
+import { loadTableRowsDuckDB } from "@/lib/services/duckdb";
+import { runPipelineQuery } from "@/lib/services/query-service";
 import type { ColumnSchema } from "@/lib/types/config";
 import DashboardView from "@/components/dashboard/DashboardView";
 import type { Row } from "@/components/dashboard/types";
-
-async function loadRowsForTable(
-  client: ReturnType<typeof createS3Client>,
-  cfg: ReturnType<typeof loadS3Config>,
-  tableId: string,
-): Promise<Row[]> {
-  const keys = await listParquetKeys(client, cfg, tableId);
-  if (keys.length === 0) return [];
-  return loadTableRows<Row>(keys, (key) => fetchObject(client, cfg.bucket, key));
-}
 
 export default async function PipelineDashboardPage({
   params,
@@ -33,19 +23,40 @@ export default async function PipelineDashboardPage({
   const dashboard = await getDashboard(client, cfg, name);
   if (!dashboard) notFound();
 
-  // pipeline config (for the schema) and the rows are independent; fetch
-  // them concurrently rather than one after the other.
-  const [pipelineCfg, rows] = await Promise.all([
-    getPipelineConfig(client, cfg),
-    loadRowsForTable(client, cfg, dashboard.analytic_table_id),
-  ]);
+  const pipelineCfg = await getPipelineConfig(client, cfg);
 
-  let schema: ColumnSchema[] | null =
-    pipelineCfg?.config.analytic_tables.find(
-      (t) => t.id === dashboard.analytic_table_id,
-    )?.schema ?? null;
+  // When the dashboard is backed by a saved query, run it against the
+  // warehouse and take its result columns as the schema. Otherwise read the
+  // analytic table's Parquet directly and use its declared schema.
+  let rows: Row[] = [];
+  let schema: ColumnSchema[] | null = null;
+  // Non-null when a query-backed dashboard can't produce rows, so the page
+  // can explain why the panels are empty instead of silently showing "No
+  // data" everywhere.
+  let dataError: string | null = null;
 
-  if (!schema) {
+  if (dashboard.query_id && pipelineCfg) {
+    const saved = await getQuery(client, cfg, dashboard.query_id);
+    if (!saved) {
+      dataError = `Saved query "${dashboard.query_id}" no longer exists. Recreate it on the Data page or update this dashboard's query_id.`;
+    } else {
+      const result = await runPipelineQuery(pipeline, pipelineCfg.config, saved.sql);
+      if ("error" in result) {
+        dataError = `The saved query "${dashboard.query_id}" failed to run: ${result.error}`;
+      } else {
+        rows = result.rows as Row[];
+        schema = result.columns.map((name) => ({ name, type: "string" }));
+      }
+    }
+  } else {
+    rows = await loadTableRowsDuckDB<Row>(pipeline, dashboard.analytic_table_id);
+    schema =
+      pipelineCfg?.config.analytic_tables.find(
+        (t) => t.id === dashboard.analytic_table_id,
+      )?.schema ?? null;
+  }
+
+  if (!schema || schema.length === 0) {
     const inferred = new Map<string, string>();
     for (const row of rows) {
       for (const [k, v] of Object.entries(row)) {
@@ -61,9 +72,21 @@ export default async function PipelineDashboardPage({
       <header className="rounded-lg border border-orange-100 bg-white px-3 py-2 shadow-sm sm:px-4 sm:py-3">
         <h1 className="text-base font-semibold text-orange-600 sm:text-lg">{dashboard.name}</h1>
         <p className="text-xs text-gray-500">
-          Table: {dashboard.analytic_table_id} · {rows.length} rows
+          {dashboard.query_id
+            ? `Query: ${dashboard.query_id}`
+            : `Table: ${dashboard.analytic_table_id}`}{" "}
+          · {rows.length} rows
         </p>
       </header>
+      {dataError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-sm text-red-700 sm:px-4"
+        >
+          <strong className="font-semibold">Couldn&apos;t load this dashboard&apos;s data.</strong>{" "}
+          {dataError}
+        </div>
+      )}
       <DashboardView config={dashboard} rows={rows} schema={schema} />
     </main>
   );

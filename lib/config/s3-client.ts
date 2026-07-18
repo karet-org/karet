@@ -7,13 +7,21 @@ import { S3Client, S3ServiceException } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
 
 export interface S3Config {
-  bucket: string;
+  /**
+   * Bucket for ELT control-plane data: pipeline configs, dashboards, job
+   * records, and the `_auth/admin.json` file. (`karet-pipelines`)
+   */
+  pipelinesBucket: string;
+  /** Bucket for raw ingested CSV data. (`karet-lake`) */
+  lakeBucket: string;
+  /** Bucket for query-ready partitioned Parquet output. (`karet-warehouse`) */
+  warehouseBucket: string;
   region: string;
   endpoint?: string;
   forcePathStyle: boolean;
   /**
    * S3 key for the Pipeline_Config JSON. The base config left by
-   * `loadS3Config()` is a placeholder -- always run it through
+   * `loadS3Config()` is a placeholder, always run it through
    * `pipelineS3Config(base, slug)` before calling `getPipelineConfig` /
    * `putPipelineConfig`, which is what fills this in with the real
    * per-pipeline path.
@@ -21,8 +29,13 @@ export interface S3Config {
   pipelineConfigKey: string;
   /** Prefix under which dashboard JSON files live. */
   dashboardsPrefix: string;
-  /** Prefix under which clean analytic-table Parquet files live. */
-  cleanPrefix: string;
+  /** Prefix under which saved-query JSON files live. */
+  queriesPrefix: string;
+  /**
+   * Prefix (in the warehouse bucket) under which analytic-table folders
+   * live. Each table's Parquet lives at `<warehousePrefix><tableId>/`.
+   */
+  warehousePrefix: string;
   /** Prefix under which pipeline folders live. */
   pipelinesPrefix: string;
 }
@@ -35,19 +48,38 @@ function envOr(name: string, fallback: string): string {
 /** Loads S3 configuration from environment variables. */
 export function loadS3Config(): S3Config {
   return {
-    bucket: envOr("S3_BUCKET", "karet-data"),
+    pipelinesBucket: envOr("S3_BUCKET_PIPELINES", "karet-pipelines"),
+    lakeBucket: envOr("S3_BUCKET_LAKE", "karet-lake"),
+    warehouseBucket: envOr("S3_BUCKET_WAREHOUSE", "karet-warehouse"),
     region: envOr("AWS_REGION", "us-east-1"),
     endpoint: process.env.AWS_ENDPOINT_URL || undefined,
     forcePathStyle:
       process.env.S3_FORCE_PATH_STYLE === undefined ||
       process.env.S3_FORCE_PATH_STYLE === "true",
-    // Placeholder -- callers that read/write pipeline.json must scope via
-    // `pipelineS3Config(base, slug)` first.
+    // Placeholders; scoped per-slug by `pipelineS3Config`.
     pipelineConfigKey: "",
     dashboardsPrefix: envOr("DASHBOARDS_PREFIX", "dashboards/"),
-    cleanPrefix: envOr("CLEAN_PREFIX", "clean/"),
+    queriesPrefix: envOr("QUERIES_PREFIX", "queries/"),
+    warehousePrefix: "",
     pipelinesPrefix: envOr("PIPELINES_PREFIX", "pipelines/"),
   };
+}
+
+/** All three buckets, for lifecycle ops (delete/rename/export) that span every data class. */
+export function allBuckets(config: S3Config): string[] {
+  return [config.pipelinesBucket, config.lakeBucket, config.warehouseBucket];
+}
+
+/**
+ * Pick the bucket for a key by its data class, inferred from the extension:
+ * `.parquet` is warehouse output, `.csv` is raw lake data, everything else
+ * (configs, dashboards, jobs) is pipelines. Used by import to unpack a zip
+ * whose entries span all three buckets.
+ */
+export function bucketForRelPath(config: S3Config, relPath: string): string {
+  if (relPath.endsWith(".parquet")) return config.warehouseBucket;
+  if (relPath.endsWith(".csv")) return config.lakeBucket;
+  return config.pipelinesBucket;
 }
 
 /** Returns an S3Config scoped to a specific pipeline slug. */
@@ -57,7 +89,8 @@ export function pipelineS3Config(base: S3Config, slug: string): S3Config {
     ...base,
     pipelineConfigKey: `${prefix}pipeline.json`,
     dashboardsPrefix: `${prefix}dashboards/`,
-    cleanPrefix: `${prefix}clean/`,
+    queriesPrefix: `${prefix}queries/`,
+    warehousePrefix: prefix,
   };
 }
 
@@ -95,7 +128,7 @@ export async function wrapS3Error<T>(
       return NextResponse.json(
         {
           error: "bucket_not_found",
-          message: `S3 bucket does not exist. Create it first or check the S3_BUCKET environment variable.`,
+          message: `S3 bucket does not exist. Create it first or check the S3_BUCKET_PIPELINES / S3_BUCKET_LAKE / S3_BUCKET_WAREHOUSE environment variables.`,
         },
         { status: 502 },
       );

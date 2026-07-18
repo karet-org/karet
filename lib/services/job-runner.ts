@@ -63,7 +63,7 @@ export async function scheduleJob(args: {
 
   await client.send(
     new PutObjectCommand({
-      Bucket: config.bucket,
+      Bucket: config.pipelinesBucket,
       Key: key,
       Body: JSON.stringify(record),
       ContentType: "application/json",
@@ -89,7 +89,7 @@ export async function updateScheduledAt(args: {
   const key = `${jobsPrefix(config.pipelinesPrefix, args.pipeline)}${args.jobId}.json`;
 
   // Re-write the entire record. We don't read first because the
-  // debouncer is the only writer of the `scheduled` row -- we know its
+  // debouncer is the only writer of the `scheduled` row, we know its
   // shape exactly, and a blind PUT is one fewer S3 round trip.
   const record: JobRecord = {
     id: args.jobId,
@@ -102,7 +102,7 @@ export async function updateScheduledAt(args: {
 
   await client.send(
     new PutObjectCommand({
-      Bucket: config.bucket,
+      Bucket: config.pipelinesBucket,
       Key: key,
       Body: JSON.stringify(record),
       ContentType: "application/json",
@@ -136,7 +136,7 @@ export async function startJob(opts: StartJobOptions): Promise<JobRecord> {
 
   await client.send(
     new PutObjectCommand({
-      Bucket: config.bucket,
+      Bucket: config.pipelinesBucket,
       Key: key,
       Body: JSON.stringify(initialJob),
       ContentType: "application/json",
@@ -145,7 +145,7 @@ export async function startJob(opts: StartJobOptions): Promise<JobRecord> {
 
   void runPipelineInBackground({
     client,
-    bucket: config.bucket,
+    bucket: config.pipelinesBucket,
     pipelinesPrefix: config.pipelinesPrefix,
     key,
     pipeline: opts.pipeline,
@@ -188,7 +188,7 @@ async function runPipelineInBackground(args: BackgroundJobArgs): Promise<void> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pipeline_prefix: pipelinePrefix, clean_run: cleanRun }),
-      // 30-minute ceiling -- well above any realistic pipeline. The
+      // 30-minute ceiling, well above any realistic pipeline. The
       // jobs-list reconciler still marks anything stuck > 10 min as
       // abandoned, so this is just a last-resort bound.
       signal: AbortSignal.timeout(30 * 60 * 1000),

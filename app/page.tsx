@@ -33,6 +33,7 @@ interface PipelineSummary {
 interface PipelineResult {
   pipelines: PipelineSummary[];
   bucketError?: string;
+  loadError?: string;
 }
 
 async function getPipelines(): Promise<PipelineResult> {
@@ -49,10 +50,16 @@ async function getPipelines(): Promise<PipelineResult> {
       return {
         pipelines: [],
         bucketError:
-          "S3 bucket does not exist. Create it first or check the S3_BUCKET environment variable.",
+          "S3 bucket does not exist. Create it first or check the S3_BUCKET_PIPELINES / S3_BUCKET_LAKE / S3_BUCKET_WAREHOUSE environment variables.",
       };
     }
-    return { pipelines: [] };
+    // A transient S3/permission error must not masquerade as "no pipelines",
+    // surface it so the user knows the list failed to load rather than being
+    // genuinely empty.
+    return {
+      pipelines: [],
+      loadError: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
@@ -66,7 +73,7 @@ async function loadSummary(
     getPipelineConfig(client, cfg).catch(() => null),
     loadLatestTerminalJob(
       client,
-      base.bucket,
+      base.pipelinesBucket,
       `${base.pipelinesPrefix}${slug}/jobs/`,
     ),
   ]);
@@ -92,7 +99,7 @@ async function loadSummary(
 
 /**
  * Walk newest-first through job records and return the first terminal
- * one (`completed` or `failed`). Caps at 5 reads -- in practice the
+ * one (`completed` or `failed`). Caps at 5 reads, in practice the
  * latest job is almost always terminal, and we only fall through when
  * a webhook batch is in flight.
  */
@@ -148,7 +155,7 @@ function formatRelative(iso: string | null): string {
 }
 
 export default async function Home() {
-  const { pipelines, bucketError } = await getPipelines();
+  const { pipelines, bucketError, loadError } = await getPipelines();
 
   return (
     <>
@@ -159,7 +166,7 @@ export default async function Home() {
           href="/"
           className="mr-3 flex items-center gap-2 text-[15px] font-semibold tracking-[-0.005em] text-[color:var(--color-ink)]"
         >
-          <KaretLogo size={20} />
+          <KaretLogo size={28} />
           Karet
         </Link>
         <Link
@@ -204,6 +211,14 @@ export default async function Home() {
           >
             <strong className="font-semibold">S3 bucket not found.</strong>{" "}
             {bucketError}
+          </div>
+        ) : loadError ? (
+          <div
+            className="mt-8 rounded-md border border-[color:var(--color-rose-soft)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]"
+            role="alert"
+          >
+            <strong className="font-semibold">Couldn&apos;t load pipelines.</strong>{" "}
+            {loadError}
           </div>
         ) : pipelines.length === 0 ? (
           <EmptyState />

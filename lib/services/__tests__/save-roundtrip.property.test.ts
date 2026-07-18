@@ -72,12 +72,15 @@ function buildStubClient(initial: Record<string, Stored> = {}): S3Client {
 }
 
 const DEFAULT_CONFIG: S3Config = {
-  bucket: "karet-data",
+  pipelinesBucket: "karet-pipelines",
+  lakeBucket: "karet-lake",
+  warehouseBucket: "karet-warehouse",
   region: "us-east-1",
   forcePathStyle: true,
   pipelineConfigKey: "config/pipeline.json",
   dashboardsPrefix: "dashboards/",
-  cleanPrefix: "clean/",
+  queriesPrefix: "queries/",
+  warehousePrefix: "",
   pipelinesPrefix: "pipelines/",
 };
 

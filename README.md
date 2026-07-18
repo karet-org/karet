@@ -27,7 +27,9 @@ worker + web).
 
 | Variable | Description |
 |----------|-------------|
-| `S3_BUCKET` | S3 bucket name |
+| `S3_BUCKET_PIPELINES` | Bucket for ELT configs, dashboards, job records, and auth (default `karet-pipelines`). |
+| `S3_BUCKET_LAKE` | Bucket for raw CSV data (default `karet-lake`). |
+| `S3_BUCKET_WAREHOUSE` | Bucket for query-ready partitioned Parquet output (default `karet-warehouse`). |
 | `AWS_ENDPOINT_URL` | S3 endpoint URL (e.g. `http://rustfs:9000` for local dev, `https://s3.<region>.amazonaws.com` for real AWS). |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | S3 credentials |
 | `KARET_SESSION_SECRET` | **Required.** HMAC key used to sign user session cookies. Generate with `openssl rand -base64 48`. |
@@ -55,6 +57,6 @@ npm run test:e2e              # Playwright, requires the full stack running
 |-------|---------|
 | `/` | Pipeline list + create/import |
 | `/p/[pipeline]/graph` | Data Flow Graph editor |
-| `/p/[pipeline]/tables` | SQL over analytic tables (in-browser AlaSQL) |
+| `/p/[pipeline]/data` | SQL over warehouse tables (server-side DuckDB) + saved queries |
 | `/p/[pipeline]/jobs` | Job history + trigger |
 | `/p/[pipeline]/dashboards/[name]` | Configurable dashboard |

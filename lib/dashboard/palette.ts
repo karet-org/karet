@@ -3,7 +3,7 @@
  * (doughnut, bar, etc.). Kept in one module so a brand refresh is a
  * single-line change.
  *
- * Colors cycle by index modulo length -- there's no hard cap on series
+ * Colors cycle by index modulo length, there's no hard cap on series
  * count; distinguishability just drops off past ~8.
  */
 export const CHART_PALETTE = [

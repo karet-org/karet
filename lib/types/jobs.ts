@@ -24,6 +24,6 @@ export interface JobRecord {
   errors?: string[];
   partitions_written?: number;
   files_processed?: number;
-  /** How the run was started -- manual button click vs. RustFS upload webhook. */
+  /** How the run was started, manual button click vs. RustFS upload webhook. */
   trigger?: "manual" | "webhook";
 }

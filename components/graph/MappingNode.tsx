@@ -1,4 +1,4 @@
-// Mapping node -- wider card with a "MAPPING" header and one row per output
+// Mapping node, wider card with a "MAPPING" header and one row per output
 // column showing the column name and a compact AST summary.
 // Design: left handle (in) and right handle (out).
 
@@ -25,7 +25,7 @@ export function MappingNode({
         <div className="text-sm font-semibold text-gray-800">{entity.name || entity.id}</div>
         <ul className="mt-1 space-y-0.5 text-xs text-gray-600">
           {entity.columns.map((col, i) => (
-            // Key by index, not name -- newly-added columns share an
+            // Key by index, not name, newly-added columns share an
             // empty name string and would collide as duplicate keys.
             <li key={i} className="flex gap-2">
               <span className="min-w-[80px] shrink-0 truncate font-medium text-gray-700">

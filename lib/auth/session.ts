@@ -1,8 +1,8 @@
-// Session cookies -- HMAC-signed JSON payload.
+// Session cookies, HMAC-signed JSON payload.
 //
 // Cookie value: `<base64url(payload)>.<base64url(hmacSHA256(payload))>`
 // Payload: `{ "exp": <unix-seconds> }`. Karet is single-admin and
-// password-only, so the cookie carries nothing but expiry -- possession
+// password-only, so the cookie carries nothing but expiry, possession
 // of a valid HMAC over a fresh `exp` is the entire authorization signal.
 //
 // Stateless: no server-side session table. Uses Web Crypto (`globalThis.
@@ -68,7 +68,7 @@ export async function signSession(
 
 /**
  * Returns `true` iff `cookieValue` is a valid, non-expired session signed
- * by `secret`. The payload is just an `exp` timestamp -- there's no
+ * by `secret`. The payload is just an `exp` timestamp, there's no
  * additional state to surface.
  */
 export async function verifySession(
@@ -108,7 +108,7 @@ export async function verifySession(
 }
 
 /**
- * Build the `Set-Cookie` value for a fresh session. Secure flag is opt-in --
+ * Build the `Set-Cookie` value for a fresh session. Secure flag is opt-in,
  * dev runs over plain HTTP; prod (deploy-aws.md) terminates TLS at the ALB.
  */
 function sessionCookieHeader(

@@ -10,11 +10,13 @@
  * Env vars the Web service cannot start without. Matches the Worker's
  * `REQUIRED_ENV_VARS` list so both services share the same contract.
  *
- * `PORT` and `HOSTNAME` are intentionally excluded -- Next.js assigns
+ * `PORT` and `HOSTNAME` are intentionally excluded, Next.js assigns
  * defaults when they are unset.
  */
 export const REQUIRED_ENV_VARS = [
-  "S3_BUCKET",
+  "S3_BUCKET_PIPELINES",
+  "S3_BUCKET_LAKE",
+  "S3_BUCKET_WAREHOUSE",
   "AWS_ENDPOINT_URL",
   "AWS_ACCESS_KEY_ID",
   "AWS_SECRET_ACCESS_KEY",
@@ -44,7 +46,7 @@ export function missingRequiredEnvVars(
  * Throw with a descriptive message when any required env var is missing.
  *
  * Called at Web server startup from `instrumentation.ts`. When running in the
- * Edge runtime or browser this is a no-op -- env-var assertions only make
+ * Edge runtime or browser this is a no-op, env-var assertions only make
  * sense in Node.js where the app actually reads `process.env` to talk to S3.
  */
 export function assertRequiredEnvVars(

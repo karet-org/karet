@@ -11,7 +11,7 @@
 //
 //   2. Deeply nested expressions (e.g. coalesce(lookup_ref(merchants,
 //      upper(trim(col(...))))) ) used to be truncated with `…` by
-//      `astSummary` -- fine for graph-node display, fatal when the
+//      `astSummary`, fine for graph-node display, fatal when the
 //      same string was fed back to the parser.
 
 import { describe, it, expect } from "vitest";
@@ -24,8 +24,8 @@ import { arbAstNode } from "@/lib/testgen";
 /**
  * Normalize floating-point Num literals so equality holds when the
  * parser's `Number(t.value)` round-trip introduces tiny precision
- * differences. We don't lose meaningful information -- the worker
- * uses f64 too -- but `0.1 + 0.2 !== 0.3` style comparisons are noise.
+ * differences. We don't lose meaningful information, the worker
+ * uses f64 too, but `0.1 + 0.2 !== 0.3` style comparisons are noise.
  */
 function normalize(node: AstNode): AstNode {
   if (node.kind === "num") {

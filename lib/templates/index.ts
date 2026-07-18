@@ -50,7 +50,7 @@ const spendingPipeline: PipelineConfig = {
     {
       id: "transactions_raw",
       name: "Transactions",
-      path_prefix: "raw/transactions/",
+      path_prefix: "transactions/",
       schema: [
         { name: "date", type: "string" },
         { name: "description", type: "string" },
@@ -150,7 +150,7 @@ const spendingPipeline: PipelineConfig = {
     {
       id: "transactions",
       name: "Transactions",
-      output_prefix: "clean/transactions/",
+      output_prefix: "transactions/",
       schema: [
         { name: "date", type: "date" },
         { name: "description", type: "string" },
@@ -399,7 +399,7 @@ export const TEMPLATES: Record<TemplateId, Template> = {
       "dashboards/net_income.json": spendingNetIncome,
     },
     rawFiles: {
-      "raw/transactions/seed.csv": SPENDING_SEED_CSV,
+      "transactions/seed.csv": SPENDING_SEED_CSV,
     },
   },
 };
