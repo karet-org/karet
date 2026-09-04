@@ -3,6 +3,8 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import { listAllObjectKeys, readBodyToBuffer } from "@/lib/services/s3-helpers";
 import { startJob } from "@/lib/services/job-runner";
+import { listLiveJobs, mergeLiveOverHistory } from "@/lib/services/live-jobs";
+import { redisEnabled } from "@/lib/services/redis";
 import type { JobRecord } from "@/lib/types/jobs";
 
 function jobsPrefix(pipeline: string): string {
@@ -104,6 +106,31 @@ export async function GET(
       pageKeys.map((key) => fetchJobRecord(client, base.pipelinesBucket, key)),
     );
     const jobs = results.filter((j): j is JobRecord => j !== null);
+
+    // Queue mode: Redis holds the live truth (queued/running + progress);
+    // merge it over the S3 page. Live entries surface on page 1 only —
+    // deeper pages are pure history. The legacy orphan reconciler is
+    // skipped because staleness is the worker cluster's job now.
+    if (redisEnabled()) {
+      let merged = jobs;
+      if (page === 1) {
+        try {
+          merged = mergeLiveOverHistory(jobs, await listLiveJobs(pipeline));
+        } catch (err) {
+          // Redis briefly down must not take the history listing with it.
+          console.error(`live-jobs merge failed for ${pipeline}:`, err);
+        }
+      }
+      merged.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+      return NextResponse.json({
+        jobs: merged,
+        total: Math.max(total, merged.length),
+        page,
+        pageSize,
+        totalPages: Math.max(1, Math.ceil(Math.max(total, merged.length) / pageSize)),
+      });
+    }
+
     const reconciled = reconcileOrphans(jobs);
     reconciled.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
     return NextResponse.json({

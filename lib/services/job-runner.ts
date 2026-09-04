@@ -14,6 +14,8 @@
 
 import { PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import { createS3Client, loadS3Config } from "@/lib/config/s3-client";
+import { enqueueJob } from "@/lib/services/live-jobs";
+import { redisEnabled } from "@/lib/services/redis";
 import type { JobRecord } from "@/lib/types/jobs";
 
 export interface StartJobOptions {
@@ -120,6 +122,21 @@ export async function updateScheduledAt(args: {
  */
 export async function startJob(opts: StartJobOptions): Promise<JobRecord> {
   const config = loadS3Config();
+
+  // Queue mode: hand the job to the worker fleet via Redis and return.
+  // The worker owns all subsequent state, including the terminal S3
+  // record — nothing more happens in this process.
+  if (redisEnabled()) {
+    return enqueueJob({
+      job_id: opts.existingJobId ?? newJobId(),
+      pipeline: opts.pipeline,
+      prefix: `${config.pipelinesPrefix}${opts.pipeline}/`,
+      clean_run: opts.cleanRun,
+      trigger: opts.trigger ?? "manual",
+      enqueued_at: Date.now(),
+    });
+  }
+
   const client = createS3Client(config);
 
   const id = opts.existingJobId ?? newJobId();

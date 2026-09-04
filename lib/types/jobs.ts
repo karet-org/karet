@@ -11,7 +11,7 @@
 export interface JobRecord {
   id: string;
   pipeline: string;
-  status: "scheduled" | "running" | "completed" | "failed";
+  status: "scheduled" | "queued" | "running" | "completed" | "failed";
   startedAt: string;
   /**
    * When `status === "scheduled"`, the wall-clock time at which the run
@@ -26,4 +26,18 @@ export interface JobRecord {
   files_processed?: number;
   /** How the run was started, manual button click vs. RustFS upload webhook. */
   trigger?: "manual" | "webhook";
+  /**
+   * Live progress (Redis-backed jobs only, while queued/running): which
+   * stage the worker is in and how far along. Absent on terminal records.
+   */
+  progress?: JobProgress;
+}
+
+/** Live progress fields mirrored from the worker's `karet:jobs:live:<id>` hash. */
+export interface JobProgress {
+  stage: "downloading" | "ingesting";
+  files_done?: number;
+  files_total?: number;
+  mappings_done?: number;
+  mappings_total?: number;
 }
