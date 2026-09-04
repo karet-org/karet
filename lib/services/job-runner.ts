@@ -1,13 +1,8 @@
-// "Start a pipeline job" — enqueue-only.
-//
-// The web app is a pure scheduler: it writes the job onto the Redis
-// stream (plus its live hash and index entry) and returns. The worker
-// fleet owns everything after that — claiming, per-pipeline locking,
-// progress, retries, and the terminal S3 record. Webhook-triggered runs
-// never pass through this process at all; RustFS posts upload events
-// directly to the worker, which debounces and enqueues them itself.
-//
-// Design: karet-jobs-redis-design.html.
+// "Start a pipeline job" — enqueue-only. The web app writes the job onto
+// the Redis stream and returns; the worker fleet owns everything after
+// that (claiming, locking, progress, retries, terminal S3 record).
+// Webhook-triggered runs go straight to the worker and never pass
+// through this process. Design: karet-jobs-redis-design.html.
 
 import { loadS3Config } from "@/lib/config/s3-client";
 import { enqueueJob } from "@/lib/services/live-jobs";

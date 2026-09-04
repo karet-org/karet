@@ -157,14 +157,10 @@ export async function issueSessionCookie(request: Request): Promise<NextResponse
 
 /**
  * HMAC key material for session signing, or `null` when configuration is
- * incomplete (callers fail closed).
- *
- * Derived from the session secret **and** the admin password hash:
- * rotating the password (regenerating KARET_ADMIN_PASSWORD_HASH)
- * therefore invalidates every outstanding session. Sessions are otherwise
- * stateless HMACs with no server-side revocation list, so without this
- * binding a stolen cookie would survive a password change for its full
- * 7-day TTL. Edge-safe: pure string work, used by the middleware too.
+ * incomplete (callers fail closed). Derived from the session secret AND
+ * the admin password hash, so rotating the password invalidates every
+ * outstanding session — there is no server-side revocation list.
+ * Edge-safe (pure string work); the middleware uses this too.
  */
 export function getSessionKeyMaterial(
   env: Record<string, string | undefined> = process.env,

@@ -1,13 +1,9 @@
 // Shared Redis client (Valkey/Redis via node-redis).
 //
-// The Redis-backed job queue is the only job transport (see
-// karet-jobs-redis-design.html): `startJob` enqueues onto
-// `karet:jobs:stream` for the worker fleet, and the jobs API merges live
-// state from Redis hashes over S3 history.
-//
-// One lazily-connected client is shared per process. State lives on
-// `globalThis` so Next.js dev-mode HMR (which re-evaluates modules)
-// reuses the socket instead of accumulating clients and error listeners.
+// The queue is the only job transport (karet-jobs-redis-design.html):
+// `startJob` enqueues onto `karet:jobs:stream`; the jobs API merges live
+// hashes over S3 history. One lazily-connected client per process, held
+// on `globalThis` so dev-mode HMR reuses the socket.
 
 import { createClient, type RedisClientType } from "redis";
 
@@ -25,13 +21,9 @@ const state: RedisSingleton = (globalState.__karetRedis ??= {
 });
 
 /**
- * The shared client, connected on first use. Throws if REDIS_URL is not
- * set (startup asserts it, so this is belt-and-braces).
- *
- * A failed connect must never poison future calls: `connecting` is
- * cleared in `finally`, so the next caller starts a fresh attempt, and
- * the client's own reconnectStrategy handles drops after a successful
- * connect.
+ * The shared client, connected on first use. A failed connect never
+ * poisons future calls: `connecting` clears in `finally`, so the next
+ * caller retries; reconnectStrategy covers drops after connect.
  */
 export async function getRedis(): Promise<RedisClientType> {
   if (state.client?.isOpen) return state.client;

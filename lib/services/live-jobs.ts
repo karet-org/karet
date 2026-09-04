@@ -106,13 +106,10 @@ export async function listLiveJobs(pipeline: string, limit = 100): Promise<JobRe
 }
 
 /**
- * Merge live entries over S3 history records.
- *
- * Rules: a live non-terminal entry always wins (S3 may hold a stale
- * `scheduled` shape or nothing yet). For terminal jobs the S3 record is
- * richer (full `errors`, `files_processed`), so it wins when present;
- * the live entry covers the window before the record lands — or forever,
- * if the record write failed while S3 was down.
+ * Merge live entries over S3 history. Live non-terminal always wins (S3
+ * may hold nothing yet); for terminal jobs the S3 record is richer, so it
+ * wins when present — the live copy covers the window before the record
+ * lands, or forever if the record write failed while S3 was down.
  */
 export function mergeLiveOverHistory(
   history: JobRecord[],

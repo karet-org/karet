@@ -1,16 +1,10 @@
 #!/usr/bin/env node
-// Generate a KARET_ADMIN_PASSWORD_HASH value.
-//
-//   npm run hash-password
-//
-// Reads the password from stdin (not argv, so it stays out of shell
-// history and process listings) and prints the scrypt hash.
+// Generate a KARET_ADMIN_PASSWORD_HASH value: `npm run hash-password`.
+// Reads the password from stdin (keeps it out of shell history).
 //
 // KEEP IN SYNC with lib/auth/password.ts: same format
-// (`scrypt$<N>$<r>$<p>$<saltB64>$<hashB64>`) and the same cost params.
-// The format is self-describing, so verification accepts hashes made
-// with older params after a bump — but this script should always emit
-// the current ones.
+// (`scrypt$<N>$<r>$<p>$<saltB64>$<hashB64>`) and cost params. Pinned by
+// a round-trip test in lib/auth/__tests__/users.test.ts.
 
 import { randomBytes, scrypt } from "node:crypto";
 import { createInterface } from "node:readline";

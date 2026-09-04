@@ -19,7 +19,7 @@ export interface CountryEntry {
 // covers every populated country + most territories and is sufficient for
 // honeypot / threat-intel visualization. Names match the atlas's Natural
 // Earth entries so mapping by numeric id "just works".
-export const COUNTRIES: CountryEntry[] = [
+const COUNTRIES: CountryEntry[] = [
   { numeric: "004", alpha2: "AF", alpha3: "AFG", name: "Afghanistan" },
   { numeric: "008", alpha2: "AL", alpha3: "ALB", name: "Albania" },
   { numeric: "012", alpha2: "DZ", alpha3: "DZA", name: "Algeria" },

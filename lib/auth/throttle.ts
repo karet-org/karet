@@ -1,22 +1,13 @@
-// Login throttling.
+// Login throttling. scrypt verification costs ~128 MiB / ~0.5 s, and the
+// login route is necessarily session-exempt, so it needs two guards:
 //
-// scrypt verification at our parameters costs ~128 MiB and ~0.5 s per
-// attempt — deliberately expensive for attackers with a stolen hash, but
-// that same cost makes an unthrottled login endpoint a remote OOM/CPU
-// lever (it is necessarily exempt from the session middleware). Two
-// independent guards:
+//   1. Per-IP token bucket (burst ATTEMPT_BURST, one refill per
+//      ATTEMPT_REFILL_MS; reset on successful login).
+//   2. Global cap on in-flight verifications, bounding worst-case memory
+//      no matter how many IPs an attacker rotates through.
 //
-//   1. A per-IP token bucket: burst of ATTEMPT_BURST, refilling one
-//      attempt every ATTEMPT_REFILL_MS. Successful login resets the
-//      bucket, so a legitimate admin who fat-fingers twice isn't locked
-//      out after signing in.
-//   2. A global concurrency cap on in-flight scrypt verifications,
-//      bounding worst-case memory regardless of how many source IPs an
-//      attacker rotates through.
-//
-// State is in-memory and per-process — consistent with the single-replica
-// web deployment; multiple replicas would each enforce their own bucket,
-// which merely loosens the bound by the replica count.
+// State is in-memory and per-process; extra replicas loosen the bound by
+// their count, nothing worse.
 
 const ATTEMPT_BURST = 5;
 const ATTEMPT_REFILL_MS = 15_000;

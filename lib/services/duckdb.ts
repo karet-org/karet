@@ -16,16 +16,10 @@ function execAsync(d: duckdb.Database, sql: string): Promise<void> {
 }
 
 /**
- * Lazily open the shared database, point httpfs at the S3 endpoint, and
- * apply the sandbox.
- *
- * The handle is published to `db` only after **every** statement below has
- * succeeded: user SQL runs on this session, so a half-initialized session
- * (e.g. `INSTALL httpfs` failed on a network blip, or a sandbox SET was
- * rejected) must never be cached — previously the handle was cached first
- * and the statements were fire-and-forget, silently downgrading to an
- * unsandboxed session on any init error. A failed init is retried from
- * scratch on the next call (`initializing` cleared in `finally`).
+ * Lazily open the shared database, point httpfs at S3, and apply the
+ * sandbox. The handle is published only after every statement succeeds:
+ * user SQL runs on this session, so a half-initialized (unsandboxed)
+ * session must never be cached. Failed init retries on the next call.
  */
 function getDb(): Promise<duckdb.Database> {
   if (db) return Promise.resolve(db);
@@ -97,7 +91,7 @@ function toJson(value: unknown): unknown {
 }
 
 /** Run a read-only query and return the rows as JSON-safe plain objects. */
-export async function query<T extends Record<string, unknown> = Record<string, unknown>>(
+async function query<T extends Record<string, unknown> = Record<string, unknown>>(
   sql: string,
 ): Promise<T[]> {
   const database = await getDb();
