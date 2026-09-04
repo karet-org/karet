@@ -155,13 +155,35 @@ export async function issueSessionCookie(request: Request): Promise<NextResponse
   return res;
 }
 
+/**
+ * HMAC key material for session signing, or `null` when configuration is
+ * incomplete (callers fail closed).
+ *
+ * Derived from the session secret **and** the admin password hash:
+ * rotating the password (regenerating KARET_ADMIN_PASSWORD_HASH)
+ * therefore invalidates every outstanding session. Sessions are otherwise
+ * stateless HMACs with no server-side revocation list, so without this
+ * binding a stolen cookie would survive a password change for its full
+ * 7-day TTL. Edge-safe: pure string work, used by the middleware too.
+ */
+export function getSessionKeyMaterial(
+  env: Record<string, string | undefined> = process.env,
+): string | null {
+  const secret = env.KARET_SESSION_SECRET;
+  const adminHash = env.KARET_ADMIN_PASSWORD_HASH;
+  if (!secret || secret.length === 0) return null;
+  if (!adminHash || adminHash.length === 0) return null;
+  return `${secret}\n${adminHash}`;
+}
+
 export function getSessionSecret(): string {
-  const secret = process.env.KARET_SESSION_SECRET;
-  if (!secret || secret.length === 0) {
+  const material = getSessionKeyMaterial();
+  if (!material) {
     throw new Error(
-      "KARET_SESSION_SECRET is not set. Generate one with " +
-        "`openssl rand -base64 48` and set it in the environment.",
+      "KARET_SESSION_SECRET / KARET_ADMIN_PASSWORD_HASH are not both set. " +
+        "Generate the secret with `openssl rand -base64 48` and the hash " +
+        "with `npm run hash-password`.",
     );
   }
-  return secret;
+  return material;
 }

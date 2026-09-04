@@ -17,6 +17,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   SESSION_COOKIE,
+  getSessionKeyMaterial,
   verifySession,
 } from "@/lib/auth/session";
 
@@ -41,19 +42,22 @@ export async function middleware(request: NextRequest) {
 
   const isApi = pathname.startsWith("/api/");
 
-  const secret = process.env.KARET_SESSION_SECRET;
+  const secret = getSessionKeyMaterial();
   if (!secret) {
     // Missing configuration, fail closed instead of silently letting
     // requests through. The startup check in `instrumentation.ts` should
     // have caught this; this is the belt-and-braces.
     if (isApi) {
       return NextResponse.json(
-        { error: "server_misconfigured", message: "KARET_SESSION_SECRET is not set" },
+        {
+          error: "server_misconfigured",
+          message: "KARET_SESSION_SECRET / KARET_ADMIN_PASSWORD_HASH not set",
+        },
         { status: 500 },
       );
     }
     return new NextResponse(
-      "Server is misconfigured: KARET_SESSION_SECRET is not set.",
+      "Server is misconfigured: session signing material is not set.",
       { status: 500, headers: { "content-type": "text/plain" } },
     );
   }

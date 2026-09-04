@@ -1,43 +1,61 @@
 // Shared Redis client (Valkey/Redis via node-redis).
 //
-// Presence of REDIS_URL is the feature flag for the queue-based job
-// system (see karet-jobs-redis-design.html): when set, `startJob`
-// enqueues onto the `karet:jobs:stream` stream that the worker fleet
-// consumes, and the jobs API merges live state from Redis hashes.
-// When unset, the legacy direct-HTTP path is used.
+// The Redis-backed job queue is the only job transport (see
+// karet-jobs-redis-design.html): `startJob` enqueues onto
+// `karet:jobs:stream` for the worker fleet, and the jobs API merges live
+// state from Redis hashes over S3 history.
 //
-// One lazily-connected client is shared per process, mirroring the
-// DuckDB handle in `duckdb.ts`.
+// One lazily-connected client is shared per process. State lives on
+// `globalThis` so Next.js dev-mode HMR (which re-evaluates modules)
+// reuses the socket instead of accumulating clients and error listeners.
 
 import { createClient, type RedisClientType } from "redis";
 
-let client: RedisClientType | null = null;
-let connecting: Promise<RedisClientType> | null = null;
-
-/** True when the Redis-backed job queue is enabled. */
-export function redisEnabled(): boolean {
-  const url = process.env.REDIS_URL;
-  return typeof url === "string" && url.length > 0;
+interface RedisSingleton {
+  client: RedisClientType | null;
+  connecting: Promise<RedisClientType> | null;
 }
+
+const globalState = globalThis as typeof globalThis & {
+  __karetRedis?: RedisSingleton;
+};
+const state: RedisSingleton = (globalState.__karetRedis ??= {
+  client: null,
+  connecting: null,
+});
 
 /**
  * The shared client, connected on first use. Throws if REDIS_URL is not
- * set — call `redisEnabled()` first.
+ * set (startup asserts it, so this is belt-and-braces).
+ *
+ * A failed connect must never poison future calls: `connecting` is
+ * cleared in `finally`, so the next caller starts a fresh attempt, and
+ * the client's own reconnectStrategy handles drops after a successful
+ * connect.
  */
 export async function getRedis(): Promise<RedisClientType> {
-  if (client?.isOpen) return client;
-  if (connecting) return connecting;
+  if (state.client?.isOpen) return state.client;
+  if (state.connecting) return state.connecting;
   const url = process.env.REDIS_URL;
   if (!url) throw new Error("REDIS_URL is not set");
-  connecting = (async () => {
-    const c: RedisClientType = createClient({ url });
+  state.connecting = (async () => {
+    const c: RedisClientType = createClient({
+      url,
+      socket: {
+        connectTimeout: 5_000,
+        // Backoff 200ms, 400ms, ... capped at 5s, retry forever: the
+        // queue is core infrastructure, giving up is never better.
+        reconnectStrategy: (retries) => Math.min(200 * (retries + 1), 5_000),
+      },
+    });
     c.on("error", (err) => console.error("redis client error:", err));
     await c.connect();
-    client = c;
-    connecting = null;
+    state.client = c;
     return c;
-  })();
-  return connecting;
+  })().finally(() => {
+    state.connecting = null;
+  });
+  return state.connecting;
 }
 
 // ---------------------------------------------------------------------------

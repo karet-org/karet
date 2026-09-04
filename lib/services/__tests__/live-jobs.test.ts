@@ -109,11 +109,19 @@ const TEST_URL = process.env.REDIS_TEST_URL;
 describe.skipIf(!TEST_URL)("enqueueJob (integration)", () => {
   let priorRedisUrl: string | undefined;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     // Point the module at the test server — and restore afterwards so
     // files sharing this worker process see their original environment.
     priorRedisUrl = process.env.REDIS_URL;
     process.env.REDIS_URL = TEST_URL;
+    // Clean slate: the server is shared (worker integration tests use the
+    // same instance), so leftover stream entries would break the
+    // length assertions below.
+    const { getRedis } = await import("@/lib/services/redis");
+    const redis = await getRedis();
+    await redis.del("karet:jobs:stream");
+    await redis.del("karet:jobs:index:web-int");
+    await redis.del("karet:jobs:live:job-web-int-1");
   });
   afterAll(async () => {
     const { getRedis } = await import("@/lib/services/redis");
