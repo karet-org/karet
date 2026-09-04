@@ -110,9 +110,8 @@ describe.skipIf(!TEST_URL)("enqueueJob (integration)", () => {
   let priorRedisUrl: string | undefined;
 
   beforeAll(() => {
-    // Point the module at the test server — and restore afterwards, since
-    // files sharing this worker process would otherwise inherit queue mode
-    // (job-runner.test.ts must keep exercising the legacy path).
+    // Point the module at the test server — and restore afterwards so
+    // files sharing this worker process see their original environment.
     priorRedisUrl = process.env.REDIS_URL;
     process.env.REDIS_URL = TEST_URL;
   });

@@ -3,12 +3,12 @@
 // Behavior:
 //   - Browser routes (anything except /login, public assets, /api/*): if no
 //     valid session cookie, 302 to /login?next=<original-path>.
-//   - /api/* (except /api/auth/* and /api/events/*): require a valid session
-//     cookie. Otherwise 401 JSON.
+//   - /api/* (except /api/auth/*): require a valid session cookie.
+//     Otherwise 401 JSON.
 //   - /api/auth/* and /login are always reachable so the user can sign in.
-//   - /api/events/* is reachable without a session cookie so non-browser
-//     clients (RustFS webhooks) can post; those handlers enforce their own
-//     shared-secret check.
+//
+// RustFS webhook events go to the worker service, not this app, so no
+// other unauthenticated API surface exists.
 //
 // Session cookies are HMAC-signed. Verification uses Web Crypto so it works
 // in the Edge runtime; password hashing (which needs Node `crypto.scrypt`)
@@ -27,12 +27,7 @@ export const config = {
 };
 
 const PUBLIC_PATHS = ["/login"];
-const PUBLIC_API_PREFIXES = [
-  "/api/auth/",
-  // Webhooks from non-browser clients (e.g. RustFS object-event
-  // notifications). The handler enforces its own shared-secret check.
-  "/api/events/",
-];
+const PUBLIC_API_PREFIXES = ["/api/auth/"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
