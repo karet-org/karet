@@ -37,6 +37,8 @@ services:
       RUSTFS_NOTIFY_WEBHOOK_ENDPOINT_PRIMARY: "http://worker:8080/events/s3"
       RUSTFS_NOTIFY_WEBHOOK_AUTH_TOKEN_PRIMARY: ${KARET_WEBHOOK_SECRET:?set KARET_WEBHOOK_SECRET (e.g. openssl rand -hex 32)}
       RUSTFS_NOTIFY_WEBHOOK_QUEUE_DIR_PRIMARY: /tmp/rustfs-events
+      # RustFS only makes outbound requests to allow-listed origins.
+      RUSTFS_OUTBOUND_ALLOW_ORIGINS: "http://worker:8080"
     volumes:
       - rustfs-data:/data
 

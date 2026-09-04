@@ -63,3 +63,28 @@ npm run test:e2e              # Playwright, requires the full stack running
 | `/p/[pipeline]/data` | SQL over warehouse tables (server-side DuckDB) + saved queries |
 | `/p/[pipeline]/jobs` | Job history + trigger |
 | `/p/[pipeline]/dashboards/[name]` | Configurable dashboard |
+
+## S3 event notifications (webhook-triggered runs)
+
+The webhook target in `compose.yml` is only half of the wiring: RustFS
+also needs a **bucket notification rule** on the lake bucket, which must
+be applied once after the buckets are created:
+
+```sh
+aws --endpoint-url http://localhost:9000 s3api put-bucket-notification-configuration \
+  --bucket karet-lake --notification-configuration '{
+  "QueueConfigurations": [{
+    "Id": "karet-worker-webhook",
+    "QueueArn": "arn:rustfs:sqs:us-east-1:primary:webhook",
+    "Events": ["s3:ObjectCreated:*"],
+    "Filter": {"Key": {"FilterRules": [
+      {"Name": "prefix", "Value": "pipelines/"},
+      {"Name": "suffix", "Value": ".csv"}
+    ]}}
+  }]}'
+```
+
+Without this rule, CSV uploads never trigger pipeline runs (manual runs
+still work). RustFS also requires the webhook origin to be allow-listed
+via `RUSTFS_OUTBOUND_ALLOW_ORIGINS` (set in `compose.yml`) and answers a
+`HEAD /` health probe against the worker before delivering.
