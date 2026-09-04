@@ -1,15 +1,12 @@
 "use client";
 
-// Login + first-run setup. The page asks `/api/auth/setup` whether an
-// admin password has been set; if not, it renders the "Set admin password"
-// form. Otherwise it renders the standard sign-in form. Karet is
-// single-admin and password-only.
+// Sign-in page. Karet is single-admin and password-only; the credential
+// is provisioned via the KARET_ADMIN_PASSWORD_HASH environment variable
+// (see README), so there is no in-app setup or password-change flow.
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { KaretLogo } from "@/components/icons";
-
-type Mode = "loading" | "login" | "setup";
 
 export default function LoginPage() {
   return (
@@ -46,64 +43,23 @@ function LoginForm() {
   const params = useSearchParams();
   const next = params?.get("next") || "/";
 
-  const [mode, setMode] = useState<Mode>("loading");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/auth/setup", { cache: "no-store" });
-        if (cancelled) return;
-        if (res.ok) {
-          const body = (await res.json()) as { needsSetup: boolean };
-          setMode(body.needsSetup ? "setup" : "login");
-        } else {
-          setMode("login");
-        }
-      } catch {
-        if (!cancelled) setMode("login");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-
-    if (mode === "setup") {
-      if (password.length < 8) {
-        setError("Password must be at least 8 characters");
-        return;
-      }
-      if (password !== confirm) {
-        setError("Passwords do not match");
-        return;
-      }
-    }
-
     setSubmitting(true);
     try {
-      const url = mode === "setup" ? "/api/auth/setup" : "/api/auth/login";
-      const res = await fetch(url, {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(
-          body.message ||
-            (mode === "setup"
-              ? "Could not set admin password"
-              : "Incorrect password"),
-        );
+        setError(body.message || "Incorrect password");
         return;
       }
       router.push(next);
@@ -114,13 +70,6 @@ function LoginForm() {
       setSubmitting(false);
     }
   }
-
-  if (mode === "loading") {
-    return <LoginFallback />;
-  }
-
-  const title = mode === "setup" ? "Set admin password" : "Sign in";
-  const submitLabel = mode === "setup" ? "Set password" : "Sign in";
 
   return (
     <PageShell>
@@ -134,12 +83,10 @@ function LoginForm() {
           Karet
         </div>
         <h2 className="text-[19px] font-semibold tracking-[-0.01em] text-[color:var(--color-ink)]">
-          {title}
+          Sign in
         </h2>
         <p className="mt-1 text-[13px] text-[color:var(--color-ink-3)]">
-          {mode === "setup"
-            ? "No password is set yet. Choose one to lock down this Karet instance. Use at least 8 characters."
-            : "Enter the admin password for this Karet instance."}
+          Enter the admin password for this Karet instance.
         </p>
 
         <label className="mt-5 block text-[12px] font-medium text-[color:var(--color-ink-2)]">
@@ -150,28 +97,11 @@ function LoginForm() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          autoComplete={mode === "setup" ? "new-password" : "current-password"}
+          autoComplete="current-password"
           required
           className="mt-1.5 h-[38px] w-full rounded-md border border-[color:var(--color-rule)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--color-carrot)] focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
           data-testid="login-password"
         />
-
-        {mode === "setup" ? (
-          <>
-            <label className="mt-4 block text-[12px] font-medium text-[color:var(--color-ink-2)]">
-              Confirm password
-            </label>
-            <input
-              type="password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              autoComplete="new-password"
-              required
-              className="mt-1.5 h-[38px] w-full rounded-md border border-[color:var(--color-rule)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--color-carrot)] focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
-              data-testid="login-confirm"
-            />
-          </>
-        ) : null}
 
         {error ? (
           <p
@@ -188,7 +118,7 @@ function LoginForm() {
           className="mt-6 inline-flex h-10 w-full items-center justify-center rounded-md bg-[color:var(--color-carrot)] px-4 text-[14px] font-medium text-white shadow-[0_1px_0_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.18)] transition hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
           data-testid="login-submit"
         >
-          {submitting ? "…" : submitLabel}
+          {submitting ? "…" : "Sign in"}
         </button>
       </form>
     </PageShell>

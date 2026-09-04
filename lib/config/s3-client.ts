@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 export interface S3Config {
   /**
    * Bucket for ELT control-plane data: pipeline configs, dashboards, job
-   * records, and the `_auth/admin.json` file. (`karet-pipelines`)
+   * records. (`karet-pipelines`)
    */
   pipelinesBucket: string;
   /** Bucket for raw ingested CSV data. (`karet-lake`) */

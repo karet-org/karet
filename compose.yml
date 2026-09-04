@@ -80,6 +80,7 @@ services:
       AWS_REGION: ${AWS_REGION:-us-east-1}
       S3_FORCE_PATH_STYLE: "true"
       KARET_SESSION_SECRET: ${KARET_SESSION_SECRET:?set KARET_SESSION_SECRET (e.g. openssl rand -base64 48)}
+      KARET_ADMIN_PASSWORD_HASH: ${KARET_ADMIN_PASSWORD_HASH:?generate with `npm run hash-password`}
       KARET_WORKER_TOKEN: ${KARET_WORKER_TOKEN:?set KARET_WORKER_TOKEN (e.g. openssl rand -hex 32)}
       REDIS_URL: redis://valkey:6379
       S3_CONSOLE_URL: ${S3_CONSOLE_URL:-http://localhost:9001}

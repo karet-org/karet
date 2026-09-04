@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { withS3 } from "@/lib/config/s3-client";
 import { verifyAdminPassword } from "@/lib/auth/users";
 import { issueSessionCookie } from "@/lib/auth/session";
 
@@ -17,14 +16,11 @@ export async function POST(request: Request) {
     );
   }
 
-  return withS3("POST /api/auth/login", async (client, cfg) => {
-    const ok = await verifyAdminPassword(client, cfg.pipelinesBucket, password);
-    if (!ok) {
-      return NextResponse.json(
-        { error: "invalid_credentials" },
-        { status: 401 },
-      );
-    }
-    return issueSessionCookie(request);
-  });
+  if (!(await verifyAdminPassword(password))) {
+    return NextResponse.json(
+      { error: "invalid_credentials" },
+      { status: 401 },
+    );
+  }
+  return issueSessionCookie(request);
 }
