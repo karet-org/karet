@@ -1,6 +1,20 @@
 name: karet
 
 services:
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    # AOF with everysec fsync: at most ~1s of queue/debounce state lost on
+    # crash. Job history is durable in S3 regardless.
+    command: ["valkey-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   rustfs:
     image: rustfs/rustfs:latest
     restart: unless-stopped
@@ -18,7 +32,10 @@ services:
       RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS: "*"
       RUSTFS_NOTIFY_ENABLE: "true"
       RUSTFS_NOTIFY_WEBHOOK_ENABLE_PRIMARY: "on"
-      RUSTFS_NOTIFY_WEBHOOK_ENDPOINT_PRIMARY: "http://web:3000/api/events/s3?secret=${KARET_WEBHOOK_SECRET:-}"
+      # Upload events go to the worker, which owns debounce + enqueue.
+      # The secret rides in a header, not the URL.
+      RUSTFS_NOTIFY_WEBHOOK_ENDPOINT_PRIMARY: "http://worker:8080/events/s3"
+      RUSTFS_NOTIFY_WEBHOOK_AUTH_TOKEN_PRIMARY: ${KARET_WEBHOOK_SECRET:?set KARET_WEBHOOK_SECRET (e.g. openssl rand -hex 32)}
       RUSTFS_NOTIFY_WEBHOOK_QUEUE_DIR_PRIMARY: /tmp/rustfs-events
     volumes:
       - rustfs-data:/data
@@ -36,8 +53,14 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-rustfsadmin}
       AWS_REGION: ${AWS_REGION:-us-east-1}
       KARET_WORKER_TOKEN: ${KARET_WORKER_TOKEN:?set KARET_WORKER_TOKEN (e.g. openssl rand -hex 32)}
+      REDIS_URL: redis://valkey:6379
+      KARET_WEBHOOK_SECRET: ${KARET_WEBHOOK_SECRET:?set KARET_WEBHOOK_SECRET (e.g. openssl rand -hex 32)}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
     depends_on:
-      - rustfs
+      rustfs:
+        condition: service_started
+      valkey:
+        condition: service_healthy
 
   web:
     image: ghcr.io/karet-org/karet:latest
@@ -56,11 +79,16 @@ services:
       S3_FORCE_PATH_STYLE: "true"
       KARET_SESSION_SECRET: ${KARET_SESSION_SECRET:?set KARET_SESSION_SECRET (e.g. openssl rand -base64 48)}
       KARET_WORKER_TOKEN: ${KARET_WORKER_TOKEN:?set KARET_WORKER_TOKEN (e.g. openssl rand -hex 32)}
-      KARET_WEBHOOK_SECRET: ${KARET_WEBHOOK_SECRET:-}
+      REDIS_URL: redis://valkey:6379
       S3_CONSOLE_URL: ${S3_CONSOLE_URL:-http://localhost:9001}
     depends_on:
-      - rustfs
-      - worker
+      rustfs:
+        condition: service_started
+      worker:
+        condition: service_started
+      valkey:
+        condition: service_healthy
 
 volumes:
   rustfs-data:
+  valkey-data:
