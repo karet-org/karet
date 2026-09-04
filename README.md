@@ -33,6 +33,8 @@ worker + web).
 | `AWS_ENDPOINT_URL` | S3 endpoint URL (e.g. `http://rustfs:9000` for local dev, `https://s3.<region>.amazonaws.com` for real AWS). |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | S3 credentials |
 | `KARET_SESSION_SECRET` | **Required.** HMAC key used to sign user session cookies. Generate with `openssl rand -base64 48`. |
+| `KARET_WORKER_TOKEN` | **Required.** Shared bearer token sent on worker `POST /jobs/run` calls; must match the worker's value. Generate with `openssl rand -hex 32`. |
+| `DUCKDB_MEMORY_LIMIT` | Optional memory cap for the server-side DuckDB session (default `512MB`). |
 | `KARET_WEBHOOK_SECRET` | Optional shared secret for `/api/events/s3` (RustFS webhooks). Empty disables it. |
 | `S3_CONSOLE_URL` | If set, the UI shows a Settings &rarr; S3 console link. Empty hides the link. |
 | `PORT` | Dev server port (default `3000`) |

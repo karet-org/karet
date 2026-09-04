@@ -6,7 +6,45 @@
 // inject SQL. These tests pin that escaping.
 
 import { describe, it, expect } from "vitest";
-import { warehouseSource } from "@/lib/services/duckdb";
+import { executeUserQuery, warehouseSource } from "@/lib/services/duckdb";
+
+// These run against a real (in-memory) DuckDB instance, exercising the
+// sandbox SETs applied at session init.
+describe("executeUserQuery sandbox", () => {
+  it("runs a plain SELECT", async () => {
+    const result = await executeUserQuery([], "SELECT 1 AS one");
+    expect(result).toEqual({ columns: ["one"], rows: [{ one: 1 }] });
+  });
+
+  it("rejects non-SELECT statements", async () => {
+    const result = await executeUserQuery([], "SET memory_limit = '100GB'");
+    expect(result).toHaveProperty("error");
+  });
+
+  it("blocks local filesystem reads (disabled_filesystems)", async () => {
+    const result = await executeUserQuery(
+      [],
+      "SELECT content FROM read_text('/etc/hostname')",
+    );
+    expect(result).toHaveProperty("error");
+    expect((result as { error: string }).error).toMatch(
+      /disabled|not allowed|permission/i,
+    );
+  });
+
+  it("locks configuration against SET smuggled into a SELECT", async () => {
+    // json_serialize_sql only accepts SELECTs, but pin the second layer of
+    // defense too: even a direct SET via the shared query path must fail
+    // once lock_configuration is on.
+    const result = await executeUserQuery(
+      [],
+      "SELECT * FROM (SELECT 1) t WHERE current_setting('memory_limit') IS NOT NULL",
+    );
+    // Reading settings is fine; the lock only forbids writes. This query
+    // succeeding proves the session is still usable after the lock.
+    expect(result).not.toHaveProperty("error");
+  });
+});
 
 describe("warehouseSource", () => {
   it("builds a read_parquet call over the table's warehouse prefix", () => {

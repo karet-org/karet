@@ -35,6 +35,7 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-rustfsadmin}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-rustfsadmin}
       AWS_REGION: ${AWS_REGION:-us-east-1}
+      KARET_WORKER_TOKEN: ${KARET_WORKER_TOKEN:?set KARET_WORKER_TOKEN (e.g. openssl rand -hex 32)}
     depends_on:
       - rustfs
 
@@ -54,6 +55,7 @@ services:
       AWS_REGION: ${AWS_REGION:-us-east-1}
       S3_FORCE_PATH_STYLE: "true"
       KARET_SESSION_SECRET: ${KARET_SESSION_SECRET:?set KARET_SESSION_SECRET (e.g. openssl rand -base64 48)}
+      KARET_WORKER_TOKEN: ${KARET_WORKER_TOKEN:?set KARET_WORKER_TOKEN (e.g. openssl rand -hex 32)}
       KARET_WEBHOOK_SECRET: ${KARET_WEBHOOK_SECRET:-}
       S3_CONSOLE_URL: ${S3_CONSOLE_URL:-http://localhost:9001}
     depends_on:

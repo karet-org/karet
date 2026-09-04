@@ -37,6 +37,20 @@ function getDb(): duckdb.Database {
           `SET s3_use_ssl = ${config.endpoint.startsWith("https") ? "true" : "false"}`,
         ]
       : []),
+    // ---- Sandbox. User SQL from /api/p/[pipeline]/query runs on this
+    // session, so lock it down after httpfs is installed and loaded
+    // (INSTALL/LOAD themselves need local-filesystem access).
+    //
+    // Local reads are off: without this, any SELECT can call
+    // read_text('/proc/self/environ') or read csv/parquet from disk.
+    // httpfs (s3://) is unaffected.
+    `SET disabled_filesystems = 'LocalFileSystem'`,
+    // Bound a runaway query instead of letting it OOM the web process.
+    `SET memory_limit = '${process.env.DUCKDB_MEMORY_LIMIT || "512MB"}'`,
+    // Must be last: freezes every setting above (including the S3
+    // credentials and the two limits) so user SQL cannot SET, RESET, or
+    // re-enable anything.
+    `SET lock_configuration = true`,
   ];
 
   for (const stmt of stmts) {

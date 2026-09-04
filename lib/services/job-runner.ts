@@ -247,7 +247,11 @@ async function runPipelineInBackground(args: BackgroundJobArgs): Promise<void> {
     const pipelinePrefix = `${pipelinesPrefix}${pipeline}/`;
     const res = await fetch(`${workerUrl}/jobs/run`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // The worker requires this shared token on every mutating route.
+        Authorization: `Bearer ${process.env.KARET_WORKER_TOKEN ?? ""}`,
+      },
       body: JSON.stringify({ pipeline_prefix: pipelinePrefix, clean_run: cleanRun }),
       // 30-minute ceiling, well above any realistic pipeline. The
       // jobs-list reconciler still marks anything stuck > 10 min as

@@ -22,6 +22,7 @@ export const REQUIRED_ENV_VARS = [
   "AWS_SECRET_ACCESS_KEY",
   "AWS_REGION",
   "KARET_SESSION_SECRET",
+  "KARET_WORKER_TOKEN",
 ] as const;
 
 /** Minimal environment shape the check reads from. Parameterizing lets tests
