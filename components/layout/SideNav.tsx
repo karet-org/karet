@@ -29,12 +29,17 @@ import RailUserMenu from "@/components/layout/RailUserMenu";
 /** Height of the mobile top bar; pipeline pages offset content by this below md. */
 export const MOBILE_NAV_HEIGHT_PX = 48;
 
-const AVATAR_HUES = [16, 42, 122, 200, 268, 330];
+import { pipelineHue } from "@/lib/config/pipeline-hue";
 
-function avatarHue(slug: string): number {
-  let h = 0;
-  for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) >>> 0;
-  return AVATAR_HUES[h % AVATAR_HUES.length];
+function relTime(iso?: string): string {
+  const ts = iso ? Date.parse(iso) : NaN;
+  if (Number.isNaN(ts)) return "recently";
+  const m = Math.max(1, Math.round((Date.now() - ts) / 60000));
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} hr ago`;
+  const d = Math.round(h / 24);
+  return `${d} day${d === 1 ? "" : "s"} ago`;
 }
 
 export default function SideNav({
@@ -47,6 +52,7 @@ export default function SideNav({
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   const [dashboards, setDashboards] = useState<{ id: string; name: string }[]>([]);
+  const [statusLine, setStatusLine] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [pipelines, setPipelines] = useState<string[]>([]);
@@ -88,6 +94,37 @@ export default function SideNav({
         if (Array.isArray(body.drafts)) setDrafts(body.drafts);
       } catch {
         // Nav stays usable if the list can't load.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pipeline]);
+
+  // Latest terminal run for the identity subline ("Healthy, ran 5 min ago").
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/p/${pipeline}/jobs?page=1&pageSize=5`);
+        if (!res.ok) return;
+        const body = (await res.json()) as {
+          jobs?: { status: string; startedAt?: string }[];
+        };
+        if (cancelled || !Array.isArray(body.jobs)) return;
+        const terminal = body.jobs.find(
+          (j) => j.status === "completed" || j.status === "failed" || j.status === "abandoned",
+        );
+        if (!terminal) {
+          setStatusLine("Never run");
+          return;
+        }
+        const ago = relTime(terminal.startedAt);
+        setStatusLine(
+          terminal.status === "completed" ? `Healthy, ran ${ago}` : `Last run failed ${ago}`,
+        );
+      } catch {
+        // Subline stays hidden.
       }
     })();
     return () => {
@@ -164,13 +201,20 @@ export default function SideNav({
         >
           <span
             className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-[11px] font-bold text-[#1b1b1f]"
-            style={{ background: `hsl(${avatarHue(pipeline)} 72% 55%)` }}
+            style={{ background: `hsl(${pipelineHue(pipeline)} 72% 55%)` }}
             aria-hidden
           >
             {pipeline[0]?.toUpperCase()}
           </span>
-          <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-[color:var(--color-ink)]">
-            {pipeline}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-mono text-[12.5px] leading-tight text-[color:var(--color-ink)]">
+              {pipeline}
+            </span>
+            {statusLine && (
+              <span className="block truncate text-[10.5px] leading-tight text-[color:var(--color-ink-3)]">
+                {statusLine}
+              </span>
+            )}
           </span>
           <IconChevronDown size={12} className="shrink-0 text-[color:var(--color-ink-4)]" />
         </button>

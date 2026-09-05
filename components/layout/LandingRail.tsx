@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { IconGrid, IconStar, KaretLogo } from "@/components/icons";
 import RailUserMenu from "@/components/layout/RailUserMenu";
+import { SearchInput } from "@/components/layout/LandingSearch";
 
 export default function LandingRail({
   displayName,
@@ -31,6 +32,8 @@ export default function LandingRail({
           )}
         </span>
       </Link>
+
+      <SearchInput />
 
       <Link
         href="/"

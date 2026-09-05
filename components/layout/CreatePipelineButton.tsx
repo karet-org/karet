@@ -22,7 +22,12 @@ const TEMPLATES: { id: TemplateId; name: string; description: string }[] = [
   },
 ];
 
-export default function CreatePipelineButton() {
+export default function CreatePipelineButton({
+  variant = "button",
+}: {
+  /** "button" is the topbar pill; "card" is the dashed grid tile. */
+  variant?: "button" | "card";
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -77,7 +82,18 @@ export default function CreatePipelineButton() {
 
   return (
     <>
-      <button
+      {variant === "card" ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          data-testid="create-pipeline-card"
+          className="flex min-h-[212px] flex-col items-center justify-center gap-2 rounded-[13px] border border-dashed border-[color:var(--color-rule)] text-[color:var(--color-ink-3)] transition-colors hover:border-[color:var(--color-carrot)] hover:text-[color:var(--color-carrot)]"
+        >
+          <IconPlus size={22} />
+          New pipeline
+        </button>
+      ) : (
+        <button
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-3.5 text-[13.5px] font-medium text-white shadow-[0_1px_0_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.18)] transition hover:bg-[color:var(--color-carrot-deep)]"
@@ -85,6 +101,7 @@ export default function CreatePipelineButton() {
         <IconPlus size={14} />
         New pipeline
       </button>
+      )}
 
       {open ? (
         <Modal open={open} onClose={close}>

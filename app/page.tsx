@@ -16,6 +16,7 @@ import type { JobRecord } from "@/lib/types/jobs";
 import ImportButton from "@/components/layout/ImportButton";
 import CreatePipelineButton from "@/components/layout/CreatePipelineButton";
 import LandingRail from "@/components/layout/LandingRail";
+import { SearchProvider } from "@/components/layout/LandingSearch";
 import PipelineGrid, { type PipelineCardData } from "@/components/layout/PipelineGrid";
 import type { ThumbGraph } from "@/components/layout/DagThumbnail";
 import { getUiSettings } from "@/lib/services/ui-settings";
@@ -204,6 +205,7 @@ export default async function Home() {
   }));
 
   return (
+    <SearchProvider>
     <div className="flex min-h-screen">
       <LandingRail
         displayName={settings.displayName}
@@ -246,11 +248,16 @@ export default async function Home() {
           ) : pipelines.length === 0 ? (
             <EmptyState />
           ) : (
-            <PipelineGrid pipelines={cards} starred={starred} />
+            <PipelineGrid
+              pipelines={cards}
+              starred={starred}
+              createSlot={<CreatePipelineButton variant="card" />}
+            />
           )}
         </div>
       </main>
     </div>
+    </SearchProvider>
   );
 }
 

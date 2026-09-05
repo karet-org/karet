@@ -28,6 +28,18 @@ function rowYs(count: number): number[] {
 
 export default function DagThumbnail({ graph }: { graph: ThumbGraph }) {
   const cols = [rowYs(graph.sources), rowYs(graph.mappings), rowYs(graph.tables)];
+  // Fit the viewBox to the content so sparse graphs don't render as a
+  // tiny strip in the middle of the card.
+  const usedCols = cols.map((ys, c) => ({ ys, c })).filter(({ ys }) => ys.length > 0);
+  const allYs = usedCols.flatMap(({ ys }) => ys);
+  const minX = usedCols.length ? COLS[usedCols[0].c] : 0;
+  const maxX = usedCols.length ? COLS[usedCols[usedCols.length - 1].c] + NODE_W : W;
+  const minY = allYs.length ? Math.min(...allYs) : 0;
+  const maxY = allYs.length ? Math.max(...allYs) + NODE_H : H;
+  const padX = 18;
+  const contentH = Math.max(maxY - minY, 64);
+  const padY = (contentH - (maxY - minY)) / 2 + 16;
+  const viewBox = `${minX - padX} ${minY - padY} ${maxX - minX + padX * 2} ${maxY - minY + padY * 2}`;
   const wire = (c: number, a: number, b: number) => {
     const ya = cols[c][Math.min(a, MAX_PER_COL - 1)];
     const yb = cols[c + 1][Math.min(b, MAX_PER_COL - 1)];
@@ -40,7 +52,7 @@ export default function DagThumbnail({ graph }: { graph: ThumbGraph }) {
   const strokes = ["var(--color-amber-deep)", "var(--color-ink-4)", "var(--color-leaf)"];
   return (
     <svg
-      viewBox={`0 0 ${W} ${H}`}
+      viewBox={viewBox}
       className="h-full w-full"
       aria-hidden
       data-testid="dag-thumbnail"

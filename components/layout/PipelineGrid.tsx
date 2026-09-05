@@ -8,6 +8,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import DagThumbnail, { EmptyThumb, type ThumbGraph } from "@/components/layout/DagThumbnail";
+import { useSearch } from "@/components/layout/LandingSearch";
+import { pipelineHue } from "@/lib/config/pipeline-hue";
 import { IconStar } from "@/components/icons";
 
 export interface PipelineCardData {
@@ -37,16 +39,23 @@ const DOT: Record<PipelineCardData["status"], string> = {
 export default function PipelineGrid({
   pipelines,
   starred: initialStarred,
+  createSlot,
 }: {
   pipelines: PipelineCardData[];
   starred: string[];
+  /** Rendered as the trailing "new pipeline" card. */
+  createSlot?: React.ReactNode;
 }) {
   const router = useRouter();
+  const { query } = useSearch();
   const [sort, setSort] = useState<SortKey>("recent");
   const [starred, setStarred] = useState(new Set(initialStarred));
 
   const sorted = useMemo(() => {
-    const list = [...pipelines];
+    const q = query.trim().toLowerCase();
+    const list = pipelines.filter(
+      (p) => !q || p.slug.includes(q) || p.name.toLowerCase().includes(q),
+    );
     if (sort === "alpha") list.sort((a, b) => a.slug.localeCompare(b.slug));
     else if (sort === "failing")
       list.sort(
@@ -59,7 +68,7 @@ export default function PipelineGrid({
         (a, b) => Date.parse(b.lastRunAt ?? "0") - Date.parse(a.lastRunAt ?? "0"),
       );
     return list;
-  }, [pipelines, sort]);
+  }, [pipelines, sort, query]);
 
   async function toggleStar(slug: string) {
     const next = new Set(starred);
@@ -118,6 +127,15 @@ export default function PipelineGrid({
                   {empty ? <EmptyThumb /> : <DagThumbnail graph={p.graph} />}
                 </div>
                 <div className="flex items-center gap-2.5 px-3.5 py-3">
+                  <span
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--color-surface-2)]"
+                    aria-hidden
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" strokeWidth="1.5" stroke={`hsl(${pipelineHue(p.slug)} 80% 62%)`}>
+                      <circle cx="4" cy="4" r="2" /><circle cx="12" cy="8" r="2" /><circle cx="4" cy="12" r="2" />
+                      <path d="M6 4.7 10 7.3M6 11.3 10 8.7" />
+                    </svg>
+                  </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13.5px] font-semibold text-[color:var(--color-ink)]">
                       {p.name}
@@ -149,6 +167,7 @@ export default function PipelineGrid({
             </div>
           );
         })}
+        {createSlot}
       </section>
     </>
   );
