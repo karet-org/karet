@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { IconPlay } from "@/components/icons";
 import type { JobRecord } from "@/lib/types/jobs";
@@ -225,119 +225,133 @@ export default function JobsPage() {
             No jobs yet. Click &quot;Run Pipeline&quot; to start one.
           </p>
         ) : (
-          <div className="divide-y divide-[color:var(--color-rule-soft)] overflow-hidden rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]">
-            {jobs.map((job) => {
-              const expanded = expandedJobId === job.id;
-              const terminal =
-                job.status !== "running" &&
-                job.status !== "scheduled" &&
-                job.status !== "queued";
-              const stats = [
-                job.files_processed !== undefined ? `${job.files_processed} file(s)` : null,
-                job.partitions_written !== undefined ? `${job.partitions_written} partition(s)` : null,
-                job.completedAt ? formatDuration(job.startedAt, job.completedAt) : null,
-              ].filter(Boolean);
-              return (
-                <div key={job.id}>
-                  <button
-                    type="button"
-                    onClick={() => terminal && setExpandedJobId(expanded ? null : job.id)}
-                    aria-expanded={terminal ? expanded : undefined}
-                    className={`flex w-full items-center gap-3 px-3 py-2 text-left ${
-                      terminal ? "hover:bg-[color:var(--color-surface-2)]" : "cursor-default"
-                    }`}
-                  >
-                    <span
-                      className={`h-2 w-2 shrink-0 rounded-full ${statusDot(job.status)}`}
-                      aria-hidden
-                    />
-                    <span className="sr-only">{job.status}</span>
-                    <code className="shrink-0 text-[11px] text-[color:var(--color-ink-3)]">{job.id}</code>
-                    {job.trigger === "webhook" && (
-                      <span
-                        className="shrink-0 rounded-full bg-[rgba(108,178,255,0.12)] px-1.5 py-0.5 text-[9px] font-medium text-[#6cb2ff]"
-                        title="Auto-triggered by an upload to S3"
+          <div className="overflow-x-auto rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]">
+            <table className="min-w-full text-[12.5px]">
+              <thead>
+                <tr className="border-b border-[color:var(--color-rule-soft)] text-left text-[11px] font-medium text-[color:var(--color-ink-3)]">
+                  <th className="px-3.5 py-2.5">Job</th>
+                  <th className="px-3.5 py-2.5">Status</th>
+                  <th className="px-3.5 py-2.5">Trigger</th>
+                  <th className="px-3.5 py-2.5">Progress</th>
+                  <th className="px-3.5 py-2.5 text-right">Started</th>
+                  <th className="px-3.5 py-2.5 text-right">Duration</th>
+                  <th className="w-8 px-2 py-2.5" aria-hidden />
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map((job) => {
+                  const expanded = expandedJobId === job.id;
+                  const terminal =
+                    job.status !== "running" &&
+                    job.status !== "scheduled" &&
+                    job.status !== "queued";
+                  const active = job.status === "queued" || job.status === "running";
+                  return (
+                    <Fragment key={job.id}>
+                      <tr
+                        onClick={() => terminal && setExpandedJobId(expanded ? null : job.id)}
+                        aria-expanded={terminal ? expanded : undefined}
+                        className={`border-b border-[color:var(--color-rule-soft)] last:border-b-0 ${
+                          terminal ? "cursor-pointer hover:bg-[color:var(--color-surface-2)]" : ""
+                        }`}
                       >
-                        auto
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1 truncate text-xs text-[color:var(--color-ink-3)]">
-                      {job.status === "scheduled" && job.nextRunAt
-                        ? scheduledCountdown(job.nextRunAt)
-                        : job.status === "queued" || job.status === "running"
-                          ? progressLine(job)
-                          : job.status === "failed"
-                            ? <span className="text-[color:var(--color-rose-deep)]">Failed{stats.length > 0 ? ` · ${stats.join(" · ")}` : ""}</span>
-                            : stats.join(" · ")}
-                    </span>
-                    <span className="shrink-0 text-[11px] text-[color:var(--color-ink-3)]">
-                      {new Date(job.startedAt).toLocaleString()}
-                    </span>
-                    {terminal && (
-                      <span
-                        className={`shrink-0 text-[color:var(--color-ink-3)] transition-transform ${expanded ? "rotate-90" : ""}`}
-                        aria-hidden
-                      >
-                        ›
-                      </span>
-                    )}
-                  </button>
-                  {expanded && (
-                    <div className="space-y-2 bg-[color:var(--color-surface-2)] px-3 py-2 text-[11px] text-[color:var(--color-ink-2)]">
-                      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                        <dt className="text-[color:var(--color-ink-3)]">Job ID</dt>
-                        <dd className="font-mono">{job.id}</dd>
-                        <dt className="text-[color:var(--color-ink-3)]">Status</dt>
-                        <dd>{job.status}</dd>
-                        <dt className="text-[color:var(--color-ink-3)]">Started</dt>
-                        <dd>{new Date(job.startedAt).toLocaleString()}</dd>
-                        {job.completedAt && (
-                          <>
-                            <dt className="text-[color:var(--color-ink-3)]">Completed</dt>
-                            <dd>{new Date(job.completedAt).toLocaleString()}</dd>
-                            <dt className="text-[color:var(--color-ink-3)]">Duration</dt>
-                            <dd>{formatDuration(job.startedAt, job.completedAt)}</dd>
-                          </>
-                        )}
-                        {job.files_processed !== undefined && (
-                          <>
-                            <dt className="text-[color:var(--color-ink-3)]">Files processed</dt>
-                            <dd>{job.files_processed}</dd>
-                          </>
-                        )}
-                        {job.partitions_written !== undefined && (
-                          <>
-                            <dt className="text-[color:var(--color-ink-3)]">Partitions written</dt>
-                            <dd>{job.partitions_written}</dd>
-                          </>
-                        )}
-                        {job.errors !== undefined && (
-                          <>
-                            <dt className="text-[color:var(--color-ink-3)]">Errors</dt>
-                            <dd>{job.errors.length}</dd>
-                          </>
-                        )}
-                      </dl>
-                      {job.error && (
-                        <div className="rounded border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] p-2 text-[11px] text-[color:var(--color-rose-deep)]">
-                          <div className="mb-0.5 font-medium">Error</div>
-                          <p className="whitespace-pre-wrap break-words font-mono">{job.error}</p>
-                        </div>
+                        <td className="px-3.5 py-2.5">
+                          <code className="text-[11px] text-[color:var(--color-ink)]">{job.id}</code>
+                        </td>
+                        <td className="px-3.5 py-2.5">
+                          <span className="inline-flex items-center gap-1.5 text-[color:var(--color-ink-2)]">
+                            <span className={`h-[7px] w-[7px] rounded-full ${statusDot(job.status)}`} aria-hidden />
+                            {job.status}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-2.5 text-[color:var(--color-ink-2)]">
+                          {job.trigger === "webhook" ? "webhook" : "manual"}
+                        </td>
+                        <td className="px-3.5 py-2.5 text-[color:var(--color-ink-3)]">
+                          {job.status === "scheduled" && job.nextRunAt ? (
+                            scheduledCountdown(job.nextRunAt)
+                          ) : active ? (
+                            progressLine(job)
+                          ) : job.status === "failed" && job.error ? (
+                            <span className="block max-w-[260px] truncate text-[color:var(--color-rose-deep)]" title={job.error}>
+                              {job.error}
+                            </span>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-3.5 py-2.5 text-right text-[11.5px] text-[color:var(--color-ink-3)]">
+                          {new Date(job.startedAt).toLocaleString()}
+                        </td>
+                        <td className="whitespace-nowrap px-3.5 py-2.5 text-right text-[11.5px] text-[color:var(--color-ink-2)]">
+                          {job.completedAt ? formatDuration(job.startedAt, job.completedAt) : "-"}
+                        </td>
+                        <td className="px-2 py-2.5 text-[color:var(--color-ink-4)]" aria-hidden>
+                          {terminal && (
+                            <span className={`inline-block transition-transform ${expanded ? "rotate-90" : ""}`}>›</span>
+                          )}
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr className="border-b border-[color:var(--color-rule-soft)] last:border-b-0">
+                          <td colSpan={7} className="bg-[color:var(--color-surface-2)] px-3.5 py-2.5">
+                            <div className="space-y-2 text-[11px] text-[color:var(--color-ink-2)]">
+                              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                                <dt className="text-[color:var(--color-ink-3)]">Job ID</dt>
+                                <dd className="font-mono">{job.id}</dd>
+                                <dt className="text-[color:var(--color-ink-3)]">Status</dt>
+                                <dd>{job.status}</dd>
+                                <dt className="text-[color:var(--color-ink-3)]">Started</dt>
+                                <dd>{new Date(job.startedAt).toLocaleString()}</dd>
+                                {job.completedAt && (
+                                  <>
+                                    <dt className="text-[color:var(--color-ink-3)]">Completed</dt>
+                                    <dd>{new Date(job.completedAt).toLocaleString()}</dd>
+                                  </>
+                                )}
+                                {job.files_processed !== undefined && (
+                                  <>
+                                    <dt className="text-[color:var(--color-ink-3)]">Files processed</dt>
+                                    <dd>{job.files_processed}</dd>
+                                  </>
+                                )}
+                                {job.partitions_written !== undefined && (
+                                  <>
+                                    <dt className="text-[color:var(--color-ink-3)]">Partitions written</dt>
+                                    <dd>{job.partitions_written}</dd>
+                                  </>
+                                )}
+                                {job.errors !== undefined && (
+                                  <>
+                                    <dt className="text-[color:var(--color-ink-3)]">Errors</dt>
+                                    <dd>{job.errors.length}</dd>
+                                  </>
+                                )}
+                              </dl>
+                              {job.error && (
+                                <div className="rounded border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] p-2 text-[11px] text-[color:var(--color-rose-deep)]">
+                                  <div className="mb-0.5 font-medium">Error</div>
+                                  <p className="whitespace-pre-wrap break-words font-mono">{job.error}</p>
+                                </div>
+                              )}
+                              {job.errors && job.errors.length > 0 && (
+                                <ul className="max-h-60 space-y-1 overflow-auto rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-2 font-mono text-[11px] text-[color:var(--color-ink-2)]">
+                                  {job.errors.map((e, i) => (
+                                    <li key={i} className="border-l-2 border-[color:var(--color-rose-deep)] pl-2">
+                                      {e}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                      {job.errors && job.errors.length > 0 && (
-                        <ul className="max-h-60 space-y-1 overflow-auto rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-2 font-mono text-[11px] text-[color:var(--color-ink-2)]">
-                          {job.errors.map((e, i) => (
-                            <li key={i} className="border-l-2 border-[color:var(--color-rose-deep)] pl-2">
-                              {e}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 

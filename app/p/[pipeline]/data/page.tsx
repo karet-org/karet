@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { ExpandableTextField } from "@/components/ui/ExpandableTextField";
 import Modal from "@/components/ui/Modal";
-import { DeleteButton } from "@/components/ui/DeleteButton";
 import type { SavedQuery } from "@/lib/types/query";
 
 interface Column { name: string; type: string }
@@ -31,31 +29,16 @@ interface Relation {
   collidesWith: string | null;
 }
 
-/** Placeholder rows shown while the sidebar list is loading. */
-function SidebarSkeleton() {
-  return (
-    <div className="space-y-1" aria-hidden>
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="mb-1 rounded-md border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] px-2.5 py-2">
-          <div className="h-3 w-2/3 animate-pulse rounded bg-[color:var(--color-rule)]" />
-          <div className="mt-1.5 h-2 w-1/3 animate-pulse rounded bg-[color:var(--color-surface-2)]" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default function DataPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [queries, setQueries] = useState<SavedQuery[]>([]);
-  const [sidebarTab, setSidebarTab] = useState<"warehouse" | "queries">("warehouse");
   const [loading, setLoading] = useState(false);
   const [sql, setSql] = useState("");
   const [result, setResult] = useState<Record<string, unknown>[] | null>(null);
   const [resultCols, setResultCols] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [tablesOpen, setTablesOpen] = useState(true);
   const [bucketError, setBucketError] = useState<string | null>(null);
 
   // Sidebar fetch state, tracked per source so a failure shows an error
@@ -234,7 +217,6 @@ export default function DataPage() {
       setSaveOpen(false);
       setSaveName("");
       await loadQueries();
-      setSidebarTab("queries");
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -242,150 +224,32 @@ export default function DataPage() {
     }
   };
 
-  const toggleExpanded = (key: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  };
 
-  // Cards sit on a gray-50 panel, so the hover tint is a light orange rather
-  // than gray-50 (which would be invisible against the panel background).
-  const itemClass = (collidesWith: string | null) =>
-    collidesWith
-      ? "border-amber-300 bg-amber-50"
-      : "border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] hover:border-[color:var(--color-carrot)] hover:bg-[color:var(--color-carrot-soft)]";
-
-  const renderRelation = (r: Relation) => {
-    const isOpen = expanded.has(r.key);
-    return (
-      <div
-        key={r.key}
-        className={`mb-1 rounded-md border transition ${itemClass(r.collidesWith)}`}
-      >
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={() => !r.collidesWith && selectRelation(r.slug)}
-            disabled={Boolean(r.collidesWith)}
-            className="flex-1 truncate px-2.5 py-2 text-left disabled:cursor-not-allowed"
-            title={
-              r.collidesWith
-                ? `Slug "${r.slug}" collides with another relation. Rename one in the graph editor.`
-                : r.slug
-            }
-          >
-            <div className="truncate text-sm font-medium text-[color:var(--color-ink)]">{r.name}</div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-[color:var(--color-ink-3)]">
-              <code className="rounded bg-[color:var(--color-surface-2)] px-1 py-0.5 font-mono text-[color:var(--color-ink-2)]">{r.slug}</code>
-              <span>{r.schema.length} cols</span>
-              <span>· {r.meta}</span>
-              {r.collidesWith && <span className="text-amber-700">name collides</span>}
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => toggleExpanded(r.key)}
-            aria-label={isOpen ? "Hide columns" : "Show columns"}
-            className="px-2 py-2 text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink-2)]"
-          >
-            <span className={`inline-block transition-transform ${isOpen ? "rotate-90" : ""}`}>›</span>
-          </button>
-        </div>
-        {isOpen && (
-          <ul className="border-t border-[color:var(--color-rule-soft)] px-2.5 py-1.5">
-            {r.schema.map((c) => (
-              <li key={c.name} className="flex items-center justify-between py-0.5 text-[11px]">
-                <span className="truncate text-[color:var(--color-ink-2)]">{c.name}</span>
-                <span className="ml-2 shrink-0 text-[color:var(--color-ink-3)]">{c.type}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    );
-  };
-
-  const renderQuery = (q: SavedQuery) => (
-    <div
-      key={q.id}
-      className={`mb-1 rounded-md border transition ${itemClass(null)}`}
-    >
-      <div className="flex items-center pr-1.5">
-        <button
-          type="button"
-          onClick={() => loadSavedQuery(q)}
-          className="flex-1 truncate px-2.5 py-2 text-left"
-          title={q.sql}
-        >
-          <div className="truncate text-sm font-medium text-[color:var(--color-ink)]">{q.name}</div>
-          <code className="mt-0.5 block truncate font-mono text-[10px] text-[color:var(--color-ink-3)]">{q.sql}</code>
-        </button>
-        <DeleteButton
-          label={`Delete query ${q.name}`}
-          onClick={() => { setDeleteError(null); setDeleteTarget(q); }}
-        />
-      </div>
-    </div>
-  );
-
-  // 48 = MOBILE_NAV_HEIGHT_PX; the desktop side nav takes no vertical space.
   return (
     <div className="flex flex-col md:h-screen md:flex-row">
-      <aside className="flex w-full shrink-0 flex-col border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] md:w-64 md:border-b-0 md:border-r">
-        <div className="flex border-b border-[color:var(--color-rule-soft)]" role="tablist" aria-label="Data views">
-          {([
-            ["warehouse", "Warehouse", tables.length],
-            ["queries", "Queries", queries.length],
-          ] as const).map(([id, label, count]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={sidebarTab === id}
-              onClick={() => setSidebarTab(id)}
-              className={`flex-1 px-3 py-2 text-xs font-medium transition ${
-                sidebarTab === id
-                  ? "border-b-2 border-[color:var(--color-carrot)] text-[color:var(--color-carrot)]"
-                  : "text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink-2)]"
-              }`}
-            >
-              {label} <span className="text-[color:var(--color-ink-3)]">({count})</span>
-            </button>
-          ))}
-        </div>
-        <div className="max-h-[35vh] flex-1 overflow-y-auto p-2 md:max-h-none">
-          {sidebarTab === "warehouse" ? (
-            tablesLoading ? (
-              <SidebarSkeleton />
-            ) : tablesError ? (
-              <p className="px-2 py-1 text-[11px] text-[color:var(--color-rose-deep)]">{tablesError}</p>
-            ) : relations.length === 0 ? (
-              <p className="px-2 py-1 text-[11px] text-[color:var(--color-ink-3)]">No tables yet.</p>
-            ) : (
-              relations.map(renderRelation)
-            )
-          ) : queriesLoading ? (
-            <SidebarSkeleton />
-          ) : queriesError ? (
-            <p className="px-2 py-1 text-[11px] text-[color:var(--color-rose-deep)]">{queriesError}</p>
-          ) : queries.length === 0 ? (
-            <p className="px-2 py-1 text-[11px] text-[color:var(--color-ink-3)]">
-              No saved queries yet. Run a query and click Save.
-            </p>
-          ) : (
-            queries.map(renderQuery)
-          )}
-        </div>
-      </aside>
-
       <main className="flex min-w-0 flex-1 flex-col gap-3 px-4 py-4 sm:px-6 md:min-h-0 md:overflow-hidden">
-        <div className="flex items-baseline gap-3">
+        <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold text-[color:var(--color-ink)]">Data</h1>
           <p className="hidden text-[12.5px] text-[color:var(--color-ink-3)] sm:block">
-            Query analytic tables with DuckDB SQL, joins across tables are supported.
+            Query analytic tables with DuckDB SQL
           </p>
+          <button
+            type="button"
+            onClick={() => setTablesOpen((v) => !v)}
+            aria-pressed={tablesOpen}
+            data-testid="toggle-tables-panel"
+            className={`ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors ${
+              tablesOpen
+                ? "border-[color:var(--color-carrot)] bg-[color:var(--color-carrot-soft)] text-[color:var(--color-ink)]"
+                : "border-[color:var(--color-rule)] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
+            }`}
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+              <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
+              <path d="M10 2.5v11" />
+            </svg>
+            Tables
+          </button>
         </div>
 
         {bucketError && (
@@ -394,10 +258,10 @@ export default function DataPage() {
           </div>
         )}
 
-        {/* Results frame: fills the space above the editor and keeps its
-            size regardless of how many rows came back. */}
+        {/* Results frame: fills the space above the editor, fixed size
+            regardless of row count. */}
         <div
-          className="flex min-h-[280px] flex-1 flex-col overflow-hidden rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] md:min-h-0"
+          className="flex min-h-[280px] flex-1 flex-col overflow-hidden rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] md:min-h-0"
           data-testid="query-results-frame"
         >
           <div className="flex items-center gap-2.5 border-b border-[color:var(--color-rule-soft)] px-3.5 py-2">
@@ -444,46 +308,142 @@ export default function DataPage() {
         </div>
 
         {/* Editor pinned below the results frame. */}
-        <div className="rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]" data-testid="query-editor">
-          <div className="p-2.5">
-            <ExpandableTextField
-              ariaLabel="SQL query"
-              value={sql}
-              onChange={setSql}
-              onKeyDown={(e) => { if (e.key === "Enter") runQuery(); }}
-              onModalAction={() => runQuery()}
-              placeholder="SELECT * FROM transactions LIMIT 50"
-              spellCheck={false}
-              modalTitle="SQL query"
-              modalActionLabel="Run"
-              inputClassName="w-full rounded border border-[color:var(--color-rule)] bg-transparent px-3 py-2 font-mono text-xs text-[color:var(--color-ink)] focus:border-[color:var(--color-carrot)] focus:outline-none"
-            />
-          </div>
-          <div className="flex items-center gap-2.5 border-t border-[color:var(--color-rule-soft)] px-2.5 py-2">
-            <p className="hidden min-w-0 truncate text-[11px] text-[color:var(--color-ink-3)] sm:block">
-              Runs server-side against the warehouse. Enter runs the query.
-            </p>
-            <div className="ml-auto flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => { setSaveError(null); setSaveOpen(true); }}
-                disabled={!sql.trim()}
-                className="rounded border border-[color:var(--color-rule)] px-4 py-1.5 text-xs font-medium text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={() => runQuery()}
-                disabled={loading}
-                className="rounded bg-[color:var(--color-carrot)] px-4 py-1.5 text-xs font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
-              >
-                {loading ? "Running…" : "Run"}
-              </button>
+        <div className="rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]" data-testid="query-editor">
+          <textarea
+            value={sql}
+            onChange={(e) => setSql(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                runQuery();
+              }
+            }}
+            spellCheck={false}
+            aria-label="SQL query"
+            placeholder="SELECT * FROM transactions LIMIT 50"
+            className="block h-[88px] w-full resize-none bg-transparent px-3.5 py-3 font-mono text-[12px] leading-[1.7] text-[color:var(--color-ink)] outline-none placeholder:text-[color:var(--color-ink-4)]"
+          />
+          <div className="flex items-center gap-1.5 border-t border-[color:var(--color-rule-soft)] px-2.5 py-2">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+              {queriesError ? (
+                <span className="text-[11px] text-[color:var(--color-rose-deep)]">{queriesError}</span>
+              ) : queriesLoading ? (
+                <span className="text-[11px] text-[color:var(--color-ink-4)]">Loading queries…</span>
+              ) : (
+                queries.map((q) => {
+                  const active = sql === q.sql;
+                  return (
+                    <span key={q.id} className="group/chip relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => loadSavedQuery(q)}
+                        title={q.sql}
+                        className={`rounded-md py-1 pl-2.5 pr-6 text-[11.5px] font-medium transition-colors ${
+                          active
+                            ? "bg-[color:var(--color-surface-2)] text-[color:var(--color-ink)]"
+                            : "text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
+                        }`}
+                      >
+                        {q.name}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Delete query ${q.name}`}
+                        onClick={() => setDeleteTarget(q)}
+                        className="absolute right-1 top-1/2 grid h-4 w-4 -translate-y-1/2 place-items-center rounded text-[color:var(--color-ink-4)] opacity-0 hover:text-[color:var(--color-rose-deep)] focus-visible:opacity-100 group-hover/chip:opacity-100"
+                      >
+                        <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path d="M4 4l8 8M12 4l-8 8" />
+                        </svg>
+                      </button>
+                    </span>
+                  );
+                })
+              )}
             </div>
+            <span className="hidden shrink-0 text-[11px] text-[color:var(--color-ink-4)] sm:block">
+              Ctrl+Enter
+            </span>
+            <button
+              type="button"
+              onClick={() => { setSaveError(null); setSaveOpen(true); }}
+              disabled={!sql.trim()}
+              className="shrink-0 rounded-md border border-[color:var(--color-rule)] px-3.5 py-1.5 text-[12px] font-medium text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
+            >
+              Save query
+            </button>
+            <button
+              type="button"
+              onClick={() => runQuery()}
+              disabled={loading}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+            >
+              <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
+                <path d="M5 3.5v9l8-4.5-8-4.5z" />
+              </svg>
+              {loading ? "Running…" : "Run"}
+            </button>
           </div>
         </div>
       </main>
+
+      {/* Right panel: the pipeline's target tables. */}
+      {tablesOpen && (
+        <aside
+          data-testid="tables-panel"
+          className="w-full shrink-0 overflow-y-auto border-t border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] px-4 py-4 md:w-[264px] md:border-l md:border-t-0"
+        >
+          <div className="pb-2 text-[10.5px] font-medium tracking-[0.06em] text-[color:var(--color-ink-3)]">
+            TABLES {tablesLoading ? "" : `(${relations.length})`}
+          </div>
+          {tablesError ? (
+            <p className="text-[11.5px] text-[color:var(--color-rose-deep)]">{tablesError}</p>
+          ) : tablesLoading ? (
+            <div className="space-y-2" aria-hidden>
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-4 w-3/4 animate-pulse rounded bg-[color:var(--color-surface-2)]" />
+              ))}
+            </div>
+          ) : relations.length === 0 ? (
+            <p className="text-[11.5px] text-[color:var(--color-ink-4)]">
+              No tables yet. Add an analytic table on the Graph page and run the pipeline.
+            </p>
+          ) : (
+            relations.map((r) => (
+              <div key={r.key} className="border-b border-[color:var(--color-rule-soft)] py-2.5 last:border-b-0">
+                <button
+                  type="button"
+                  onClick={() => selectRelation(r.slug)}
+                  disabled={r.collidesWith !== null}
+                  title={r.collidesWith ? `Slug collides with ${r.collidesWith}` : `SELECT * FROM ${r.slug}`}
+                  className="flex w-full items-center gap-2 text-left disabled:opacity-50"
+                >
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-[color:var(--color-ink)] hover:text-[color:var(--color-carrot-deep)]">
+                    {r.name}
+                  </span>
+                  <span className="shrink-0 text-[10.5px] text-[color:var(--color-ink-4)]">{r.meta}</span>
+                </button>
+                <code className="mt-0.5 block truncate font-mono text-[10.5px] text-[color:var(--color-ink-3)]">
+                  {r.slug}
+                </code>
+                {r.collidesWith && (
+                  <p className="mt-1 text-[10.5px] text-[color:var(--color-amber-deep)]">
+                    Name collides with another table; rename one to query it.
+                  </p>
+                )}
+                <ul className="mt-1.5 space-y-0.5">
+                  {r.schema.map((c, i) => (
+                    <li key={i} className="flex justify-between gap-2 text-[11px]">
+                      <span className="truncate text-[color:var(--color-ink-2)]">{c.name}</span>
+                      <span className="shrink-0 text-[color:var(--color-ink-4)]">{c.type}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
+        </aside>
+      )}
 
       <Modal open={saveOpen} onClose={() => !saving && setSaveOpen(false)}>
         <h2 className="text-lg font-semibold text-[color:var(--color-ink)]">Save query</h2>
