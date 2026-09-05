@@ -47,6 +47,8 @@ export default function SideNav({
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   const [dashboards, setDashboards] = useState<{ id: string; name: string }[]>([]);
+  const [drafts, setDrafts] = useState<string[]>([]);
+  const [creating, setCreating] = useState(false);
   const [pipelines, setPipelines] = useState<string[]>([]);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -77,11 +79,13 @@ export default function SideNav({
         const body = (await res.json()) as {
           dashboards?: string[];
           listings?: { id: string; name: string }[];
+          drafts?: string[];
         };
         if (cancelled) return;
         if (Array.isArray(body.listings)) setDashboards(body.listings);
         else if (Array.isArray(body.dashboards))
           setDashboards(body.dashboards.map((id) => ({ id, name: id })));
+        if (Array.isArray(body.drafts)) setDrafts(body.drafts);
       } catch {
         // Nav stays usable if the list can't load.
       }
@@ -225,8 +229,36 @@ export default function SideNav({
       </div>
 
       {/* Dashboards */}
-      <div className="px-2.5 pb-1 pt-4 text-[10.5px] font-medium tracking-[0.06em] text-[color:var(--color-ink-3)]">
+      <div className="flex items-center justify-between px-2.5 pb-1 pt-4 text-[10.5px] font-medium tracking-[0.06em] text-[color:var(--color-ink-3)]">
         DASHBOARDS
+        <button
+          type="button"
+          aria-label="New dashboard"
+          title="New dashboard"
+          disabled={creating}
+          data-testid="side-nav-new-dashboard"
+          onClick={async () => {
+            setCreating(true);
+            try {
+              const res = await fetch(`/api/p/${pipeline}/dashboards`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: "{}",
+              });
+              const body = (await res.json()) as { id?: string };
+              if (res.ok && body.id) {
+                router.push(`${base}/dashboards/${body.id}/edit`);
+              }
+            } finally {
+              setCreating(false);
+            }
+          }}
+          className="rounded p-0.5 text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)] disabled:opacity-50"
+        >
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+            <path d="M8 3v10M3 8h10" />
+          </svg>
+        </button>
       </div>
       <div className="flex min-h-0 flex-col gap-0.5 overflow-y-auto" data-testid="side-nav-dashboards">
         {dashboards.length === 0 ? (
@@ -235,7 +267,7 @@ export default function SideNav({
           </div>
         ) : (
           dashboards.map(({ id, name }) => {
-            const active = pathname === `${base}/dashboards/${id}`;
+            const active = pathname.startsWith(`${base}/dashboards/${id}`);
             return (
               <Link key={id} href={`${base}/dashboards/${id}`} className={itemClass(active)}>
                 <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={`shrink-0 ${iconClass(active)}`} aria-hidden>
@@ -246,6 +278,20 @@ export default function SideNav({
             );
           })
         )}
+        {drafts.map((id) => {
+          const active = pathname.startsWith(`${base}/dashboards/${id}/edit`);
+          return (
+            <Link key={id} href={`${base}/dashboards/${id}/edit`} className={itemClass(active)}>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={`shrink-0 ${iconClass(active)}`} aria-hidden>
+                <path d="M11.1 2.4a1.4 1.4 0 0 1 2 2L5.5 12l-2.8.8.8-2.8 7.6-7.6Z" />
+              </svg>
+              <span className="truncate">{id}</span>
+              <span className="ml-auto shrink-0 rounded bg-[color:var(--color-amber-soft)] px-1 text-[9px] font-semibold text-[color:var(--color-amber-deep)]">
+                DRAFT
+              </span>
+            </Link>
+          );
+        })}
       </div>
 
       {/* Pipeline actions */}

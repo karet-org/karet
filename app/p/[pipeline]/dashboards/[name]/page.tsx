@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createS3Client, loadS3Config, pipelineS3Config } from "@/lib/config/s3-client";
 import {
@@ -69,14 +70,22 @@ export default async function PipelineDashboardPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-[1400px] space-y-3 p-3 sm:space-y-4 sm:p-4 lg:p-6">
-      <header className="rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] px-3 py-2 shadow-sm sm:px-4 sm:py-3">
-        <h1 className="text-base font-semibold text-[color:var(--color-carrot)] sm:text-lg">{dashboard.name}</h1>
-        <p className="text-xs text-[color:var(--color-ink-3)]">
-          {dashboard.query_id
-            ? `Query: ${dashboard.query_id}`
-            : `Table: ${dashboard.analytic_table_id}`}{" "}
-          · {rows.length} rows
-        </p>
+      <header className="flex items-center justify-between gap-3 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] px-3 py-2 shadow-sm sm:px-4 sm:py-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-base font-semibold text-[color:var(--color-carrot)] sm:text-lg">{dashboard.name}</h1>
+          <p className="text-xs text-[color:var(--color-ink-3)]">
+            {dashboard.query_id
+              ? `Query: ${dashboard.query_id}`
+              : `Table: ${dashboard.analytic_table_id}`}{" "}
+            · {rows.length} rows
+          </p>
+        </div>
+        <Link
+          href={`/p/${pipeline}/dashboards/${name}/edit`}
+          className="shrink-0 rounded-md border border-[color:var(--color-rule)] px-3.5 py-1.5 text-[12.5px] font-medium text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
+        >
+          Edit
+        </Link>
       </header>
       {dataError && (
         <div

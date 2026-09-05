@@ -266,6 +266,103 @@ export async function getDashboard(
   }
 }
 
+/**
+ * Draft dashboards live under `dashboards/drafts/`. `listDashboards`
+ * skips nested keys, so drafts never appear in the published list and
+ * the graph and nav only ever see published configs.
+ */
+function draftKey(config: S3Config, id: string): string {
+  return `${config.dashboardsPrefix}drafts/${id}.json`;
+}
+
+function publishedKey(config: S3Config, id: string): string {
+  return `${config.dashboardsPrefix}${id}.json`;
+}
+
+/** Reads a draft dashboard body. Returns `null` when missing. */
+export async function getDraftDashboard(
+  client: S3Client,
+  config: S3Config,
+  id: string,
+): Promise<string | null> {
+  try {
+    const response = await client.send(
+      new GetObjectCommand({ Bucket: config.pipelinesBucket, Key: draftKey(config, id) }),
+    );
+    return await streamToString(response.Body);
+  } catch (err) {
+    if (isNotFound(err)) return null;
+    throw err;
+  }
+}
+
+/** Lists draft dashboard ids. */
+export async function listDraftDashboards(
+  client: S3Client,
+  config: S3Config,
+): Promise<string[]> {
+  const prefix = `${config.dashboardsPrefix}drafts/`;
+  const allKeys = await listAllObjectKeys(client, config.pipelinesBucket, prefix);
+  return allKeys
+    .filter((k) => k.endsWith(".json") && !k.slice(prefix.length).includes("/"))
+    .map((k) => k.slice(prefix.length, -".json".length));
+}
+
+/** Writes a dashboard body, as a draft or directly to the published key. */
+export async function putDashboard(
+  client: S3Client,
+  config: S3Config,
+  id: string,
+  body: string,
+  opts: { draft: boolean },
+): Promise<void> {
+  await client.send(
+    new PutObjectCommand({
+      Bucket: config.pipelinesBucket,
+      Key: opts.draft ? draftKey(config, id) : publishedKey(config, id),
+      Body: body,
+      ContentType: "application/json",
+    }),
+  );
+}
+
+/** Deletes a dashboard (both the draft and published objects, if present). */
+export async function deleteDashboard(
+  client: S3Client,
+  config: S3Config,
+  id: string,
+): Promise<void> {
+  for (const key of [draftKey(config, id), publishedKey(config, id)]) {
+    try {
+      await client.send(
+        new DeleteObjectCommand({ Bucket: config.pipelinesBucket, Key: key }),
+      );
+    } catch (err) {
+      if (!isNotFound(err)) throw err;
+    }
+  }
+}
+
+/**
+ * Publishes a draft: copies its body to the published key and removes
+ * the draft object. The caller validates before invoking this.
+ */
+export async function publishDashboard(
+  client: S3Client,
+  config: S3Config,
+  id: string,
+  body: string,
+): Promise<void> {
+  await putDashboard(client, config, id, body, { draft: false });
+  try {
+    await client.send(
+      new DeleteObjectCommand({ Bucket: config.pipelinesBucket, Key: draftKey(config, id) }),
+    );
+  } catch (err) {
+    if (!isNotFound(err)) throw err;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Saved queries
 // ---------------------------------------------------------------------------
