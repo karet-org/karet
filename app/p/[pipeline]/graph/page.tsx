@@ -14,7 +14,6 @@ import {
 } from "@/lib/graph/nodeDefaults";
 import type { PipelineConfig } from "@/lib/types/config";
 import GraphCanvas, { type GraphCanvasHandle } from "@/components/graph/GraphCanvas";
-import { TOP_NAV_HEIGHT_PX } from "@/components/layout/TopNav";
 import Modal from "@/components/ui/Modal";
 import NodeDetailPanel from "@/components/graph/NodeDetailPanel";
 
@@ -416,7 +415,7 @@ export default function PipelineGraphPage() {
 
   if (status === "loading") {
     return (
-      <main className="flex items-center justify-center" style={{ height: `calc(100vh - ${TOP_NAV_HEIGHT_PX}px)` }}>
+      <main className="flex h-[calc(100vh-48px)] items-center justify-center md:h-screen">
         <div role="status" className="text-sm text-[color:var(--color-ink-3)]" data-testid="graph-loading">Loading pipeline…</div>
       </main>
     );
@@ -424,7 +423,7 @@ export default function PipelineGraphPage() {
 
   if (status === "error") {
     return (
-      <main className="flex items-center justify-center" style={{ height: `calc(100vh - ${TOP_NAV_HEIGHT_PX}px)` }}>
+      <main className="flex h-[calc(100vh-48px)] items-center justify-center md:h-screen">
         <div role="alert" className="rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]" data-testid="graph-error">{errorMsg}</div>
       </main>
     );
@@ -439,7 +438,7 @@ export default function PipelineGraphPage() {
   const initial = initialGraphRef.current ?? { nodes: [], edges: [] };
 
   return (
-    <main className="flex w-screen" style={{ height: `calc(100vh - ${TOP_NAV_HEIGHT_PX}px)` }} data-testid="graph-page">
+    <main className="flex h-[calc(100vh-48px)] w-full md:h-screen" data-testid="graph-page">
       <div className={canvasClass}>
         <GraphCanvas
           ref={canvasRef}

@@ -330,9 +330,9 @@ export default function DataPage() {
     </div>
   );
 
-  // 52 = TOP_NAV_HEIGHT_PX (Tailwind arbitrary values can't read the constant).
+  // 48 = MOBILE_NAV_HEIGHT_PX; the desktop side nav takes no vertical space.
   return (
-    <div className="flex flex-col md:h-[calc(100vh-52px)] md:flex-row">
+    <div className="flex flex-col md:h-screen md:flex-row">
       <aside className="flex w-full shrink-0 flex-col border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] md:w-64 md:border-b-0 md:border-r">
         <div className="flex border-b border-[color:var(--color-rule-soft)]" role="tablist" aria-label="Data views">
           {([

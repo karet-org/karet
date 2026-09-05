@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { TOP_NAV_HEIGHT_PX } from "@/components/layout/TopNav";
 import { IconPlay } from "@/components/icons";
 import type { JobRecord } from "@/lib/types/jobs";
 
@@ -172,7 +171,6 @@ export default function JobsPage() {
   return (
     <main
       className="mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8"
-      style={{ minHeight: `calc(100vh - ${TOP_NAV_HEIGHT_PX}px)` }}
     >
       <div className="flex items-start justify-between gap-4">
         <div>

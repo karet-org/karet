@@ -1,4 +1,4 @@
-import TopNav from "@/components/layout/TopNav";
+import SideNav from "@/components/layout/SideNav";
 
 export default async function PipelineLayout({
   children,
@@ -10,9 +10,9 @@ export default async function PipelineLayout({
   const { pipeline } = await params;
   const s3ConsoleUrl = process.env.S3_CONSOLE_URL || null;
   return (
-    <>
-      <TopNav pipeline={pipeline} s3ConsoleUrl={s3ConsoleUrl} />
-      {children}
-    </>
+    <div className="md:flex">
+      <SideNav pipeline={pipeline} s3ConsoleUrl={s3ConsoleUrl} />
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
   );
 }
