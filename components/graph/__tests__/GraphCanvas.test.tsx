@@ -140,11 +140,12 @@ describe("GraphCanvas", () => {
       ),
     );
 
+    // Headers show the entity name plus a lowercase kind tag.
     const text = container.textContent ?? "";
-    expect(text).toContain("Source");
-    expect(text).toContain("Lookup");
-    expect(text).toContain("Mapping");
-    expect(text).toContain("Table");
+    expect(text).toContain("source");
+    expect(text).toContain("lookup");
+    expect(text).toContain("mapping");
+    expect(text).toContain("table");
 
     // Each custom node component should have mounted.
     expect(container.querySelector('[data-testid="source-container-node"]'))

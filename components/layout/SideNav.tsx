@@ -25,6 +25,7 @@ import {
 import { sanitizeSlug } from "@/lib/config/slug";
 import Modal from "@/components/ui/Modal";
 import RailUserMenu from "@/components/layout/RailUserMenu";
+import { cachedJson } from "@/lib/client/fetch-cache";
 
 /** Height of the mobile top bar; pipeline pages offset content by this below md. */
 export const MOBILE_NAV_HEIGHT_PX = 48;
@@ -80,13 +81,11 @@ export default function SideNav({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/p/${pipeline}/dashboards`);
-        if (!res.ok) return;
-        const body = (await res.json()) as {
+        const body = await cachedJson<{
           dashboards?: string[];
           listings?: { id: string; name: string }[];
           drafts?: string[];
-        };
+        }>(`/api/p/${pipeline}/dashboards`);
         if (cancelled) return;
         if (Array.isArray(body.listings)) setDashboards(body.listings);
         else if (Array.isArray(body.dashboards))
@@ -106,11 +105,9 @@ export default function SideNav({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/p/${pipeline}/jobs?page=1&pageSize=5`);
-        if (!res.ok) return;
-        const body = (await res.json()) as {
+        const body = await cachedJson<{
           jobs?: { status: string; startedAt?: string }[];
-        };
+        }>(`/api/p/${pipeline}/jobs?page=1&pageSize=5`);
         if (cancelled || !Array.isArray(body.jobs)) return;
         const terminal = body.jobs.find(
           (j) => j.status === "completed" || j.status === "failed" || j.status === "abandoned",

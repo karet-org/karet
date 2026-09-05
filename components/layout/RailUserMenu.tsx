@@ -12,6 +12,7 @@ import {
   IconSettings,
   IconSignOut,
 } from "@/components/icons";
+import { cachedJson } from "@/lib/client/fetch-cache";
 
 export default function RailUserMenu({
   displayName,
@@ -29,9 +30,7 @@ export default function RailUserMenu({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/settings", { cache: "no-store" });
-        if (!res.ok) return;
-        const body = (await res.json()) as { displayName?: string };
+        const body = await cachedJson<{ displayName?: string }>("/api/settings");
         if (!cancelled && body.displayName) setName(body.displayName);
       } catch {
         // The row falls back to "admin".
