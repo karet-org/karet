@@ -285,19 +285,19 @@ export default function DataPage() {
                 Run a query to see results
               </p>
             ) : (
-              <table className="min-w-full text-xs">
+              <table className="data-table min-w-full">
                 <thead className="sticky top-0 bg-[color:var(--color-surface)]">
-                  <tr className="border-b border-[color:var(--color-rule-soft)]">
+                  <tr>
                     {resultCols.map((h) => (
-                      <th key={h} className="px-3 py-2 text-left font-medium text-[color:var(--color-ink-2)]">{h}</th>
+                      <th key={h}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {result.slice(0, 200).map((row, i) => (
-                    <tr key={i} className="border-b border-[color:var(--color-rule-soft)] hover:bg-[color:var(--color-surface-2)]">
+                    <tr key={i}>
                       {resultCols.map((h) => (
-                        <td key={h} className="px-3 py-1.5 text-[color:var(--color-ink-2)]">{String(row[h] ?? "")}</td>
+                        <td key={h}>{String(row[h] ?? "")}</td>
                       ))}
                     </tr>
                   ))}

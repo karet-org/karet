@@ -78,7 +78,7 @@ export function FilterBar({
   return (
     <div
       data-testid="filter-bar"
-      className="flex flex-wrap items-end gap-3 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-3 shadow-sm"
+      className="flex flex-wrap items-end gap-3 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-3 shadow-sm"
     >
       {filters.map((f) => {
         if (f.kind === "dropdown") {

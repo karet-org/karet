@@ -226,16 +226,16 @@ export default function JobsPage() {
           </p>
         ) : (
           <div className="overflow-x-auto rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]">
-            <table className="min-w-full text-[12.5px]">
+            <table className="data-table min-w-full">
               <thead>
-                <tr className="border-b border-[color:var(--color-rule-soft)] text-left text-[11px] font-medium text-[color:var(--color-ink-3)]">
-                  <th className="px-3.5 py-2.5">Job</th>
-                  <th className="px-3.5 py-2.5">Status</th>
-                  <th className="px-3.5 py-2.5">Trigger</th>
-                  <th className="px-3.5 py-2.5">Progress</th>
-                  <th className="px-3.5 py-2.5 text-right">Started</th>
-                  <th className="px-3.5 py-2.5 text-right">Duration</th>
-                  <th className="w-8 px-2 py-2.5" aria-hidden />
+                <tr>
+                  <th>Job</th>
+                  <th>Status</th>
+                  <th>Trigger</th>
+                  <th>Progress</th>
+                  <th className="text-right">Started</th>
+                  <th className="text-right">Duration</th>
+                  <th className="w-8" aria-hidden />
                 </tr>
               </thead>
               <tbody>
@@ -251,23 +251,21 @@ export default function JobsPage() {
                       <tr
                         onClick={() => terminal && setExpandedJobId(expanded ? null : job.id)}
                         aria-expanded={terminal ? expanded : undefined}
-                        className={`border-b border-[color:var(--color-rule-soft)] last:border-b-0 ${
-                          terminal ? "cursor-pointer hover:bg-[color:var(--color-surface-2)]" : ""
-                        }`}
+                        className={terminal ? "cursor-pointer" : ""}
                       >
-                        <td className="px-3.5 py-2.5">
-                          <code className="text-[11px] text-[color:var(--color-ink)]">{job.id}</code>
+                        <td>
+                          <code className="text-[11px]">{job.id}</code>
                         </td>
-                        <td className="px-3.5 py-2.5">
-                          <span className="inline-flex items-center gap-1.5 text-[color:var(--color-ink-2)]">
+                        <td>
+                          <span className="inline-flex items-center gap-1.5">
                             <span className={`h-[7px] w-[7px] rounded-full ${statusDot(job.status)}`} aria-hidden />
                             {job.status}
                           </span>
                         </td>
-                        <td className="px-3.5 py-2.5 text-[color:var(--color-ink-2)]">
+                        <td>
                           {job.trigger === "webhook" ? "webhook" : "manual"}
                         </td>
-                        <td className="px-3.5 py-2.5 text-[color:var(--color-ink-3)]">
+                        <td>
                           {job.status === "scheduled" && job.nextRunAt ? (
                             scheduledCountdown(job.nextRunAt)
                           ) : active ? (
@@ -280,21 +278,21 @@ export default function JobsPage() {
                             "-"
                           )}
                         </td>
-                        <td className="whitespace-nowrap px-3.5 py-2.5 text-right text-[11.5px] text-[color:var(--color-ink-3)]">
+                        <td className="whitespace-nowrap text-right text-[11.5px]">
                           {new Date(job.startedAt).toLocaleString()}
                         </td>
-                        <td className="whitespace-nowrap px-3.5 py-2.5 text-right text-[11.5px] text-[color:var(--color-ink-2)]">
+                        <td className="whitespace-nowrap text-right text-[11.5px]">
                           {job.completedAt ? formatDuration(job.startedAt, job.completedAt) : "-"}
                         </td>
-                        <td className="px-2 py-2.5 text-[color:var(--color-ink-4)]" aria-hidden>
+                        <td className="text-[color:var(--color-ink-4)]" aria-hidden>
                           {terminal && (
                             <span className={`inline-block transition-transform ${expanded ? "rotate-90" : ""}`}>›</span>
                           )}
                         </td>
                       </tr>
                       {expanded && (
-                        <tr className="border-b border-[color:var(--color-rule-soft)] last:border-b-0">
-                          <td colSpan={7} className="bg-[color:var(--color-surface-2)] px-3.5 py-2.5">
+                        <tr>
+                          <td colSpan={7} className="bg-[color:var(--color-surface-2)]">
                             <div className="space-y-2 text-[11px] text-[color:var(--color-ink-2)]">
                               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                                 <dt className="text-[color:var(--color-ink-3)]">Job ID</dt>

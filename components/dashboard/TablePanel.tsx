@@ -28,19 +28,15 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
   return (
     <div
       data-testid="table-panel"
-      className="flex flex-1 flex-col min-w-0 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm"
+      className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm"
     >
       <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
       <div className="mt-3 overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-[color:var(--color-surface-2)] text-xs uppercase text-[color:var(--color-ink-2)]">
+        <table className="data-table min-w-full">
+          <thead>
             <tr>
               {config.columns.map((c) => (
-                <th
-                  key={c}
-                  scope="col"
-                  className="px-3 py-2 text-left font-semibold"
-                >
+                <th key={c} scope="col">
                   {c}
                 </th>
               ))}
@@ -48,11 +44,9 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
           </thead>
           <tbody>
             {pageRows.map((row, i) => (
-              <tr key={start + i} className="border-t border-[color:var(--color-rule-soft)]">
+              <tr key={start + i}>
                 {config.columns.map((c) => (
-                  <td key={c} className="px-3 py-1.5 text-[color:var(--color-ink)]">
-                    {formatCell(row[c])}
-                  </td>
+                  <td key={c}>{formatCell(row[c])}</td>
                 ))}
               </tr>
             ))}
@@ -60,7 +54,7 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
               <tr>
                 <td
                   colSpan={config.columns.length}
-                  className="px-3 py-4 text-center text-[color:var(--color-ink-3)]"
+                  className="py-4 text-center text-[color:var(--color-ink-3)]"
                 >
                   No rows
                 </td>

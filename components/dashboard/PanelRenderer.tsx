@@ -13,7 +13,7 @@ import { missingColumns, type CrossFilterProps, type PanelProps } from "./types"
 // are light and stay in the main bundle.
 function PanelLoading() {
   return (
-    <div className="flex flex-1 items-center justify-center rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 text-sm text-[color:var(--color-ink-3)] shadow-sm">
+    <div className="flex flex-1 items-center justify-center rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 text-sm text-[color:var(--color-ink-3)] shadow-sm">
       Loading…
     </div>
   );

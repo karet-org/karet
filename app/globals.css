@@ -29,7 +29,7 @@
   --color-rose-deep: #ff7b5c;
 
   --font-sans:
-    var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system,
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono:
     var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, Consolas,
@@ -53,6 +53,9 @@ body {
   color: var(--color-ink);
   background-color: var(--color-bg);
   font-family: var(--font-sans);
+  /* The design language is dense, 13px base like the mock. Explicit
+     text-[..] utilities override this per element. */
+  font-size: 13px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -93,4 +96,34 @@ button:disabled,
   [data-panel-span="3"] {
     grid-column: 1 / -1 !important;
   }
+}
+
+/* Shared table anatomy, matching the mock: muted 11px headers, roomy
+   cells, first column in full ink, whisper-level row hover. */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.data-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-ink-3);
+  border-bottom: 1px solid var(--color-rule-soft);
+}
+.data-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--color-rule-soft);
+  color: var(--color-ink-2);
+}
+.data-table td:first-child {
+  color: var(--color-ink);
+}
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.data-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
 }

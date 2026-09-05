@@ -108,7 +108,7 @@ export function KpiPanel({ config, rows }: PanelProps<KpiPanelConfig>) {
   return (
     <div
       data-testid="kpi-panel"
-      className="flex flex-1 flex-col min-w-0 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-3 shadow-sm"
+      className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-3 shadow-sm"
     >
       <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--color-ink-3)]">
         {icon && (
