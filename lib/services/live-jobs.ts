@@ -87,39 +87,58 @@ export function liveHashToRecord(
 /** Newest-first live entries for a pipeline (bounded). */
 export async function listLiveJobs(pipeline: string, limit = 100): Promise<JobRecord[]> {
   const redis = await getRedis();
-  // Newest first: highest enqueued_at score first.
   const ids = await redis.zRange(indexKey(pipeline), 0, limit - 1, { REV: true });
   if (ids.length === 0) return [];
-  const hashes = await Promise.all(ids.map((id) => redis.hGetAll(liveKey(id))));
+  const multi = redis.multi();
+  for (const id of ids) multi.hGetAll(liveKey(id));
+  const hashes = (await multi.exec()) as unknown as Record<string, string>[];
   const records: JobRecord[] = [];
   const expired: string[] = [];
   ids.forEach((id, i) => {
-    const record = liveHashToRecord(id, pipeline, hashes[i] as Record<string, string>);
+    const record = liveHashToRecord(id, pipeline, hashes[i]);
     if (record) records.push(record);
     else expired.push(id); // live hash TTL'd out; S3 history owns it now
   });
   if (expired.length > 0) {
-    // Best-effort index cleanup; ignore failures.
     redis.zRem(indexKey(pipeline), expired).catch(() => {});
   }
   return records;
 }
 
+const TERMINAL = new Set(["completed", "failed", "abandoned"]);
+
+/** Timestamp embedded in `job-<ms>-<rand>` ids; 0 when unparseable. */
+function jobIdTimestamp(id: string): number {
+  const ms = Number(id.split("-")[1]);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 /**
- * Merge live entries over S3 history. Live non-terminal always wins (S3
- * may hold nothing yet); for terminal jobs the S3 record is richer, so it
- * wins when present — the live copy covers the window before the record
- * lands, or forever if the record write failed while S3 was down.
+ * Order the union of history ids and live ids newest-first, deduped.
+ * Pagination runs over this sequence so a job appears on exactly one
+ * page and totals are consistent.
  */
-export function mergeLiveOverHistory(
-  history: JobRecord[],
-  live: JobRecord[],
-): JobRecord[] {
-  const byId = new Map<string, JobRecord>();
-  for (const job of history) byId.set(job.id, job);
-  for (const entry of live) {
-    const terminal = entry.status === "completed" || entry.status === "failed";
-    if (!terminal || !byId.has(entry.id)) byId.set(entry.id, entry);
+export function orderedJobIds(historyIds: string[], live: JobRecord[]): string[] {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const id of [...live.map((r) => r.id), ...historyIds]) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      ids.push(id);
+    }
   }
-  return Array.from(byId.values()).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  return ids.sort((a, b) => jobIdTimestamp(b) - jobIdTimestamp(a) || b.localeCompare(a));
+}
+
+/**
+ * Choose the record for one id. Live non-terminal always wins (S3 has
+ * nothing yet); for terminal jobs the S3 record is richer, so it wins
+ * when present. `history` is the fetched S3 record, if any.
+ */
+export function pickJobRecord(
+  live: JobRecord | undefined,
+  history: JobRecord | null,
+): JobRecord | null {
+  if (live && (!TERMINAL.has(live.status) || !history)) return live;
+  return history ?? live ?? null;
 }

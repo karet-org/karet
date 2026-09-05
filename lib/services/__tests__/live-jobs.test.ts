@@ -9,7 +9,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   enqueueJob,
   liveHashToRecord,
-  mergeLiveOverHistory,
+  orderedJobIds,
+  pickJobRecord,
 } from "@/lib/services/live-jobs";
 import type { JobRecord } from "@/lib/types/jobs";
 
@@ -68,35 +69,46 @@ describe("liveHashToRecord", () => {
   });
 });
 
-describe("mergeLiveOverHistory", () => {
-  it("live non-terminal wins over any history record with the same id", () => {
-    const history = [record({ id: "a", status: "failed" })];
-    const live = [record({ id: "a", status: "running", startedAt: "2026-01-02T00:00:00.000Z" })];
-    const merged = mergeLiveOverHistory(history, live);
-    expect(merged).toHaveLength(1);
-    expect(merged[0].status).toBe("running");
+describe("orderedJobIds", () => {
+  it("dedups and sorts newest-first by the id timestamp", () => {
+    const live = [record({ id: "job-3000-aa", status: "queued" })];
+    const history = ["job-2000-bb", "job-1000-cc", "job-3000-aa"];
+    expect(orderedJobIds(history, live)).toEqual([
+      "job-3000-aa",
+      "job-2000-bb",
+      "job-1000-cc",
+    ]);
+  });
+
+  it("keeps unparseable ids at the end, ordered stably", () => {
+    const ids = orderedJobIds(["weird-id", "job-5000-xx"], []);
+    expect(ids).toEqual(["job-5000-xx", "weird-id"]);
+  });
+});
+
+describe("pickJobRecord", () => {
+  it("live non-terminal wins over history", () => {
+    const live = record({ id: "a", status: "running" });
+    const history = record({ id: "a", status: "failed" });
+    expect(pickJobRecord(live, history)).toBe(live);
   });
 
   it("terminal collision prefers the richer S3 record", () => {
-    const history = [record({ id: "a", errors: ["e1", "e2"], files_processed: 3 })];
-    const live = [record({ id: "a" })]; // live terminal, no errors detail
-    const merged = mergeLiveOverHistory(history, live);
-    expect(merged[0].errors).toEqual(["e1", "e2"]);
+    const live = record({ id: "a" });
+    const history = record({ id: "a", errors: ["e1"], files_processed: 3 });
+    expect(pickJobRecord(live, history)).toBe(history);
   });
 
-  it("live terminal entries without a record still appear (S3-down window)", () => {
-    const history: JobRecord[] = [];
-    const live = [record({ id: "only-live", status: "failed" })];
-    expect(mergeLiveOverHistory(history, live)).toHaveLength(1);
+  it("live terminal without a record still appears (S3-down window)", () => {
+    const live = record({ id: "a", status: "failed" });
+    expect(pickJobRecord(live, null)).toBe(live);
+    expect(pickJobRecord(undefined, null)).toBeNull();
   });
 
-  it("sorts newest first across both sources", () => {
-    const history = [
-      record({ id: "old", startedAt: "2026-01-01T00:00:00.000Z" }),
-      record({ id: "mid", startedAt: "2026-01-02T00:00:00.000Z" }),
-    ];
-    const live = [record({ id: "new", status: "queued", startedAt: "2026-01-03T00:00:00.000Z" })];
-    expect(mergeLiveOverHistory(history, live).map((j) => j.id)).toEqual(["new", "mid", "old"]);
+  it("abandoned counts as terminal", () => {
+    const live = record({ id: "a", status: "abandoned" });
+    const history = record({ id: "a" });
+    expect(pickJobRecord(live, history)).toBe(history);
   });
 });
 

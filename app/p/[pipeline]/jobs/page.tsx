@@ -93,6 +93,8 @@ export default function JobsPage() {
         return "bg-green-500";
       case "failed":
         return "bg-red-500";
+      case "abandoned":
+        return "bg-amber-500";
       case "running":
         return "bg-yellow-500 animate-pulse";
       case "scheduled":
