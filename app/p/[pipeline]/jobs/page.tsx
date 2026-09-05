@@ -56,17 +56,35 @@ export default function JobsPage() {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  // Adaptive polling: 2s while a run is scheduled or running so the
-  // countdown stays live and the row transitions are caught quickly,
-  // 15s otherwise.
+  // Live updates over SSE; each event is one JobRecord. Terminal events
+  // trigger a full reload to pick up the richer S3 record.
+  const [sseConnected, setSseConnected] = useState(false);
+  useEffect(() => {
+    const es = new EventSource(`/api/p/${pipeline}/jobs/events`);
+    es.onopen = () => setSseConnected(true);
+    es.onerror = () => setSseConnected(false);
+    es.onmessage = (e) => {
+      const record = JSON.parse(e.data) as Job;
+      setJobs((prev) => {
+        const i = prev.findIndex((j) => j.id === record.id);
+        if (i >= 0) return [...prev.slice(0, i), record, ...prev.slice(i + 1)];
+        return [record, ...prev];
+      });
+      if (record.status !== "queued" && record.status !== "running") loadJobs();
+    };
+    return () => es.close();
+  }, [pipeline, loadJobs]);
+
+  // Polling is reconciliation: slow when SSE is delivering, faster as
+  // fallback when it isn't.
   useEffect(() => {
     const anyActive = jobs.some(
       (j) => j.status === "running" || j.status === "scheduled" || j.status === "queued",
     );
-    const intervalMs = anyActive ? 2000 : 15000;
+    const intervalMs = sseConnected ? 30000 : anyActive ? 2000 : 15000;
     const id = setInterval(loadJobs, intervalMs);
     return () => clearInterval(id);
-  }, [loadJobs, jobs]);
+  }, [loadJobs, jobs, sseConnected]);
 
   // Synchronous lock so a rapid double-click doesn't fire two POSTs
   // before React rerenders the disabled state of the button. Without

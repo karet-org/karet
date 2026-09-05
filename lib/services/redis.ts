@@ -64,3 +64,7 @@ export function liveKey(jobId: string): string {
 export function indexKey(pipeline: string): string {
   return `karet:jobs:index:${pipeline}`;
 }
+
+export function eventsChannel(pipeline: string): string {
+  return `karet:jobs:events:${pipeline}`;
+}
