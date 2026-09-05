@@ -3,60 +3,17 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import { listAllObjectKeys, readBodyToBuffer } from "@/lib/services/s3-helpers";
 import { startJob } from "@/lib/services/job-runner";
+import { listLiveJobs, mergeLiveOverHistory } from "@/lib/services/live-jobs";
 import type { JobRecord } from "@/lib/types/jobs";
 
 function jobsPrefix(pipeline: string): string {
   return `${loadS3Config().pipelinesPrefix}${pipeline}/jobs/`;
 }
 
-/**
- * A `running` job older than this is treated as abandoned (e.g. the web
- * container restarted mid-fetch). Surfaced as `failed` so the UI doesn't
- * spin forever.
- */
-const ORPHAN_JOB_TIMEOUT_MS = 10 * 60 * 1000;
-
-/**
- * A `scheduled` job whose `nextRunAt` is this far past the wall clock is
- * treated as orphaned. Happens when the web container restarts during
- * the debounce window: the in-memory timer is gone but the S3 record
- * remains. Generous compared to the 30s max debounce so we don't race
- * a real promotion.
- */
-const ORPHAN_SCHEDULED_TIMEOUT_MS = 2 * 60 * 1000;
-
 // Job keys sort lexicographically newest-first; we fetch only one page's
 // records, bounding the S3 fan-out regardless of total history.
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
-
-function reconcileOrphans(jobs: JobRecord[]): JobRecord[] {
-  const now = Date.now();
-  const runningCutoff = now - ORPHAN_JOB_TIMEOUT_MS;
-  const scheduledCutoff = now - ORPHAN_SCHEDULED_TIMEOUT_MS;
-  return jobs.map((job) => {
-    if (job.status === "running") {
-      if (Date.parse(job.startedAt) > runningCutoff) return job;
-      return {
-        ...job,
-        status: "failed",
-        completedAt: new Date().toISOString(),
-        error: `job abandoned (stuck in running for > ${ORPHAN_JOB_TIMEOUT_MS / 60000} min)`,
-      };
-    }
-    if (job.status === "scheduled") {
-      const target = job.nextRunAt ? Date.parse(job.nextRunAt) : Date.parse(job.startedAt);
-      if (target > scheduledCutoff) return job;
-      return {
-        ...job,
-        status: "failed",
-        completedAt: new Date().toISOString(),
-        error: "scheduled run never fired (web container likely restarted during debounce)",
-      };
-    }
-    return job;
-  });
-}
 
 async function fetchJobRecord(
   client: ReturnType<typeof createS3Client>,
@@ -104,14 +61,27 @@ export async function GET(
       pageKeys.map((key) => fetchJobRecord(client, base.pipelinesBucket, key)),
     );
     const jobs = results.filter((j): j is JobRecord => j !== null);
-    const reconciled = reconcileOrphans(jobs);
-    reconciled.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+
+    // Redis holds the live truth (queued/running + progress); merge it
+    // over the S3 history page. Live entries surface on page 1 only —
+    // deeper pages are pure history. Staleness (crashed workers, retries)
+    // is the worker cluster's job, so no reconciliation happens here.
+    let merged = jobs;
+    if (page === 1) {
+      try {
+        merged = mergeLiveOverHistory(jobs, await listLiveJobs(pipeline));
+      } catch (err) {
+        // Redis briefly down must not take the history listing with it.
+        console.error(`live-jobs merge failed for ${pipeline}:`, err);
+      }
+    }
+    merged.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
     return NextResponse.json({
-      jobs: reconciled,
-      total,
+      jobs: merged,
+      total: Math.max(total, merged.length),
       page,
       pageSize,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      totalPages: Math.max(1, Math.ceil(Math.max(total, merged.length) / pageSize)),
     });
   }, `GET /api/p/${pipeline}/jobs`);
 }

@@ -61,7 +61,7 @@ export default function JobsPage() {
   // 15s otherwise.
   useEffect(() => {
     const anyActive = jobs.some(
-      (j) => j.status === "running" || j.status === "scheduled",
+      (j) => j.status === "running" || j.status === "scheduled" || j.status === "queued",
     );
     const intervalMs = anyActive ? 2000 : 15000;
     const id = setInterval(loadJobs, intervalMs);
@@ -96,11 +96,28 @@ export default function JobsPage() {
       case "running":
         return "bg-yellow-500 animate-pulse";
       case "scheduled":
+      case "queued":
         return "bg-blue-500 animate-pulse";
       default:
         return "bg-gray-400";
     }
   };
+
+  /** One-line live progress, e.g. `ingesting · 3/7 mappings · 12 partitions`. */
+  function progressLine(job: Job): string {
+    const p = job.progress;
+    if (!p) return job.status === "queued" ? "waiting for a worker" : "running…";
+    if (p.stage === "downloading") {
+      return p.files_total
+        ? `downloading · ${p.files_done ?? 0}/${p.files_total} files`
+        : "downloading…";
+    }
+    const parts = [`ingesting · ${p.mappings_done ?? 0}/${p.mappings_total ?? "?"} mappings`];
+    if (job.partitions_written !== undefined) {
+      parts.push(`${job.partitions_written} partition(s)`);
+    }
+    return parts.join(" · ");
+  }
 
   function scheduledCountdown(nextRunAt: string): string {
     const ms = Date.parse(nextRunAt) - Date.now();
@@ -184,7 +201,10 @@ export default function JobsPage() {
           <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
             {jobs.map((job) => {
               const expanded = expandedJobId === job.id;
-              const terminal = job.status !== "running" && job.status !== "scheduled";
+              const terminal =
+                job.status !== "running" &&
+                job.status !== "scheduled" &&
+                job.status !== "queued";
               const stats = [
                 job.files_processed !== undefined ? `${job.files_processed} file(s)` : null,
                 job.partitions_written !== undefined ? `${job.partitions_written} partition(s)` : null,
@@ -217,9 +237,11 @@ export default function JobsPage() {
                     <span className="min-w-0 flex-1 truncate text-xs text-gray-400">
                       {job.status === "scheduled" && job.nextRunAt
                         ? scheduledCountdown(job.nextRunAt)
-                        : job.status === "failed"
-                          ? <span className="text-red-500">Failed{stats.length > 0 ? ` · ${stats.join(" · ")}` : ""}</span>
-                          : stats.join(" · ")}
+                        : job.status === "queued" || job.status === "running"
+                          ? progressLine(job)
+                          : job.status === "failed"
+                            ? <span className="text-red-500">Failed{stats.length > 0 ? ` · ${stats.join(" · ")}` : ""}</span>
+                            : stats.join(" · ")}
                     </span>
                     <span className="shrink-0 text-[11px] text-gray-400">
                       {new Date(job.startedAt).toLocaleString()}

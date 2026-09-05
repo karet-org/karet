@@ -69,7 +69,7 @@ async function fetchAtlas(): Promise<DecodedAtlas> {
   return { features: collection.features, collection, byNumeric };
 }
 
-export function loadWorldAtlas(): Promise<DecodedAtlas> {
+function loadWorldAtlas(): Promise<DecodedAtlas> {
   if (!cached) {
     cached = fetchAtlas().catch((err) => {
       cached = null; // Reset so subsequent calls retry.

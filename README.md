@@ -33,13 +33,17 @@ worker + web).
 | `AWS_ENDPOINT_URL` | S3 endpoint URL (e.g. `http://rustfs:9000` for local dev, `https://s3.<region>.amazonaws.com` for real AWS). |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | S3 credentials |
 | `KARET_SESSION_SECRET` | **Required.** HMAC key used to sign user session cookies. Generate with `openssl rand -base64 48`. |
-| `KARET_WEBHOOK_SECRET` | Optional shared secret for `/api/events/s3` (RustFS webhooks). Empty disables it. |
+| `KARET_ADMIN_PASSWORD_HASH` | **Required.** scrypt hash of the admin password. Generate with `npm run hash-password`, which prints both the plain value and the Docker-Compose-escaped form (compose `.env` files interpolate `$`, so each `$` must be doubled there). Changing the password = regenerate + restart. |
+| `KARET_WORKER_TOKEN` | **Required.** Shared bearer token sent on worker `POST /config/validate` calls; must match the worker's value. Generate with `openssl rand -hex 32`. |
+| `REDIS_URL` | **Required.** Valkey/Redis connection string (e.g. `redis://valkey:6379`). Jobs are enqueued onto the stream consumed by the worker fleet; the jobs page merges live queue state + progress over S3 history. See `karet-jobs-redis-design.html`. |
+| `DUCKDB_MEMORY_LIMIT` | Optional memory cap for the server-side DuckDB session (default `512MB`). |
 | `S3_CONSOLE_URL` | If set, the UI shows a Settings &rarr; S3 console link. Empty hides the link. |
 | `PORT` | Dev server port (default `3000`) |
 
-The first request to `/login` shows a "Set admin password" form when no
-admin exists yet (`_auth/admin.json` missing in the bucket); after that,
-it renders the standard sign-in form.
+Authentication is single-admin, password-only. The credential is
+provisioned via `KARET_ADMIN_PASSWORD_HASH` — there is no in-app setup
+or password-change flow, so a wiped bucket can never revert the
+instance to an unauthenticated state.
 
 ## Development
 
@@ -60,3 +64,28 @@ npm run test:e2e              # Playwright, requires the full stack running
 | `/p/[pipeline]/data` | SQL over warehouse tables (server-side DuckDB) + saved queries |
 | `/p/[pipeline]/jobs` | Job history + trigger |
 | `/p/[pipeline]/dashboards/[name]` | Configurable dashboard |
+
+## S3 event notifications (webhook-triggered runs)
+
+The webhook target in `compose.yml` is only half of the wiring: RustFS
+also needs a **bucket notification rule** on the lake bucket, which must
+be applied once after the buckets are created:
+
+```sh
+aws --endpoint-url http://localhost:9000 s3api put-bucket-notification-configuration \
+  --bucket karet-lake --notification-configuration '{
+  "QueueConfigurations": [{
+    "Id": "karet-worker-webhook",
+    "QueueArn": "arn:rustfs:sqs:us-east-1:primary:webhook",
+    "Events": ["s3:ObjectCreated:*"],
+    "Filter": {"Key": {"FilterRules": [
+      {"Name": "prefix", "Value": "pipelines/"},
+      {"Name": "suffix", "Value": ".csv"}
+    ]}}
+  }]}'
+```
+
+Without this rule, CSV uploads never trigger pipeline runs (manual runs
+still work). RustFS also requires the webhook origin to be allow-listed
+via `RUSTFS_OUTBOUND_ALLOW_ORIGINS` (set in `compose.yml`) and answers a
+`HEAD /` health probe against the worker before delivering.

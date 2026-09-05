@@ -7,43 +7,80 @@ import type * as duckdb from "duckdb";
 import { loadS3Config } from "@/lib/config/s3-client";
 
 let db: duckdb.Database | null = null;
+let initializing: Promise<duckdb.Database> | null = null;
 
-/** Lazily open the shared database and point httpfs at the S3 endpoint. */
-function getDb(): duckdb.Database {
-  if (db) return db;
-  // Required, not imported, so the native addon only loads on first use
-  // (never at build time or during page-data collection).
-  const { Database } = require("duckdb") as typeof duckdb;
-  db = new Database(":memory:");
+function execAsync(d: duckdb.Database, sql: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    d.exec(sql, (err: Error | null) => (err ? reject(err) : resolve()));
+  });
+}
 
-  const config = loadS3Config();
+/**
+ * Lazily open the shared database, point httpfs at S3, and apply the
+ * sandbox. The handle is published only after every statement succeeds:
+ * user SQL runs on this session, so a half-initialized (unsandboxed)
+ * session must never be cached. Failed init retries on the next call.
+ */
+function getDb(): Promise<duckdb.Database> {
+  if (db) return Promise.resolve(db);
+  if (initializing) return initializing;
 
-  // DuckDB installs/caches the httpfs extension under its home directory.
-  // Point it at a writable path (the container user's home may be unset).
-  const home = process.env.DUCKDB_HOME || process.env.HOME || "/tmp";
+  initializing = (async () => {
+    // Required, not imported, so the native addon only loads on first use
+    // (never at build time or during page-data collection).
+    const { Database } = require("duckdb") as typeof duckdb;
+    const candidate = new Database(":memory:");
 
-  const stmts = [
-    `SET home_directory = '${home}'`,
-    `SET extension_directory = '${home}/.duckdb/extensions'`,
-    `INSTALL httpfs`,
-    `LOAD httpfs`,
-    `SET s3_region = '${config.region}'`,
-    `SET s3_access_key_id = '${process.env.AWS_ACCESS_KEY_ID ?? ""}'`,
-    `SET s3_secret_access_key = '${process.env.AWS_SECRET_ACCESS_KEY ?? ""}'`,
-    `SET s3_url_style = 'path'`,
-    ...(config.endpoint
-      ? [
-          `SET s3_endpoint = '${config.endpoint.replace(/^https?:\/\//, "")}'`,
-          `SET s3_use_ssl = ${config.endpoint.startsWith("https") ? "true" : "false"}`,
-        ]
-      : []),
-  ];
+    const config = loadS3Config();
 
-  for (const stmt of stmts) {
-    db.exec(stmt);
-  }
+    // DuckDB installs/caches the httpfs extension under its home directory.
+    // Point it at a writable path (the container user's home may be unset).
+    const home = process.env.DUCKDB_HOME || process.env.HOME || "/tmp";
 
-  return db;
+    const stmts = [
+      `SET home_directory = '${home}'`,
+      `SET extension_directory = '${home}/.duckdb/extensions'`,
+      `INSTALL httpfs`,
+      `LOAD httpfs`,
+      `SET s3_region = '${config.region}'`,
+      `SET s3_access_key_id = '${process.env.AWS_ACCESS_KEY_ID ?? ""}'`,
+      `SET s3_secret_access_key = '${process.env.AWS_SECRET_ACCESS_KEY ?? ""}'`,
+      `SET s3_url_style = 'path'`,
+      ...(config.endpoint
+        ? [
+            `SET s3_endpoint = '${config.endpoint.replace(/^https?:\/\//, "")}'`,
+            `SET s3_use_ssl = ${config.endpoint.startsWith("https") ? "true" : "false"}`,
+          ]
+        : []),
+      // ---- Sandbox. User SQL from /api/p/[pipeline]/query runs on this
+      // session, so lock it down after httpfs is installed and loaded
+      // (INSTALL/LOAD themselves need local-filesystem access).
+      //
+      // Local reads are off: without this, any SELECT can call
+      // read_text('/proc/self/environ') or read csv/parquet from disk.
+      // httpfs (s3://) is unaffected.
+      `SET disabled_filesystems = 'LocalFileSystem'`,
+      // Bound a runaway query instead of letting it OOM the web process.
+      `SET memory_limit = '${process.env.DUCKDB_MEMORY_LIMIT || "512MB"}'`,
+      // The session is shared by every dashboard and ad-hoc query; don't
+      // let one hot query monopolize the container's cores.
+      `SET threads = ${Number(process.env.DUCKDB_THREADS) > 0 ? Number(process.env.DUCKDB_THREADS) : 2}`,
+      // Must be last: freezes every setting above (including the S3
+      // credentials and the limits) so user SQL cannot SET, RESET, or
+      // re-enable anything.
+      `SET lock_configuration = true`,
+    ];
+
+    for (const stmt of stmts) {
+      await execAsync(candidate, stmt);
+    }
+
+    db = candidate;
+    return candidate;
+  })().finally(() => {
+    initializing = null;
+  });
+  return initializing;
 }
 
 /** Coerce a DuckDB value into a JSON-serializable one (BigInt -> Number). */
@@ -54,11 +91,12 @@ function toJson(value: unknown): unknown {
 }
 
 /** Run a read-only query and return the rows as JSON-safe plain objects. */
-export function query<T extends Record<string, unknown> = Record<string, unknown>>(
+async function query<T extends Record<string, unknown> = Record<string, unknown>>(
   sql: string,
 ): Promise<T[]> {
+  const database = await getDb();
   return new Promise((resolve, reject) => {
-    getDb().all(sql, (err: Error | null, rows: duckdb.TableData) => {
+    database.all(sql, (err: Error | null, rows: duckdb.TableData) => {
       if (err) return reject(err);
       const safe = (rows ?? []).map((row) => {
         const out: Record<string, unknown> = {};
