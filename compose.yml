@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     # AOF with everysec fsync: at most ~1s of queue/debounce state lost on
     # crash. Job history is durable in S3 regardless.
-    command: ["valkey-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    command: ["valkey-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxclients", "1024"]
     volumes:
       - valkey-data:/data
     healthcheck:
