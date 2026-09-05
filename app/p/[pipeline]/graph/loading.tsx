@@ -7,7 +7,7 @@ export default function GraphLoading() {
       className="flex items-center justify-center"
       style={{ height: "calc(100vh - 52px)" }}
     >
-      <div role="status" className="text-sm text-gray-500">
+      <div role="status" className="text-sm text-[color:var(--color-ink-3)]">
         Loading graph…
       </div>
     </main>

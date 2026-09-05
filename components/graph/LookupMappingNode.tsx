@@ -11,7 +11,7 @@ export function LookupMappingNode({
   selected,
 }: NodeProps & { data: LookupMappingNodeData }) {
   const { entity } = data;
-  const ringClass = selected ? "ring-2 ring-orange-500" : "";
+  const ringClass = selected ? "ring-2 ring-[color:var(--color-carrot)]" : "";
   const keywords: string[] = [];
   for (const row of entity.rows) {
     for (const kw of row.input_patterns) {
@@ -25,27 +25,27 @@ export function LookupMappingNode({
   return (
     <div
       data-testid="lookup-mapping-node"
-      className={`min-w-[200px] max-w-[240px] cursor-pointer rounded-xl border border-blue-300 bg-white shadow-sm ${ringClass}`}
+      className={`min-w-[200px] max-w-[240px] cursor-pointer rounded-xl border border-[#6cb2ff] bg-[color:var(--color-surface)] shadow-sm ${ringClass}`}
     >
-      <div className="drag-handle flex cursor-grab items-center gap-1.5 rounded-t-xl bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-blue-600">
+      <div className="drag-handle flex cursor-grab items-center gap-1.5 rounded-t-xl bg-[rgba(108,178,255,0.12)] px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#6cb2ff]">
         <span aria-hidden="true">▦</span>
         <span>Lookup</span>
       </div>
       <div className="px-3 py-2">
-        <div className="text-sm font-semibold text-gray-800">
+        <div className="text-sm font-semibold text-[color:var(--color-ink)]">
           {entity.name ?? entity.id}
         </div>
         <ul className="mt-1 flex flex-wrap gap-1 text-xs">
           {keywords.map((kw, i) => (
             <li
               key={i}
-              className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700"
+              className="rounded bg-[rgba(108,178,255,0.12)] px-1.5 py-0.5 text-[#6cb2ff]"
             >
               {kw}
             </li>
           ))}
           {moreCount > 0 ? (
-            <li className="text-gray-400">+{moreCount} more</li>
+            <li className="text-[color:var(--color-ink-3)]">+{moreCount} more</li>
           ) : null}
         </ul>
       </div>

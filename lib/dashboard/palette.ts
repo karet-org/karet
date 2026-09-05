@@ -19,3 +19,13 @@ export const CHART_PALETTE = [
 
 /** Accent used for the "active filter" ring in interactive panels. */
 export const CHART_ACCENT = "#ff6b35" as const;
+
+/** Chart.js global defaults for the dark theme. Imported for its side
+ * effect by every chart panel via this module's consumers. */
+import { defaults } from "chart.js";
+
+defaults.color = "#8f9098";
+defaults.borderColor = "rgba(255, 255, 255, 0.08)";
+
+/** Surface color used for chart segment separators on dark panels. */
+export const CHART_SURFACE = "#202127" as const;

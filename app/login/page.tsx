@@ -99,7 +99,7 @@ function LoginForm() {
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
           required
-          className="mt-1.5 h-[38px] w-full rounded-md border border-[color:var(--color-rule)] bg-white px-3 text-sm outline-none transition focus:border-[color:var(--color-carrot)] focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
+          className="mt-1.5 h-[38px] w-full rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 text-sm outline-none transition focus:border-[color:var(--color-carrot)] focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
           data-testid="login-password"
         />
 

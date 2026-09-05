@@ -28,12 +28,12 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
   return (
     <div
       data-testid="table-panel"
-      className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-100 bg-white p-4 shadow-sm"
+      className="flex flex-1 flex-col min-w-0 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm"
     >
       <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-600">
+          <thead className="bg-[color:var(--color-surface-2)] text-xs uppercase text-[color:var(--color-ink-2)]">
             <tr>
               {config.columns.map((c) => (
                 <th
@@ -48,9 +48,9 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
           </thead>
           <tbody>
             {pageRows.map((row, i) => (
-              <tr key={start + i} className="border-t border-gray-100">
+              <tr key={start + i} className="border-t border-[color:var(--color-rule-soft)]">
                 {config.columns.map((c) => (
-                  <td key={c} className="px-3 py-1.5 text-gray-800">
+                  <td key={c} className="px-3 py-1.5 text-[color:var(--color-ink)]">
                     {formatCell(row[c])}
                   </td>
                 ))}
@@ -60,7 +60,7 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
               <tr>
                 <td
                   colSpan={config.columns.length}
-                  className="px-3 py-4 text-center text-gray-500"
+                  className="px-3 py-4 text-center text-[color:var(--color-ink-3)]"
                 >
                   No rows
                 </td>
@@ -70,7 +70,7 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
         </table>
       </div>
       {pageCount > 1 && (
-        <div className="mt-3 flex items-center justify-between text-xs text-gray-600">
+        <div className="mt-3 flex items-center justify-between text-xs text-[color:var(--color-ink-2)]">
           <span>
             Page {safePage + 1} of {pageCount}
           </span>
@@ -79,7 +79,7 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
               type="button"
               onClick={() => setPage(Math.max(0, safePage - 1))}
               disabled={safePage === 0}
-              className="cursor-pointer rounded border border-gray-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+              className="cursor-pointer rounded border border-[color:var(--color-rule)] px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Prev
             </button>
@@ -87,7 +87,7 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
               type="button"
               onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))}
               disabled={safePage >= pageCount - 1}
-              className="cursor-pointer rounded border border-gray-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+              className="cursor-pointer rounded border border-[color:var(--color-rule)] px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next
             </button>

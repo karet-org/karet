@@ -117,18 +117,18 @@ export default function JobsPage() {
   const statusDot = (status: string) => {
     switch (status) {
       case "completed":
-        return "bg-green-500";
+        return "bg-[color:var(--color-leaf)]";
       case "failed":
-        return "bg-red-500";
+        return "bg-[color:var(--color-rose-deep)]";
       case "abandoned":
         return "bg-amber-500";
       case "running":
         return "bg-yellow-500 animate-pulse";
       case "scheduled":
       case "queued":
-        return "bg-blue-500 animate-pulse";
+        return "bg-[#6cb2ff] animate-pulse";
       default:
-        return "bg-gray-400";
+        return "bg-[color:var(--color-ink-4)]";
     }
   };
 
@@ -176,8 +176,8 @@ export default function JobsPage() {
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Jobs</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-xl font-semibold text-[color:var(--color-ink)]">Jobs</h1>
+          <p className="mt-1 text-sm text-[color:var(--color-ink-3)]">
             Run the pipeline and watch its progress. Each run reads raw CSVs, applies the configured mappings, and writes Parquet output.
           </p>
         </div>
@@ -188,7 +188,7 @@ export default function JobsPage() {
             disabled={refreshing}
             title="Refresh job list"
             aria-label="Refresh"
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-2 text-xs text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
           >
             {refreshing ? "Refreshing…" : "↻ Refresh"}
           </button>
@@ -196,7 +196,7 @@ export default function JobsPage() {
             type="button"
             onClick={() => triggerJob()}
             disabled={running}
-            className="flex items-center gap-1.5 rounded bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded bg-[color:var(--color-carrot)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
           >
             {running ? "Running…" : <><IconPlay size={12} /> Run Pipeline</>}
           </button>
@@ -205,29 +205,29 @@ export default function JobsPage() {
 
       <div className="mt-6">
         {bucketError ? (
-          <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div role="alert" className="rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]">
             <strong>S3 bucket not found.</strong> {bucketError}
           </div>
         ) : loadError ? (
-          <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div role="alert" className="rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]">
             <strong>Couldn&apos;t load jobs.</strong> {loadError}
           </div>
         ) : !loaded ? (
-          <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
+          <div className="divide-y divide-[color:var(--color-rule-soft)] overflow-hidden rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]">
             {[0, 1, 2].map((i) => (
               <div key={i} className="flex items-center gap-3 px-3 py-2.5">
-                <span className="h-2 w-2 shrink-0 rounded-full bg-gray-200" />
-                <span className="h-3 w-24 animate-pulse rounded bg-gray-200" />
-                <span className="h-3 flex-1 animate-pulse rounded bg-gray-100" />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-[color:var(--color-rule)]" />
+                <span className="h-3 w-24 animate-pulse rounded bg-[color:var(--color-rule)]" />
+                <span className="h-3 flex-1 animate-pulse rounded bg-[color:var(--color-surface-2)]" />
               </div>
             ))}
           </div>
         ) : jobs.length === 0 ? (
-          <p className="py-8 text-center text-sm text-gray-400">
+          <p className="py-8 text-center text-sm text-[color:var(--color-ink-3)]">
             No jobs yet. Click &quot;Run Pipeline&quot; to start one.
           </p>
         ) : (
-          <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
+          <div className="divide-y divide-[color:var(--color-rule-soft)] overflow-hidden rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]">
             {jobs.map((job) => {
               const expanded = expandedJobId === job.id;
               const terminal =
@@ -246,7 +246,7 @@ export default function JobsPage() {
                     onClick={() => terminal && setExpandedJobId(expanded ? null : job.id)}
                     aria-expanded={terminal ? expanded : undefined}
                     className={`flex w-full items-center gap-3 px-3 py-2 text-left ${
-                      terminal ? "hover:bg-gray-50" : "cursor-default"
+                      terminal ? "hover:bg-[color:var(--color-surface-2)]" : "cursor-default"
                     }`}
                   >
                     <span
@@ -254,30 +254,30 @@ export default function JobsPage() {
                       aria-hidden
                     />
                     <span className="sr-only">{job.status}</span>
-                    <code className="shrink-0 text-[11px] text-gray-500">{job.id}</code>
+                    <code className="shrink-0 text-[11px] text-[color:var(--color-ink-3)]">{job.id}</code>
                     {job.trigger === "webhook" && (
                       <span
-                        className="shrink-0 rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700"
+                        className="shrink-0 rounded-full bg-[rgba(108,178,255,0.12)] px-1.5 py-0.5 text-[9px] font-medium text-[#6cb2ff]"
                         title="Auto-triggered by an upload to S3"
                       >
                         auto
                       </span>
                     )}
-                    <span className="min-w-0 flex-1 truncate text-xs text-gray-400">
+                    <span className="min-w-0 flex-1 truncate text-xs text-[color:var(--color-ink-3)]">
                       {job.status === "scheduled" && job.nextRunAt
                         ? scheduledCountdown(job.nextRunAt)
                         : job.status === "queued" || job.status === "running"
                           ? progressLine(job)
                           : job.status === "failed"
-                            ? <span className="text-red-500">Failed{stats.length > 0 ? ` · ${stats.join(" · ")}` : ""}</span>
+                            ? <span className="text-[color:var(--color-rose-deep)]">Failed{stats.length > 0 ? ` · ${stats.join(" · ")}` : ""}</span>
                             : stats.join(" · ")}
                     </span>
-                    <span className="shrink-0 text-[11px] text-gray-400">
+                    <span className="shrink-0 text-[11px] text-[color:var(--color-ink-3)]">
                       {new Date(job.startedAt).toLocaleString()}
                     </span>
                     {terminal && (
                       <span
-                        className={`shrink-0 text-gray-400 transition-transform ${expanded ? "rotate-90" : ""}`}
+                        className={`shrink-0 text-[color:var(--color-ink-3)] transition-transform ${expanded ? "rotate-90" : ""}`}
                         aria-hidden
                       >
                         ›
@@ -285,51 +285,51 @@ export default function JobsPage() {
                     )}
                   </button>
                   {expanded && (
-                    <div className="space-y-2 bg-gray-50 px-3 py-2 text-[11px] text-gray-700">
+                    <div className="space-y-2 bg-[color:var(--color-surface-2)] px-3 py-2 text-[11px] text-[color:var(--color-ink-2)]">
                       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                        <dt className="text-gray-500">Job ID</dt>
+                        <dt className="text-[color:var(--color-ink-3)]">Job ID</dt>
                         <dd className="font-mono">{job.id}</dd>
-                        <dt className="text-gray-500">Status</dt>
+                        <dt className="text-[color:var(--color-ink-3)]">Status</dt>
                         <dd>{job.status}</dd>
-                        <dt className="text-gray-500">Started</dt>
+                        <dt className="text-[color:var(--color-ink-3)]">Started</dt>
                         <dd>{new Date(job.startedAt).toLocaleString()}</dd>
                         {job.completedAt && (
                           <>
-                            <dt className="text-gray-500">Completed</dt>
+                            <dt className="text-[color:var(--color-ink-3)]">Completed</dt>
                             <dd>{new Date(job.completedAt).toLocaleString()}</dd>
-                            <dt className="text-gray-500">Duration</dt>
+                            <dt className="text-[color:var(--color-ink-3)]">Duration</dt>
                             <dd>{formatDuration(job.startedAt, job.completedAt)}</dd>
                           </>
                         )}
                         {job.files_processed !== undefined && (
                           <>
-                            <dt className="text-gray-500">Files processed</dt>
+                            <dt className="text-[color:var(--color-ink-3)]">Files processed</dt>
                             <dd>{job.files_processed}</dd>
                           </>
                         )}
                         {job.partitions_written !== undefined && (
                           <>
-                            <dt className="text-gray-500">Partitions written</dt>
+                            <dt className="text-[color:var(--color-ink-3)]">Partitions written</dt>
                             <dd>{job.partitions_written}</dd>
                           </>
                         )}
                         {job.errors !== undefined && (
                           <>
-                            <dt className="text-gray-500">Errors</dt>
+                            <dt className="text-[color:var(--color-ink-3)]">Errors</dt>
                             <dd>{job.errors.length}</dd>
                           </>
                         )}
                       </dl>
                       {job.error && (
-                        <div className="rounded border border-red-200 bg-red-50 p-2 text-[11px] text-red-700">
+                        <div className="rounded border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] p-2 text-[11px] text-[color:var(--color-rose-deep)]">
                           <div className="mb-0.5 font-medium">Error</div>
                           <p className="whitespace-pre-wrap break-words font-mono">{job.error}</p>
                         </div>
                       )}
                       {job.errors && job.errors.length > 0 && (
-                        <ul className="max-h-60 space-y-1 overflow-auto rounded border border-gray-200 bg-white p-2 font-mono text-[11px] text-gray-700">
+                        <ul className="max-h-60 space-y-1 overflow-auto rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-2 font-mono text-[11px] text-[color:var(--color-ink-2)]">
                           {job.errors.map((e, i) => (
-                            <li key={i} className="border-l-2 border-red-300 pl-2">
+                            <li key={i} className="border-l-2 border-[color:var(--color-rose-deep)] pl-2">
                               {e}
                             </li>
                           ))}
@@ -344,7 +344,7 @@ export default function JobsPage() {
         )}
 
         {!bucketError && total > 0 && (
-          <div className="mt-4 flex items-center justify-between gap-3 text-xs text-gray-500">
+          <div className="mt-4 flex items-center justify-between gap-3 text-xs text-[color:var(--color-ink-3)]">
             <div className="flex items-center gap-2">
               <label htmlFor="job-page-size">Per page</label>
               <select
@@ -354,7 +354,7 @@ export default function JobsPage() {
                   setPage(1);
                   setPageSize(Number(e.target.value));
                 }}
-                className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700"
+                className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-2 py-1 text-xs text-[color:var(--color-ink-2)]"
               >
                 {[25, 50, 100].map((n) => (
                   <option key={n} value={n}>
@@ -369,7 +369,7 @@ export default function JobsPage() {
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="rounded border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1 text-xs text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-40"
               >
                 ← Prev
               </button>
@@ -380,7 +380,7 @@ export default function JobsPage() {
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="rounded border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1 text-xs text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-40"
               >
                 Next →
               </button>

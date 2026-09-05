@@ -1,32 +1,32 @@
 @import "tailwindcss";
 
 :root {
-  /* Surface */
-  --color-bg: #fbfaf6;
-  --color-surface: #ffffff;
-  --color-surface-2: #f5f2ea;
+  /* Surface: neutral near-blacks shared with the docs site's dark mode */
+  --color-bg: #1b1b1f;
+  --color-surface: #202127;
+  --color-surface-2: #2b2c33;
 
   /* Ink */
-  --color-ink: #1f1d1a;
-  --color-ink-2: #4a4640;
-  --color-ink-3: #807a70;
-  --color-ink-4: #b6afa3;
+  --color-ink: #f2f2f5;
+  --color-ink-2: #c4c5cc;
+  --color-ink-3: #8f9098;
+  --color-ink-4: #64656c;
 
   /* Rules */
-  --color-rule: #e8e2d2;
-  --color-rule-soft: #f0ebdc;
+  --color-rule: #3f4046;
+  --color-rule-soft: #33343a;
 
-  /* Brand */
+  /* Brand: color is emphasis, surfaces stay neutral */
   --color-carrot: #ff6b35;
-  --color-carrot-deep: #c4421a;
-  --color-carrot-soft: #fff0e8;
+  --color-carrot-deep: #ff8455;
+  --color-carrot-soft: rgba(255, 107, 53, 0.16);
   --color-leaf: #4caf50;
-  --color-leaf-deep: #2e7d32;
-  --color-leaf-soft: #ecf6ec;
-  --color-amber-soft: #fff4d6;
-  --color-amber-deep: #8a5a00;
-  --color-rose-soft: #fce8e6;
-  --color-rose-deep: #b4321a;
+  --color-leaf-deep: #7bc97e;
+  --color-leaf-soft: rgba(76, 175, 80, 0.16);
+  --color-amber-soft: rgba(255, 205, 41, 0.14);
+  --color-amber-deep: #ffcd29;
+  --color-rose-soft: rgba(242, 72, 34, 0.14);
+  --color-rose-deep: #ff7b5c;
 
   --font-sans:
     var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system,

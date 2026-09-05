@@ -155,7 +155,7 @@ export function SankeyPanel({
   return (
     <div
       data-testid="sankey-panel"
-      className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-100 bg-white p-4 shadow-sm"
+      className="flex flex-1 flex-col min-w-0 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm"
     >
       <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
       <div
@@ -164,7 +164,7 @@ export function SankeyPanel({
         style={{ height }}
       >
         {width === 0 ? null : !computed ? (
-          <div className="flex h-full items-center justify-center text-sm text-gray-500">
+          <div className="flex h-full items-center justify-center text-sm text-[color:var(--color-ink-3)]">
             No data
           </div>
         ) : (
@@ -378,7 +378,7 @@ function SankeyTooltip({
 
   return (
     <div
-      className="pointer-events-none absolute z-10 rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 shadow-md"
+      className="pointer-events-none absolute z-10 rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] px-2 py-1 text-xs text-[color:var(--color-ink-2)] shadow-md"
       style={style}
     >
       {text}

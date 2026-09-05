@@ -123,25 +123,25 @@ export function AnalyticTableEditor({
       </EditorField>
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">Schema</span>
+          <span className="text-xs text-[color:var(--color-ink-3)]">Schema</span>
           <button
             type="button"
             data-testid="analytic-table-editor-add-column"
             onClick={addColumn}
-            className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-700 hover:bg-gray-50"
+            className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-2 py-0.5 text-[11px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
           >
             + Add column
           </button>
         </div>
         {value.schema.length === 0 ? (
-          <p className="text-xs text-gray-400">No columns</p>
+          <p className="text-xs text-[color:var(--color-ink-3)]">No columns</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {value.schema.map((col, i) => (
               <li
                 key={i}
                 data-testid="analytic-table-editor-column-row"
-                className="rounded border border-gray-200 bg-gray-50 p-2"
+                className="rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] p-2"
               >
                 <div className="flex items-center gap-1.5">
                   <input
@@ -192,16 +192,16 @@ export function AnalyticTableEditor({
           open
           onClose={() => setColumnToRemove(null)}
         >
-          <h2 className="text-lg font-semibold text-gray-900">Remove column</h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <h2 className="text-lg font-semibold text-[color:var(--color-ink)]">Remove column</h2>
+          <p className="mt-2 text-sm text-[color:var(--color-ink-2)]">
             Remove{" "}
-            <code className="rounded bg-gray-100 px-1 font-mono text-[12px]">
+            <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono text-[12px]">
               {value.schema[columnToRemove]?.name ||
                 `column ${columnToRemove + 1}`}
             </code>{" "}
             from <span className="font-medium">{value.name || "this table"}</span>?
           </p>
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-[color:var(--color-ink-3)]">
             It will also be removed from any Mapping that writes to this
             table. The change is staged in the editor; Save &amp; Publish
             commits it.
@@ -210,7 +210,7 @@ export function AnalyticTableEditor({
             <button
               type="button"
               onClick={() => setColumnToRemove(null)}
-              className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+              className="rounded-md px-4 py-2 text-sm text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
             >
               Cancel
             </button>
@@ -218,7 +218,7 @@ export function AnalyticTableEditor({
               type="button"
               onClick={confirmRemoveColumn}
               data-testid="analytic-table-editor-confirm-remove-column"
-              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              className="rounded-md bg-[color:var(--color-rose-deep)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-rose-deep)]"
             >
               Remove column
             </button>
@@ -262,19 +262,19 @@ function AssertionsSection({
         aria-expanded={expanded}
         aria-label={`toggle assertions for ${columnName}`}
         data-testid={`analytic-table-editor-assertions-toggle-${index}`}
-        className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-700"
+        className="flex items-center gap-1 text-[11px] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink-2)]"
       >
         <span>{expanded ? "▾" : "▸"}</span>
         <span>Assertions</span>
         {hasAny && (
-          <span className="rounded-full bg-blue-100 px-1.5 text-[9px] font-medium text-blue-700">
+          <span className="rounded-full bg-[rgba(108,178,255,0.16)] px-1.5 text-[9px] font-medium text-[#6cb2ff]">
             {countAssertions(value!)}
           </span>
         )}
       </button>
       {expanded && (
-        <div className="mt-1.5 flex flex-col gap-1.5 rounded border border-gray-200 bg-white p-2">
-          <label className="flex items-center gap-1.5 text-[11px] text-gray-600">
+        <div className="mt-1.5 flex flex-col gap-1.5 rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-2">
+          <label className="flex items-center gap-1.5 text-[11px] text-[color:var(--color-ink-2)]">
             <input
               type="checkbox"
               aria-label={`column ${index} not_null`}
@@ -285,7 +285,7 @@ function AssertionsSection({
             />
             <span>not null</span>
           </label>
-          <label className="flex items-center gap-1.5 text-[11px] text-gray-600">
+          <label className="flex items-center gap-1.5 text-[11px] text-[color:var(--color-ink-2)]">
             <input
               type="checkbox"
               aria-label={`column ${index} unique`}
@@ -296,7 +296,7 @@ function AssertionsSection({
             />
             <span>unique</span>
           </label>
-          <label className="flex flex-col gap-0.5 text-[11px] text-gray-600">
+          <label className="flex flex-col gap-0.5 text-[11px] text-[color:var(--color-ink-2)]">
             <span>accepted values (comma-separated)</span>
             <input
               aria-label={`column ${index} accepted_values`}
@@ -312,7 +312,7 @@ function AssertionsSection({
           </label>
           {numeric ? (
             <div className="flex gap-2">
-              <label className="flex flex-1 flex-col gap-0.5 text-[11px] text-gray-600">
+              <label className="flex flex-1 flex-col gap-0.5 text-[11px] text-[color:var(--color-ink-2)]">
                 <span>min</span>
                 <input
                   type="number"
@@ -326,7 +326,7 @@ function AssertionsSection({
                   }
                 />
               </label>
-              <label className="flex flex-1 flex-col gap-0.5 text-[11px] text-gray-600">
+              <label className="flex flex-1 flex-col gap-0.5 text-[11px] text-[color:var(--color-ink-2)]">
                 <span>max</span>
                 <input
                   type="number"
@@ -342,7 +342,7 @@ function AssertionsSection({
               </label>
             </div>
           ) : (
-            <p className="text-[10px] text-gray-400">
+            <p className="text-[10px] text-[color:var(--color-ink-3)]">
               min/max only apply to numeric column types
             </p>
           )}
@@ -353,7 +353,7 @@ function AssertionsSection({
                 setAcceptedText("");
                 onChange(null);
               }}
-              className="self-start text-[11px] text-red-500 hover:text-red-700"
+              className="self-start text-[11px] text-[color:var(--color-rose-deep)] hover:text-[color:var(--color-rose-deep)]"
             >
               Clear all assertions
             </button>

@@ -178,7 +178,7 @@ export default function TopNav({
           title="Switch pipeline"
         >
           <span
-            className="shrink-0 rounded-full border border-[color:var(--color-rule)] bg-white px-1.5 py-[1px] text-[10px] uppercase tracking-[0.08em] text-[color:var(--color-ink-3)]"
+            className="shrink-0 rounded-full border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-1.5 py-[1px] text-[10px] uppercase tracking-[0.08em] text-[color:var(--color-ink-3)]"
           >
             Pipeline
           </span>
@@ -188,7 +188,7 @@ export default function TopNav({
         {pipelineOpen ? (
           <div
             role="menu"
-            className="absolute left-0 top-full mt-1 min-w-[220px] rounded-md border border-[color:var(--color-rule)] bg-white py-1 shadow-md"
+            className="absolute left-0 top-full mt-1 min-w-[220px] rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] py-1 shadow-md"
             data-testid="top-nav-pipeline-menu"
           >
             {pipelines.length === 0 ? (
@@ -252,7 +252,7 @@ export default function TopNav({
         {dashOpen ? (
           <div
             role="menu"
-            className="absolute left-0 top-full mt-1 min-w-[200px] rounded-md border border-[color:var(--color-rule)] bg-white py-1 shadow-md"
+            className="absolute left-0 top-full mt-1 min-w-[200px] rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] py-1 shadow-md"
             data-testid="top-nav-dashboards-menu"
           >
             {dashboards.length === 0 ? (
@@ -298,7 +298,7 @@ export default function TopNav({
           {settingsOpen ? (
             <div
               role="menu"
-              className="absolute right-0 top-full mt-1 w-[200px] overflow-hidden rounded-md border border-[color:var(--color-rule)] bg-white py-1 shadow-md"
+              className="absolute right-0 top-full mt-1 w-[200px] overflow-hidden rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] py-1 shadow-md"
               data-testid="top-nav-settings-menu"
             >
               <a
@@ -551,7 +551,7 @@ export default function TopNav({
               value={deleteConfirm}
               onChange={(e) => setDeleteConfirm(e.target.value)}
               autoComplete="off"
-              className="mt-1 w-full rounded-md border border-[color:var(--color-rule)] bg-white px-3 py-2 font-mono text-sm focus:border-[color:var(--color-rose-deep)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-rose-soft)]"
+              className="mt-1 w-full rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-2 font-mono text-sm focus:border-[color:var(--color-rose-deep)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-rose-soft)]"
             />
 
             {deleteError ? (
@@ -658,7 +658,7 @@ export default function TopNav({
               data-testid="rename-pipeline-input"
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
-              className="mt-1 w-full rounded-md border border-[color:var(--color-rule)] bg-white px-3 py-2 text-sm focus:border-[color:var(--color-carrot)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
+              className="mt-1 w-full rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-2 text-sm focus:border-[color:var(--color-carrot)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
             />
             <p className="mt-1 text-xs text-[color:var(--color-ink-4)]">
               Will be saved as{" "}

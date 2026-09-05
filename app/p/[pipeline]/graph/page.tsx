@@ -417,7 +417,7 @@ export default function PipelineGraphPage() {
   if (status === "loading") {
     return (
       <main className="flex items-center justify-center" style={{ height: `calc(100vh - ${TOP_NAV_HEIGHT_PX}px)` }}>
-        <div role="status" className="text-sm text-gray-500" data-testid="graph-loading">Loading pipeline…</div>
+        <div role="status" className="text-sm text-[color:var(--color-ink-3)]" data-testid="graph-loading">Loading pipeline…</div>
       </main>
     );
   }
@@ -425,7 +425,7 @@ export default function PipelineGraphPage() {
   if (status === "error") {
     return (
       <main className="flex items-center justify-center" style={{ height: `calc(100vh - ${TOP_NAV_HEIGHT_PX}px)` }}>
-        <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700" data-testid="graph-error">{errorMsg}</div>
+        <div role="alert" className="rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]" data-testid="graph-error">{errorMsg}</div>
       </main>
     );
   }
@@ -468,18 +468,18 @@ export default function PipelineGraphPage() {
         {isDirty && (
           <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center gap-2">
             {validationErrors.length > 0 && (
-              <div className="w-max max-w-lg rounded-lg border border-red-300 bg-red-50 px-4 py-2 shadow-lg">
-                <div className="text-xs font-semibold text-red-700">Validation failed:</div>
-                <ul className="mt-1 list-inside list-disc text-xs text-red-600">
+              <div className="w-max max-w-lg rounded-lg border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-2 shadow-lg">
+                <div className="text-xs font-semibold text-[color:var(--color-rose-deep)]">Validation failed:</div>
+                <ul className="mt-1 list-inside list-disc text-xs text-[color:var(--color-rose-deep)]">
                   {validationErrors.map((e, i) => <li key={i}>{e}</li>)}
                 </ul>
               </div>
             )}
-            <div className="flex items-center gap-3 rounded-full border border-orange-300 bg-white px-4 py-2 shadow-lg">
-              <span className="h-2 w-2 rounded-full bg-orange-500" />
-              <span className="text-xs font-medium text-gray-700">Unsaved changes</span>
-              <button type="button" onClick={handleRevert} className="rounded border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-50">Revert</button>
-              <button type="button" onClick={handlePublish} disabled={saving} className="rounded bg-orange-500 px-3 py-1 text-xs font-medium text-white hover:bg-orange-600 disabled:opacity-50">
+            <div className="flex items-center gap-3 rounded-full border border-[color:var(--color-carrot)] bg-[color:var(--color-surface)] px-4 py-2 shadow-lg">
+              <span className="h-2 w-2 rounded-full bg-[color:var(--color-carrot)]" />
+              <span className="text-xs font-medium text-[color:var(--color-ink-2)]">Unsaved changes</span>
+              <button type="button" onClick={handleRevert} className="rounded border border-[color:var(--color-rule)] px-3 py-1 text-xs text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]">Revert</button>
+              <button type="button" onClick={handlePublish} disabled={saving} className="rounded bg-[color:var(--color-carrot)] px-3 py-1 text-xs font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50">
                 {saving ? "Saving…" : "Save & Publish"}
               </button>
             </div>
@@ -497,10 +497,10 @@ export default function PipelineGraphPage() {
 
       {pendingNav !== null ? (
         <Modal open onClose={() => setPendingNav(null)}>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-[color:var(--color-ink)]">
             Discard unsaved changes?
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-[color:var(--color-ink-2)]">
             You have edits that haven&rsquo;t been published yet. Leaving
             this page will lose them.
           </p>
@@ -509,7 +509,7 @@ export default function PipelineGraphPage() {
               type="button"
               onClick={() => setPendingNav(null)}
               data-testid="discard-nav-cancel"
-              className="rounded-md px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+              className="rounded-md px-4 py-2 text-sm text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
             >
               Stay on this page
             </button>
@@ -524,7 +524,7 @@ export default function PipelineGraphPage() {
                 router.push(dest);
               }}
               data-testid="discard-nav-confirm"
-              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              className="rounded-md bg-[color:var(--color-rose-deep)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-rose-deep)]"
             >
               Discard and leave
             </button>

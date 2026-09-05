@@ -69,9 +69,9 @@ export default async function PipelineDashboardPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-[1400px] space-y-3 p-3 sm:space-y-4 sm:p-4 lg:p-6">
-      <header className="rounded-lg border border-orange-100 bg-white px-3 py-2 shadow-sm sm:px-4 sm:py-3">
-        <h1 className="text-base font-semibold text-orange-600 sm:text-lg">{dashboard.name}</h1>
-        <p className="text-xs text-gray-500">
+      <header className="rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] px-3 py-2 shadow-sm sm:px-4 sm:py-3">
+        <h1 className="text-base font-semibold text-[color:var(--color-carrot)] sm:text-lg">{dashboard.name}</h1>
+        <p className="text-xs text-[color:var(--color-ink-3)]">
           {dashboard.query_id
             ? `Query: ${dashboard.query_id}`
             : `Table: ${dashboard.analytic_table_id}`}{" "}
@@ -81,7 +81,7 @@ export default async function PipelineDashboardPage({
       {dataError && (
         <div
           role="alert"
-          className="rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-sm text-red-700 sm:px-4"
+          className="rounded-lg border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-3 py-2.5 text-sm text-[color:var(--color-rose-deep)] sm:px-4"
         >
           <strong className="font-semibold">Couldn&apos;t load this dashboard&apos;s data.</strong>{" "}
           {dataError}

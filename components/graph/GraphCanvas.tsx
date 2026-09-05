@@ -390,34 +390,35 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
         panOnScroll
         panOnDrag={[1]}
         proOptions={{ hideAttribution: true }}
+        colorMode="dark"
       >
-        <Background />
+        <Background color="#35363c" />
         <Controls position="bottom-left" />
         <MiniMap position="bottom-right" className="!hidden sm:!block" />
       </ReactFlow>
 
       {contextMenu && (
         <div
-          className="absolute z-20 w-44 rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+          className="absolute z-20 w-44 rounded-md border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] py-1 shadow-lg"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           {contextMenu.nodeId ? (
             <>
-              <div className="px-3 py-1 text-[10px] font-semibold uppercase text-gray-400">Node</div>
+              <div className="px-3 py-1 text-[10px] font-semibold uppercase text-[color:var(--color-ink-3)]">Node</div>
               <button
                 type="button"
                 onClick={handleDeleteNode}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)]"
               >
                 <IconTrash size={14} /> Delete node
               </button>
             </>
           ) : contextMenu.edge ? (
             <>
-              <div className="px-3 py-1 text-[10px] font-semibold uppercase text-gray-400">Edge</div>
+              <div className="px-3 py-1 text-[10px] font-semibold uppercase text-[color:var(--color-ink-3)]">Edge</div>
               {contextMenu.edge.kind === "lookup-to-mapping" ? (
                 <div
-                  className="px-3 py-1.5 text-xs text-gray-500"
+                  className="px-3 py-1.5 text-xs text-[color:var(--color-ink-3)]"
                   title="Lookup edges are derived from the mapping's expressions. Remove the lookup reference in the mapping editor."
                 >
                   Edit mapping to remove lookup
@@ -427,7 +428,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
                   type="button"
                   onClick={handleDisconnectEdge}
                   data-testid="disconnect-edge-button"
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)]"
                 >
                   <IconTrash size={14} /> Disconnect edge
                 </button>
@@ -435,7 +436,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
             </>
           ) : (
             <>
-              <div className="px-3 py-1 text-[10px] font-semibold uppercase text-gray-400">Add node</div>
+              <div className="px-3 py-1 text-[10px] font-semibold uppercase text-[color:var(--color-ink-3)]">Add node</div>
               {([
                 ["source", "Source", IconSource],
                 ["lookup", "Lookup", IconLookup],
@@ -446,7 +447,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
                   key={kind}
                   type="button"
                   onClick={() => handleAddNode(kind)}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
                 >
                   <Icon size={14} /> {label}
                 </button>
@@ -460,7 +461,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
         type="button"
         onClick={handleAutoLayout}
         data-testid="auto-layout-button"
-        className="absolute right-3 top-3 z-10 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+        className="absolute right-3 top-3 z-10 rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-ink-2)] shadow-sm hover:bg-[color:var(--color-surface-2)]"
       >
         Auto layout
       </button>
@@ -470,13 +471,13 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
           open={true}
           onClose={() => setConfirmDelete(null)}
           position="absolute"
-          cardClassName="w-full max-w-md rounded-lg border border-gray-200 bg-white p-5 shadow-xl"
+          cardClassName="w-full max-w-md rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-5 shadow-xl"
         >
-          <p className="text-sm text-gray-800">
+          <p className="text-sm text-[color:var(--color-ink)]">
             Delete node{" "}
-            <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">{confirmDelete}</code>?
+            <code className="rounded bg-[color:var(--color-surface-2)] px-1.5 py-0.5 text-xs">{confirmDelete}</code>?
           </p>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-[color:var(--color-ink-3)]">
             This will remove the node and any connections to it.
           </p>
           {(() => {
@@ -527,14 +528,14 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
             <button
               type="button"
               onClick={() => setConfirmDelete(null)}
-              className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+              className="rounded border border-[color:var(--color-rule)] px-3 py-1.5 text-xs text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={confirmDeleteNode}
-              className="rounded bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600"
+              className="rounded bg-[color:var(--color-rose-deep)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[color:var(--color-rose-deep)]"
             >
               Delete
             </button>
@@ -547,23 +548,23 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
           open={true}
           onClose={() => setConfirmDisconnect(null)}
           position="absolute"
-          cardClassName="rounded-lg border border-gray-200 bg-white p-5 shadow-xl"
+          cardClassName="rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-5 shadow-xl"
         >
-          <p className="text-sm text-gray-800">
+          <p className="text-sm text-[color:var(--color-ink)]">
             Disconnect edge{" "}
-            <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">{confirmDisconnect.source}</code>
+            <code className="rounded bg-[color:var(--color-surface-2)] px-1.5 py-0.5 text-xs">{confirmDisconnect.source}</code>
             {" → "}
-            <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">{confirmDisconnect.target}</code>
+            <code className="rounded bg-[color:var(--color-surface-2)] px-1.5 py-0.5 text-xs">{confirmDisconnect.target}</code>
             ?
           </p>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-[color:var(--color-ink-3)]">
             The nodes remain. The mapping will no longer reference the connected side.
           </p>
           <div className="mt-4 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setConfirmDisconnect(null)}
-              className="rounded border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+              className="rounded border border-[color:var(--color-rule)] px-3 py-1.5 text-xs text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
             >
               Cancel
             </button>
@@ -571,7 +572,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
               type="button"
               onClick={confirmDisconnectEdge}
               data-testid="confirm-disconnect-edge"
-              className="rounded bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600"
+              className="rounded bg-[color:var(--color-rose-deep)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[color:var(--color-rose-deep)]"
             >
               Disconnect
             </button>

@@ -68,27 +68,27 @@ export function LookupMappingEditor({
       className="flex flex-col gap-3"
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-[color:var(--color-ink-3)]">
           Rows ({value.rows.length})
         </span>
         <button
           type="button"
           data-testid="lookup-mapping-editor-add-row"
           onClick={addRow}
-          className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-700 hover:bg-gray-50"
+          className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-2 py-0.5 text-[11px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
         >
           + Add row
         </button>
       </div>
       {value.rows.length === 0 ? (
-        <p className="text-xs text-gray-400">No rows</p>
+        <p className="text-xs text-[color:var(--color-ink-3)]">No rows</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {value.rows.map((row, i) => (
             <li
               key={i}
               data-testid="lookup-mapping-editor-row"
-              className="rounded border border-gray-200 bg-gray-50 p-2"
+              className="rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] p-2"
             >
               <LookupRowEditor
                 index={i}
@@ -203,9 +203,9 @@ function CatchAllEditor({ value, onChange }: CatchAllEditorProps) {
   return (
     <div
       data-testid="lookup-mapping-editor-catch-all"
-      className="rounded border border-gray-200 bg-gray-50 p-2"
+      className="rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] p-2"
     >
-      <label className="flex items-center gap-1.5 text-xs text-gray-700">
+      <label className="flex items-center gap-1.5 text-xs text-[color:var(--color-ink-2)]">
         <input
           type="checkbox"
           checked={enabled}
@@ -213,7 +213,7 @@ function CatchAllEditor({ value, onChange }: CatchAllEditorProps) {
           data-testid="lookup-mapping-editor-catch-all-toggle"
         />
         <span className="font-semibold">Catch-all output</span>
-        <span className="text-gray-400">
+        <span className="text-[color:var(--color-ink-3)]">
           {enabled ? "" : "- defaults to null on miss"}
         </span>
       </label>

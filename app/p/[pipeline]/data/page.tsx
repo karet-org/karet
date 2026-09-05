@@ -36,9 +36,9 @@ function SidebarSkeleton() {
   return (
     <div className="space-y-1" aria-hidden>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="mb-1 rounded-md border border-gray-200 bg-white px-2.5 py-2">
-          <div className="h-3 w-2/3 animate-pulse rounded bg-gray-200" />
-          <div className="mt-1.5 h-2 w-1/3 animate-pulse rounded bg-gray-100" />
+        <div key={i} className="mb-1 rounded-md border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] px-2.5 py-2">
+          <div className="h-3 w-2/3 animate-pulse rounded bg-[color:var(--color-rule)]" />
+          <div className="mt-1.5 h-2 w-1/3 animate-pulse rounded bg-[color:var(--color-surface-2)]" />
         </div>
       ))}
     </div>
@@ -255,7 +255,7 @@ export default function DataPage() {
   const itemClass = (collidesWith: string | null) =>
     collidesWith
       ? "border-amber-300 bg-amber-50"
-      : "border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50";
+      : "border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] hover:border-[color:var(--color-carrot)] hover:bg-[color:var(--color-carrot-soft)]";
 
   const renderRelation = (r: Relation) => {
     const isOpen = expanded.has(r.key);
@@ -276,9 +276,9 @@ export default function DataPage() {
                 : r.slug
             }
           >
-            <div className="truncate text-sm font-medium text-gray-800">{r.name}</div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-gray-400">
-              <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-gray-600">{r.slug}</code>
+            <div className="truncate text-sm font-medium text-[color:var(--color-ink)]">{r.name}</div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-[color:var(--color-ink-3)]">
+              <code className="rounded bg-[color:var(--color-surface-2)] px-1 py-0.5 font-mono text-[color:var(--color-ink-2)]">{r.slug}</code>
               <span>{r.schema.length} cols</span>
               <span>· {r.meta}</span>
               {r.collidesWith && <span className="text-amber-700">name collides</span>}
@@ -288,17 +288,17 @@ export default function DataPage() {
             type="button"
             onClick={() => toggleExpanded(r.key)}
             aria-label={isOpen ? "Hide columns" : "Show columns"}
-            className="px-2 py-2 text-gray-400 hover:text-gray-600"
+            className="px-2 py-2 text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink-2)]"
           >
             <span className={`inline-block transition-transform ${isOpen ? "rotate-90" : ""}`}>›</span>
           </button>
         </div>
         {isOpen && (
-          <ul className="border-t border-gray-200/60 px-2.5 py-1.5">
+          <ul className="border-t border-[color:var(--color-rule-soft)] px-2.5 py-1.5">
             {r.schema.map((c) => (
               <li key={c.name} className="flex items-center justify-between py-0.5 text-[11px]">
-                <span className="truncate text-gray-600">{c.name}</span>
-                <span className="ml-2 shrink-0 text-gray-400">{c.type}</span>
+                <span className="truncate text-[color:var(--color-ink-2)]">{c.name}</span>
+                <span className="ml-2 shrink-0 text-[color:var(--color-ink-3)]">{c.type}</span>
               </li>
             ))}
           </ul>
@@ -319,8 +319,8 @@ export default function DataPage() {
           className="flex-1 truncate px-2.5 py-2 text-left"
           title={q.sql}
         >
-          <div className="truncate text-sm font-medium text-gray-800">{q.name}</div>
-          <code className="mt-0.5 block truncate font-mono text-[10px] text-gray-400">{q.sql}</code>
+          <div className="truncate text-sm font-medium text-[color:var(--color-ink)]">{q.name}</div>
+          <code className="mt-0.5 block truncate font-mono text-[10px] text-[color:var(--color-ink-3)]">{q.sql}</code>
         </button>
         <DeleteButton
           label={`Delete query ${q.name}`}
@@ -333,8 +333,8 @@ export default function DataPage() {
   // 52 = TOP_NAV_HEIGHT_PX (Tailwind arbitrary values can't read the constant).
   return (
     <div className="flex flex-col md:h-[calc(100vh-52px)] md:flex-row">
-      <aside className="flex w-full shrink-0 flex-col border-b border-gray-200 bg-gray-50 md:w-64 md:border-b-0 md:border-r">
-        <div className="flex border-b border-gray-200" role="tablist" aria-label="Data views">
+      <aside className="flex w-full shrink-0 flex-col border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] md:w-64 md:border-b-0 md:border-r">
+        <div className="flex border-b border-[color:var(--color-rule-soft)]" role="tablist" aria-label="Data views">
           {([
             ["warehouse", "Warehouse", tables.length],
             ["queries", "Queries", queries.length],
@@ -347,11 +347,11 @@ export default function DataPage() {
               onClick={() => setSidebarTab(id)}
               className={`flex-1 px-3 py-2 text-xs font-medium transition ${
                 sidebarTab === id
-                  ? "border-b-2 border-orange-500 text-orange-600"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "border-b-2 border-[color:var(--color-carrot)] text-[color:var(--color-carrot)]"
+                  : "text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink-2)]"
               }`}
             >
-              {label} <span className="text-gray-400">({count})</span>
+              {label} <span className="text-[color:var(--color-ink-3)]">({count})</span>
             </button>
           ))}
         </div>
@@ -360,18 +360,18 @@ export default function DataPage() {
             tablesLoading ? (
               <SidebarSkeleton />
             ) : tablesError ? (
-              <p className="px-2 py-1 text-[11px] text-red-600">{tablesError}</p>
+              <p className="px-2 py-1 text-[11px] text-[color:var(--color-rose-deep)]">{tablesError}</p>
             ) : relations.length === 0 ? (
-              <p className="px-2 py-1 text-[11px] text-gray-400">No tables yet.</p>
+              <p className="px-2 py-1 text-[11px] text-[color:var(--color-ink-3)]">No tables yet.</p>
             ) : (
               relations.map(renderRelation)
             )
           ) : queriesLoading ? (
             <SidebarSkeleton />
           ) : queriesError ? (
-            <p className="px-2 py-1 text-[11px] text-red-600">{queriesError}</p>
+            <p className="px-2 py-1 text-[11px] text-[color:var(--color-rose-deep)]">{queriesError}</p>
           ) : queries.length === 0 ? (
-            <p className="px-2 py-1 text-[11px] text-gray-400">
+            <p className="px-2 py-1 text-[11px] text-[color:var(--color-ink-3)]">
               No saved queries yet. Run a query and click Save.
             </p>
           ) : (
@@ -381,20 +381,20 @@ export default function DataPage() {
       </aside>
 
       <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 md:overflow-y-auto">
-        <h1 className="text-xl font-semibold text-gray-900">Data</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-xl font-semibold text-[color:var(--color-ink)]">Data</h1>
+        <p className="mt-1 text-sm text-[color:var(--color-ink-3)]">
           Query your analytic tables (warehouse) with SQL. Use the slug shown
           next to each table; joins across tables are supported. Save a query
           to reuse it or reference it from a dashboard.
         </p>
 
         {bucketError && (
-          <div className="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mt-4 rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]">
             <strong>S3 bucket not found.</strong> {bucketError}
           </div>
         )}
 
-        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-5">
+        <div className="mt-6 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-5">
           <div className="flex gap-2">
             <div className="flex-1">
               <ExpandableTextField
@@ -407,14 +407,14 @@ export default function DataPage() {
                 spellCheck={false}
                 modalTitle="SQL query"
                 modalActionLabel="Run"
-                inputClassName="w-full rounded border border-gray-300 px-3 py-1.5 font-mono text-xs text-gray-800 focus:border-orange-400 focus:outline-none"
+                inputClassName="w-full rounded border border-[color:var(--color-rule)] px-3 py-1.5 font-mono text-xs text-[color:var(--color-ink)] focus:border-orange-400 focus:outline-none"
               />
             </div>
             <button
               type="button"
               onClick={() => runQuery()}
               disabled={loading}
-              className="rounded bg-orange-500 px-4 py-1.5 text-xs font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+              className="rounded bg-[color:var(--color-carrot)] px-4 py-1.5 text-xs font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
             >
               {loading ? "Running…" : "Run"}
             </button>
@@ -422,37 +422,37 @@ export default function DataPage() {
               type="button"
               onClick={() => { setSaveError(null); setSaveOpen(true); }}
               disabled={!sql.trim()}
-              className="rounded border border-gray-300 px-4 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded border border-[color:var(--color-rule)] px-4 py-1.5 text-xs font-medium text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
             >
               Save
             </button>
           </div>
-          <p className="mt-1 text-[10px] text-gray-400">
-            Queries run server-side against the warehouse. Try: <code className="rounded bg-gray-100 px-1">SELECT * FROM transactions LIMIT 50</code>
+          <p className="mt-1 text-[10px] text-[color:var(--color-ink-3)]">
+            Queries run server-side against the warehouse. Try: <code className="rounded bg-[color:var(--color-surface-2)] px-1">SELECT * FROM transactions LIMIT 50</code>
           </p>
 
-          {error && <p className="mt-3 text-xs text-red-600">{error}</p>}
+          {error && <p className="mt-3 text-xs text-[color:var(--color-rose-deep)]">{error}</p>}
           {result && (
-            <div className="mt-3 max-h-[60vh] overflow-auto rounded border border-gray-100">
+            <div className="mt-3 max-h-[60vh] overflow-auto rounded border border-[color:var(--color-rule-soft)]">
               <table className="min-w-full text-xs">
-                <thead className="sticky top-0 bg-white">
-                  <tr className="border-b border-gray-200">
+                <thead className="sticky top-0 bg-[color:var(--color-surface)]">
+                  <tr className="border-b border-[color:var(--color-rule-soft)]">
                     {resultCols.map((h) => (
-                      <th key={h} className="px-3 py-2 text-left font-medium text-gray-600">{h}</th>
+                      <th key={h} className="px-3 py-2 text-left font-medium text-[color:var(--color-ink-2)]">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {result.slice(0, 200).map((row, i) => (
-                    <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
+                    <tr key={i} className="border-b border-[color:var(--color-rule-soft)] hover:bg-[color:var(--color-surface-2)]">
                       {resultCols.map((h) => (
-                        <td key={h} className="px-3 py-1.5 text-gray-700">{String(row[h] ?? "")}</td>
+                        <td key={h} className="px-3 py-1.5 text-[color:var(--color-ink-2)]">{String(row[h] ?? "")}</td>
                       ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <p className="bg-white px-3 py-1 text-xs text-gray-400">
+              <p className="bg-[color:var(--color-surface)] px-3 py-1 text-xs text-[color:var(--color-ink-3)]">
                 {result.length} row{result.length !== 1 ? "s" : ""}{result.length > 200 ? " (showing first 200)" : ""}
               </p>
             </div>
@@ -461,11 +461,11 @@ export default function DataPage() {
       </main>
 
       <Modal open={saveOpen} onClose={() => !saving && setSaveOpen(false)}>
-        <h2 className="text-lg font-semibold text-gray-900">Save query</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-lg font-semibold text-[color:var(--color-ink)]">Save query</h2>
+        <p className="mt-1 text-sm text-[color:var(--color-ink-3)]">
           Give the query a unique name. The query is validated before saving,
           and you can reference it from a dashboard config with{" "}
-          <code className="rounded bg-gray-100 px-1">query_id</code>.
+          <code className="rounded bg-[color:var(--color-surface-2)] px-1">query_id</code>.
         </p>
         <input
           type="text"
@@ -474,20 +474,20 @@ export default function DataPage() {
           onKeyDown={(e) => { if (e.key === "Enter") saveQuery(); }}
           placeholder="Monthly spend by category"
           autoFocus
-          className="mt-4 w-full rounded border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-orange-400 focus:outline-none"
+          className="mt-4 w-full rounded border border-[color:var(--color-rule)] px-3 py-2 text-sm text-[color:var(--color-ink)] focus:border-orange-400 focus:outline-none"
         />
         {saveName.trim() && (
-          <p className="mt-1 text-[11px] text-gray-400">
-            id: <code className="rounded bg-gray-100 px-1 font-mono">{nameToSlug(saveName)}</code>
+          <p className="mt-1 text-[11px] text-[color:var(--color-ink-3)]">
+            id: <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono">{nameToSlug(saveName)}</code>
           </p>
         )}
-        {saveError && <p className="mt-2 text-xs text-red-600">{saveError}</p>}
+        {saveError && <p className="mt-2 text-xs text-[color:var(--color-rose-deep)]">{saveError}</p>}
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={() => setSaveOpen(false)}
             disabled={saving}
-            className="rounded border border-gray-300 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded border border-[color:var(--color-rule)] px-4 py-1.5 text-sm text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
           >
             Cancel
           </button>
@@ -495,7 +495,7 @@ export default function DataPage() {
             type="button"
             onClick={saveQuery}
             disabled={saving}
-            className="rounded bg-orange-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+            className="rounded bg-[color:var(--color-carrot)] px-4 py-1.5 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save"}
           </button>
@@ -503,19 +503,19 @@ export default function DataPage() {
       </Modal>
 
       <Modal open={deleteTarget !== null} onClose={() => !deleting && setDeleteTarget(null)}>
-        <h2 className="text-lg font-semibold text-gray-900">Delete query</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Delete <strong className="text-gray-800">{deleteTarget?.name}</strong>? Dashboards
-          that reference it with <code className="rounded bg-gray-100 px-1">query_id</code> will
+        <h2 className="text-lg font-semibold text-[color:var(--color-ink)]">Delete query</h2>
+        <p className="mt-1 text-sm text-[color:var(--color-ink-3)]">
+          Delete <strong className="text-[color:var(--color-ink)]">{deleteTarget?.name}</strong>? Dashboards
+          that reference it with <code className="rounded bg-[color:var(--color-surface-2)] px-1">query_id</code> will
           stop loading. This can&apos;t be undone.
         </p>
-        {deleteError && <p className="mt-2 text-xs text-red-600">{deleteError}</p>}
+        {deleteError && <p className="mt-2 text-xs text-[color:var(--color-rose-deep)]">{deleteError}</p>}
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={() => setDeleteTarget(null)}
             disabled={deleting}
-            className="rounded border border-gray-300 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="rounded border border-[color:var(--color-rule)] px-4 py-1.5 text-sm text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
           >
             Cancel
           </button>
@@ -523,7 +523,7 @@ export default function DataPage() {
             type="button"
             onClick={confirmDelete}
             disabled={deleting}
-            className="rounded bg-red-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+            className="rounded bg-[color:var(--color-rose-deep)] px-4 py-1.5 text-sm font-medium text-white hover:bg-[color:var(--color-rose-deep)] disabled:opacity-50"
           >
             {deleting ? "Deleting…" : "Delete"}
           </button>

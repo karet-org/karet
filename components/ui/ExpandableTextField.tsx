@@ -108,16 +108,16 @@ export function ExpandableTextField({
       <Modal
         open={open}
         onClose={commitModal}
-        cardClassName="w-full max-w-2xl rounded-xl bg-white p-5 text-gray-900 shadow-xl"
+        cardClassName="w-full max-w-2xl rounded-xl bg-[color:var(--color-surface)] p-5 text-[color:var(--color-ink)] shadow-xl"
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900">{modalTitle}</h2>
+          <h2 className="text-sm font-semibold text-[color:var(--color-ink)]">{modalTitle}</h2>
           <CloseButton size="sm" label="Close editor" onClick={commitModal} />
         </div>
         <textarea
           aria-label={ariaLabel ? `${ariaLabel} (expanded)` : "expanded editor"}
-          className={`mt-3 h-64 w-full resize-y rounded border px-3 py-2 font-mono text-sm text-gray-800 focus:outline-none ${
-            error ? "border-red-400" : "border-gray-300 focus:border-gray-400"
+          className={`mt-3 h-64 w-full resize-y rounded border px-3 py-2 font-mono text-sm text-[color:var(--color-ink)] focus:outline-none ${
+            error ? "border-[color:var(--color-rose-deep)]" : "border-[color:var(--color-rule)] focus:border-gray-400"
           }`}
           value={value}
           placeholder={placeholder}
@@ -126,13 +126,13 @@ export function ExpandableTextField({
           onChange={(e) => onChange(e.target.value)}
         />
         {error ? (
-          <p className="mt-2 text-xs text-red-600">⚠ {error}</p>
+          <p className="mt-2 text-xs text-[color:var(--color-rose-deep)]">⚠ {error}</p>
         ) : null}
         <div className="mt-4 flex justify-end">
           <button
             type="button"
             onClick={commitModal}
-            className="rounded-md bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600"
+            className="rounded-md bg-[color:var(--color-carrot)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)]"
           >
             {modalActionLabel}
           </button>
