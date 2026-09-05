@@ -7,7 +7,7 @@ export const MAX_ZIP_BYTES = 200 * 1024 * 1024;
 export const MAX_ENTRIES = 2_000;
 export const MAX_TOTAL_UNCOMPRESSED = 1024 * 1024 * 1024;
 
-const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._ -]*$/;
+const SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._= -]*$/;
 
 /** True when a zip entry path is safe to use as a key suffix. */
 export function isSafeEntryPath(relPath: string): boolean {
