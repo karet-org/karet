@@ -6,7 +6,7 @@
 // after enqueue the web app only reads.
 
 import type { JobProgress, JobRecord } from "@/lib/types/jobs";
-import { getRedis, indexKey, liveKey, STREAM_KEY, STREAM_MAXLEN } from "./redis";
+import { eventsChannel, getRedis, indexKey, liveKey, STREAM_KEY, STREAM_MAXLEN } from "./redis";
 
 /** Message shape consumed by the worker (see worker `queue.rs::JobMessage`). */
 export interface JobMessage {
@@ -37,6 +37,7 @@ export async function enqueueJob(msg: JobMessage): Promise<JobRecord> {
       clean_run: String(msg.clean_run),
     })
     .zAdd(indexKey(msg.pipeline), { score: msg.enqueued_at, value: msg.job_id })
+    .publish(eventsChannel(msg.pipeline), msg.job_id)
     .exec();
 
   return {
