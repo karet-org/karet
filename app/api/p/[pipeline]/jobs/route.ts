@@ -3,7 +3,7 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import { listAllObjectKeys, readBodyToBuffer } from "@/lib/services/s3-helpers";
 import { startJob } from "@/lib/services/job-runner";
-import { listLiveJobs, mergeLiveOverHistory } from "@/lib/services/live-jobs";
+import { listLiveJobs, orderedJobIds, pickJobRecord } from "@/lib/services/live-jobs";
 import type { JobRecord } from "@/lib/types/jobs";
 
 function jobsPrefix(pipeline: string): string {
@@ -48,40 +48,46 @@ export async function GET(
 
   return wrapS3Error(async () => {
     const allKeys = await listAllObjectKeys(client, base.pipelinesBucket, prefix);
-    // Newest first; paginate over the key list so we only fetch the page's
-    // records, not the entire history.
-    const sorted = allKeys
-      .filter((k) => k.endsWith(".json"))
-      .sort((a, b) => b.localeCompare(a));
-    const total = sorted.length;
-    const start = (page - 1) * pageSize;
-    const pageKeys = sorted.slice(start, start + pageSize);
-
-    const results = await Promise.all(
-      pageKeys.map((key) => fetchJobRecord(client, base.pipelinesBucket, key)),
+    const keyById = new Map(
+      allKeys
+        .filter((k) => k.endsWith(".json"))
+        .map((k) => [k.slice(prefix.length, -".json".length), k] as const),
     );
-    const jobs = results.filter((j): j is JobRecord => j !== null);
 
-    // Redis holds the live truth (queued/running + progress); merge it
-    // over the S3 history page. Live entries surface on page 1 only —
-    // deeper pages are pure history. Staleness (crashed workers, retries)
-    // is the worker cluster's job, so no reconciliation happens here.
-    let merged = jobs;
-    if (page === 1) {
-      try {
-        merged = mergeLiveOverHistory(jobs, await listLiveJobs(pipeline));
-      } catch (err) {
-        // Redis briefly down must not take the history listing with it.
-        console.error(`live-jobs merge failed for ${pipeline}:`, err);
-      }
+    // Live queue state (bounded); Redis briefly down degrades to
+    // history-only rather than failing the listing.
+    let live: JobRecord[] = [];
+    try {
+      live = await listLiveJobs(pipeline);
+    } catch (err) {
+      console.error(`live-jobs read failed for ${pipeline}:`, err);
     }
-    merged.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+    const liveById = new Map(live.map((r) => [r.id, r]));
+
+    // Paginate the deduped union so a job appears on exactly one page
+    // and totals are consistent, then fetch only the page's S3 records.
+    const ids = orderedJobIds([...keyById.keys()], live);
+    const total = ids.length;
+    const pageIds = ids.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
+
+    const jobs = (
+      await Promise.all(
+        pageIds.map(async (id) => {
+          const key = keyById.get(id);
+          const history = key
+            ? await fetchJobRecord(client, base.pipelinesBucket, key)
+            : null;
+          return pickJobRecord(liveById.get(id), history);
+        }),
+      )
+    ).filter((j): j is JobRecord => j !== null);
+
     return NextResponse.json({
-      jobs: merged,
-      total: Math.max(total, merged.length),
+      jobs,
+      total,
       page,
       pageSize,
-      totalPages: Math.max(1, Math.ceil(Math.max(total, merged.length) / pageSize)),
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
     });
   }, `GET /api/p/${pipeline}/jobs`);
 }

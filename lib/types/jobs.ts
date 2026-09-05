@@ -11,7 +11,7 @@
 export interface JobRecord {
   id: string;
   pipeline: string;
-  status: "scheduled" | "queued" | "running" | "completed" | "failed";
+  status: "scheduled" | "queued" | "running" | "completed" | "failed" | "abandoned";
   startedAt: string;
   /**
    * When `status === "scheduled"`, the wall-clock time at which the run
