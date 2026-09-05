@@ -311,6 +311,19 @@ export default function PipelineGraphPage() {
     setValidationErrors([]);
   }, [clearDirty]);
 
+  // Canvas toolbar run: fire a job and jump to the Jobs page to watch it.
+  const runningRef = useRef(false);
+  const handleRun = useCallback(async () => {
+    if (runningRef.current) return;
+    runningRef.current = true;
+    try {
+      await fetch(`/api/p/${pipeline}/jobs`, { method: "POST" });
+      router.push(`/p/${pipeline}/jobs`);
+    } finally {
+      runningRef.current = false;
+    }
+  }, [pipeline, router]);
+
   const handleAddNode = useCallback((kind: NodeKind, position: { x: number; y: number }) => {
     const cfg = useGraphStore.getState().config;
     if (!cfg) return;
@@ -449,6 +462,7 @@ export default function PipelineGraphPage() {
           onLayout={handleLayoutChange}
           onNodeDragStop={handleLayoutChange}
           onAddNode={handleAddNode}
+          onRun={handleRun}
           onConnect={handleConnect}
           onDeleteNode={handleDeleteNode}
           analyzeDeleteImpact={(nodeId) => {

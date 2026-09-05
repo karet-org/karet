@@ -27,7 +27,8 @@ import SourceContainerNode from "./SourceContainerNode";
 import LookupMappingNode from "./LookupMappingNode";
 import MappingNode from "./MappingNode";
 import AnalyticTableNode from "./AnalyticTableNode";
-import { IconSource, IconLookup, IconMapping, IconTable, IconTrash } from "@/components/icons";
+import { IconSource, IconLookup, IconMapping, IconTable, IconTrash, IconPlay,
+} from "@/components/icons";
 import Modal from "@/components/ui/Modal";
 
 export interface GraphCanvasHandle {
@@ -60,6 +61,11 @@ export interface GraphCanvasProps {
    * disconnectable from the graph canvas.
    */
   onDisconnectEdge?: (edge: { id: string; source: string; target: string }) => void;
+  /**
+   * Trigger a pipeline run from the canvas toolbar. Optional: omit to
+   * hide the run button.
+   */
+  onRun?: () => void;
 }
 
 export interface DeleteImpactSummary {
@@ -151,7 +157,7 @@ function styleEdges(edges: GraphEdge[], nodes: GraphNode[]): Edge[] {
 }
 
 export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas(
-  { nodes, edges, onNodeClick, onPaneClick, onLayout, onNodeDragStop, onAddNode, onConnect: onConnectProp, onDeleteNode, analyzeDeleteImpact, onDisconnectEdge },
+  { nodes, edges, onNodeClick, onPaneClick, onLayout, onNodeDragStop, onAddNode, onConnect: onConnectProp, onDeleteNode, analyzeDeleteImpact, onDisconnectEdge, onRun },
   ref,
 ) {
   const [internalNodes, setInternalNodes] = useState<GraphNode[]>(nodes);
@@ -295,6 +301,23 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
       onAddNode?.(kind, pos);
     },
     [onAddNode, contextMenu],
+  );
+
+  // Toolbar adds drop the node near the viewport center, with a small
+  // jitter so repeated adds don't stack exactly.
+  const handleToolbarAdd = useCallback(
+    (kind: NodeKind) => {
+      const bounds = wrapperRef.current?.getBoundingClientRect();
+      const screen = bounds
+        ? { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }
+        : { x: 0, y: 0 };
+      const pos = screenToFlowRef.current?.(screen) ?? { x: 0, y: 0 };
+      onAddNode?.(kind, {
+        x: pos.x + (Math.random() - 0.5) * 60,
+        y: pos.y + (Math.random() - 0.5) * 60,
+      });
+    },
+    [onAddNode],
   );
 
   const handleNodeContextMenu = useCallback(
@@ -465,6 +488,49 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
       >
         Auto layout
       </button>
+
+      {onAddNode && (
+        <div
+          data-testid="canvas-toolbar"
+          className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-1 shadow-[0_6px_24px_rgba(0,0,0,0.4)]"
+        >
+          {([
+            ["source", "Add source", IconSource],
+            ["lookup", "Add lookup", IconLookup],
+            ["mapping", "Add mapping", IconMapping],
+            ["table", "Add table", IconTable],
+          ] as [NodeKind, string, React.ComponentType<{ size?: number }>][]).map(
+            ([kind, label, Icon]) => (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => handleToolbarAdd(kind)}
+                title={label}
+                aria-label={label}
+                data-testid={`canvas-toolbar-${kind}`}
+                className="grid h-8 w-8 place-items-center rounded-lg text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
+              >
+                <Icon size={15} />
+              </button>
+            ),
+          )}
+          {onRun && (
+            <>
+              <span className="mx-0.5 h-4 w-px bg-[color:var(--color-rule-soft)]" aria-hidden />
+              <button
+                type="button"
+                onClick={onRun}
+                title="Run pipeline"
+                aria-label="Run pipeline"
+                data-testid="canvas-toolbar-run"
+                className="grid h-8 w-8 place-items-center rounded-lg text-[color:var(--color-leaf)] hover:bg-[color:var(--color-leaf-soft)]"
+              >
+                <IconPlay size={14} />
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {confirmDelete && (
         <Modal
