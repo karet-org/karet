@@ -37,6 +37,9 @@ export async function enqueueJob(msg: JobMessage): Promise<JobRecord> {
       clean_run: String(msg.clean_run),
     })
     .zAdd(indexKey(msg.pipeline), { score: msg.enqueued_at, value: msg.job_id })
+    // Safety net matching the worker's enqueue: never-claimed hashes
+    // expire; terminal transitions shorten this to 24h.
+    .expire(liveKey(msg.job_id), 7 * 24 * 60 * 60)
     .publish(eventsChannel(msg.pipeline), msg.job_id)
     .exec();
 

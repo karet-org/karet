@@ -56,8 +56,18 @@ export default function JobsPage() {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  // Live updates over SSE; each event is one JobRecord. Terminal events
-  // trigger a full reload to pick up the richer S3 record.
+  // Refs let long-lived effects (stream, poll timer) read current state
+  // without re-running on every render.
+  const loadJobsRef = useRef(loadJobs);
+  loadJobsRef.current = loadJobs;
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const jobsRef = useRef(jobs);
+  jobsRef.current = jobs;
+
+  // Live updates over SSE. Events only update rows already on the page
+  // (inserting would break page size and totals); unknown ids and
+  // terminal transitions trigger a reload, which repaginates correctly.
   const [sseConnected, setSseConnected] = useState(false);
   useEffect(() => {
     const es = new EventSource(`/api/p/${pipeline}/jobs/events`);
@@ -65,26 +75,25 @@ export default function JobsPage() {
     es.onerror = () => setSseConnected(false);
     es.onmessage = (e) => {
       const record = JSON.parse(e.data) as Job;
-      setJobs((prev) => {
-        const i = prev.findIndex((j) => j.id === record.id);
-        if (i >= 0) return [...prev.slice(0, i), record, ...prev.slice(i + 1)];
-        return [record, ...prev];
-      });
-      if (record.status !== "queued" && record.status !== "running") loadJobs();
+      const known = jobsRef.current.some((j) => j.id === record.id);
+      if (known) {
+        setJobs((prev) =>
+          prev.map((j) => (j.id === record.id ? record : j)),
+        );
+      }
+      const terminal = record.status !== "queued" && record.status !== "running";
+      if (!known && pageRef.current === 1) loadJobsRef.current();
+      else if (terminal) loadJobsRef.current();
     };
     return () => es.close();
-  }, [pipeline, loadJobs]);
+  }, [pipeline]);
 
-  // Polling is reconciliation: slow when SSE is delivering, faster as
-  // fallback when it isn't.
+  // Reconciliation poll: slow while SSE is delivering, faster fallback
+  // when it isn't.
   useEffect(() => {
-    const anyActive = jobs.some(
-      (j) => j.status === "running" || j.status === "scheduled" || j.status === "queued",
-    );
-    const intervalMs = sseConnected ? 30000 : anyActive ? 2000 : 15000;
-    const id = setInterval(loadJobs, intervalMs);
+    const id = setInterval(() => loadJobsRef.current(), sseConnected ? 30000 : 5000);
     return () => clearInterval(id);
-  }, [loadJobs, jobs, sseConnected]);
+  }, [sseConnected]);
 
   // Synchronous lock so a rapid double-click doesn't fire two POSTs
   // before React rerenders the disabled state of the button. Without
