@@ -15,7 +15,10 @@ import { GetObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import type { JobRecord } from "@/lib/types/jobs";
 import ImportButton from "@/components/layout/ImportButton";
 import CreatePipelineButton from "@/components/layout/CreatePipelineButton";
-import UserMenu from "@/components/layout/UserMenu";
+import LandingRail from "@/components/layout/LandingRail";
+import PipelineGrid, { type PipelineCardData } from "@/components/layout/PipelineGrid";
+import type { ThumbGraph } from "@/components/layout/DagThumbnail";
+import { getUiSettings } from "@/lib/services/ui-settings";
 import { KaretLogo } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +31,7 @@ interface PipelineSummary {
   /** ISO timestamp of the most recent job, or null if the pipeline has never run. */
   lastRunAt: string | null;
   status: StatusKind;
+  graph: ThumbGraph;
 }
 
 interface PipelineResult {
@@ -89,11 +93,32 @@ async function loadSummary(
         ? "error"
         : "healthy";
 
+  const c = configResult?.config;
+  const idx = <T extends { id: string }>(xs: T[]) =>
+    new Map(xs.map((x, i) => [x.id, i]));
+  const srcIdx = idx(c?.source_containers ?? []);
+  const mapIdx = idx(c?.mappings ?? []);
+  const tblIdx = idx(c?.analytic_tables ?? []);
+  const graph: ThumbGraph = {
+    sources: srcIdx.size,
+    mappings: mapIdx.size,
+    tables: tblIdx.size,
+    sourceEdges: (c?.mappings ?? []).flatMap((m, mi) => {
+      const si = srcIdx.get(m.source_container_id);
+      return si === undefined ? [] : [[si, mi] as [number, number]];
+    }),
+    tableEdges: (c?.mappings ?? []).flatMap((m, mi) => {
+      const ti = tblIdx.get(m.analytic_table_id);
+      return ti === undefined ? [] : [[mi, ti] as [number, number]];
+    }),
+  };
+
   return {
     slug,
-    tableCount: configResult?.config.analytic_tables.length ?? 0,
+    tableCount: c?.analytic_tables.length ?? 0,
     lastRunAt: latestTerminalJob?.startedAt ?? null,
     status,
+    graph,
   };
 }
 
@@ -155,78 +180,77 @@ function formatRelative(iso: string | null): string {
 }
 
 export default async function Home() {
-  const { pipelines, bucketError, loadError } = await getPipelines();
+  const [{ pipelines, bucketError, loadError }, settings] = await Promise.all([
+    getPipelines(),
+    (async () => {
+      try {
+        return await getUiSettings(createS3Client(), loadS3Config());
+      } catch {
+        return { displayName: "", workspaceName: "", starred: [] };
+      }
+    })(),
+  ]);
+
+  const known = new Set(pipelines.map((p) => p.slug));
+  const starred = settings.starred.filter((s) => known.has(s));
+  const cards: PipelineCardData[] = pipelines.map((p) => ({
+    slug: p.slug,
+    name: formatName(p.slug),
+    tableCount: p.tableCount,
+    lastRunAt: p.lastRunAt,
+    lastRunLabel: formatRelative(p.lastRunAt).toLowerCase(),
+    status: p.status,
+    graph: p.graph,
+  }));
 
   return (
-    <>
-      <nav
-        className="sticky top-0 z-20 flex h-[52px] items-center gap-1 border-b border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 sm:px-5"
-      >
-        <Link
-          href="/"
-          className="mr-3 flex items-center gap-2 text-[15px] font-semibold tracking-[-0.005em] text-[color:var(--color-ink)]"
-        >
-          <KaretLogo size={28} />
-          Karet
-        </Link>
-        <Link
-          href="/"
-          className="rounded-md bg-[color:var(--color-carrot-soft)] px-3 py-1.5 text-[13.5px] text-[color:var(--color-carrot-deep)]"
-        >
-          Home
-        </Link>
-        <a
-          href="https://karet.joeyshi.xyz"
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-md px-3 py-1.5 text-[13.5px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
-        >
-          Docs
-        </a>
-        <div className="ml-auto">
-          <UserMenu />
-        </div>
-      </nav>
-
-      <main className="mx-auto max-w-[1080px] px-4 py-9 sm:px-6 lg:py-12">
-        <header className="flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <h1 className="text-[26px] font-semibold tracking-[-0.015em] text-[color:var(--color-ink)]">
-              Your pipelines
+    <div className="flex min-h-screen">
+      <LandingRail
+        displayName={settings.displayName}
+        workspaceName={settings.workspaceName}
+        starred={starred}
+      />
+      <main className="min-w-0 flex-1">
+        <div className="sticky top-0 z-20 flex h-[52px] items-center justify-between border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 sm:px-6">
+          <div className="flex items-center gap-2.5">
+            <span className="md:hidden">
+              <KaretLogo size={24} />
+            </span>
+            <h1 className="text-[15px] font-semibold text-[color:var(--color-ink)]">
+              Pipelines
             </h1>
-            <p className="mt-1 max-w-[56ch] text-[14px] text-[color:var(--color-ink-3)]">
-              Wire CSVs in S3 to clean Parquet tables, then chart them.
-            </p>
           </div>
           <div className="flex items-center gap-2.5">
             <ImportButton />
             <CreatePipelineButton />
           </div>
-        </header>
+        </div>
 
-        {bucketError ? (
-          <div
-            className="mt-8 rounded-md border border-[color:var(--color-rose-soft)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]"
-            role="alert"
-          >
-            <strong className="font-semibold">S3 bucket not found.</strong>{" "}
-            {bucketError}
-          </div>
-        ) : loadError ? (
-          <div
-            className="mt-8 rounded-md border border-[color:var(--color-rose-soft)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]"
-            role="alert"
-          >
-            <strong className="font-semibold">Couldn&apos;t load pipelines.</strong>{" "}
-            {loadError}
-          </div>
-        ) : pipelines.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <PipelineList pipelines={pipelines} />
-        )}
+        <div className="px-4 py-5 sm:px-6">
+          {bucketError ? (
+            <div
+              className="rounded-md border border-[color:var(--color-rose-soft)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]"
+              role="alert"
+            >
+              <strong className="font-semibold">S3 bucket not found.</strong>{" "}
+              {bucketError}
+            </div>
+          ) : loadError ? (
+            <div
+              className="rounded-md border border-[color:var(--color-rose-soft)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]"
+              role="alert"
+            >
+              <strong className="font-semibold">Couldn&apos;t load pipelines.</strong>{" "}
+              {loadError}
+            </div>
+          ) : pipelines.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <PipelineGrid pipelines={cards} starred={starred} />
+          )}
+        </div>
       </main>
-    </>
+    </div>
   );
 }
 
@@ -267,64 +291,3 @@ function EmptyState() {
     </div>
   );
 }
-
-function PipelineList({ pipelines }: { pipelines: PipelineSummary[] }) {
-  return (
-    <section
-      aria-label="pipelines"
-      className="mt-8 overflow-hidden rounded-[10px] border border-[color:var(--color-rule)] bg-[color:var(--color-surface)]"
-    >
-      <div className="hidden grid-cols-[minmax(0,1fr)_90px_120px_110px] items-center gap-4 border-b border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)] px-5 py-3 text-[11px] font-medium uppercase tracking-[0.06em] text-[color:var(--color-ink-3)] sm:grid">
-        <div>Name</div>
-        <div className="text-right">Tables</div>
-        <div className="text-right">Last run</div>
-        <div className="text-right">Status</div>
-      </div>
-      {pipelines.map((p) => (
-        <Link
-          key={p.slug}
-          href={`/p/${p.slug}/graph`}
-          className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-[color:var(--color-rule-soft)] px-4 py-4 last:border-b-0 hover:bg-[color:var(--color-surface-2)] sm:grid-cols-[minmax(0,1fr)_90px_120px_110px] sm:px-5"
-        >
-          <div className="min-w-0">
-            <div className="truncate text-[15px] font-semibold text-[color:var(--color-ink)] group-hover:text-[color:var(--color-carrot-deep)]">
-              {formatName(p.slug)}
-            </div>
-            <div className="mt-0.5 truncate font-mono text-[12px] text-[color:var(--color-ink-3)]">
-              {p.slug}
-            </div>
-          </div>
-          <div className="hidden text-right font-mono text-[13px] tabular-nums text-[color:var(--color-ink)] sm:block">
-            {p.tableCount}
-          </div>
-          <div className="hidden text-right font-mono text-[12.5px] tabular-nums text-[color:var(--color-ink-2)] sm:block">
-            {formatRelative(p.lastRunAt)}
-          </div>
-          <div className="text-right">
-            <StatusPill status={p.status} />
-          </div>
-        </Link>
-      ))}
-    </section>
-  );
-}
-
-function StatusPill({ status }: { status: StatusKind }) {
-  const cls =
-    status === "healthy"
-      ? "bg-[color:var(--color-leaf-soft)] text-[color:var(--color-leaf-deep)]"
-      : status === "error"
-        ? "bg-[color:var(--color-rose-soft)] text-[color:var(--color-rose-deep)]"
-        : "bg-[color:var(--color-surface-2)] text-[color:var(--color-ink-3)]";
-  const label =
-    status === "healthy" ? "Healthy" : status === "error" ? "Error" : "Idle";
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-[2px] text-[11.5px] font-medium ${cls}`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {label}
-    </span>
-  );
-}
-
