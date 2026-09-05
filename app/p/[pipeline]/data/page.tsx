@@ -380,60 +380,47 @@ export default function DataPage() {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 md:overflow-y-auto">
-        <h1 className="text-xl font-semibold text-[color:var(--color-ink)]">Data</h1>
-        <p className="mt-1 text-sm text-[color:var(--color-ink-3)]">
-          Query your analytic tables (warehouse) with SQL. Use the slug shown
-          next to each table; joins across tables are supported. Save a query
-          to reuse it or reference it from a dashboard.
-        </p>
+      <main className="flex min-w-0 flex-1 flex-col gap-3 px-4 py-4 sm:px-6 md:min-h-0 md:overflow-hidden">
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-xl font-semibold text-[color:var(--color-ink)]">Data</h1>
+          <p className="hidden text-[12.5px] text-[color:var(--color-ink-3)] sm:block">
+            Query analytic tables with DuckDB SQL, joins across tables are supported.
+          </p>
+        </div>
 
         {bucketError && (
-          <div className="mt-4 rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]">
+          <div className="rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]">
             <strong>S3 bucket not found.</strong> {bucketError}
           </div>
         )}
 
-        <div className="mt-6 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-5">
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <ExpandableTextField
-                ariaLabel="SQL query"
-                value={sql}
-                onChange={setSql}
-                onKeyDown={(e) => { if (e.key === "Enter") runQuery(); }}
-                onModalAction={() => runQuery()}
-                placeholder="SELECT * FROM transactions LIMIT 50"
-                spellCheck={false}
-                modalTitle="SQL query"
-                modalActionLabel="Run"
-                inputClassName="w-full rounded border border-[color:var(--color-rule)] px-3 py-1.5 font-mono text-xs text-[color:var(--color-ink)] focus:border-orange-400 focus:outline-none"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => runQuery()}
-              disabled={loading}
-              className="rounded bg-[color:var(--color-carrot)] px-4 py-1.5 text-xs font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
-            >
-              {loading ? "Running…" : "Run"}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setSaveError(null); setSaveOpen(true); }}
-              disabled={!sql.trim()}
-              className="rounded border border-[color:var(--color-rule)] px-4 py-1.5 text-xs font-medium text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
-            >
-              Save
-            </button>
+        {/* Results frame: fills the space above the editor and keeps its
+            size regardless of how many rows came back. */}
+        <div
+          className="flex min-h-[280px] flex-1 flex-col overflow-hidden rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] md:min-h-0"
+          data-testid="query-results-frame"
+        >
+          <div className="flex items-center gap-2.5 border-b border-[color:var(--color-rule-soft)] px-3.5 py-2">
+            <span className="text-[12.5px] font-semibold text-[color:var(--color-ink)]">
+              Results
+            </span>
+            {result && (
+              <span className="text-[11.5px] text-[color:var(--color-ink-3)]">
+                {result.length} row{result.length !== 1 ? "s" : ""}
+                {result.length > 200 ? " (showing first 200)" : ""}
+              </span>
+            )}
           </div>
-          <p className="mt-1 text-[10px] text-[color:var(--color-ink-3)]">
-            Queries run server-side against the warehouse. Try: <code className="rounded bg-[color:var(--color-surface-2)] px-1">SELECT * FROM transactions LIMIT 50</code>
-          </p>
-
-          {error && <p className="mt-3 text-xs text-[color:var(--color-rose-deep)]">{error}</p>}
-          {result && (
-            <div className="mt-3 max-h-[60vh] overflow-auto rounded border border-[color:var(--color-rule-soft)]">
+          <div className="min-h-0 flex-1 overflow-auto">
+            {error ? (
+              <p className="px-3.5 py-3 text-xs text-[color:var(--color-rose-deep)]" role="alert">
+                {error}
+              </p>
+            ) : !result ? (
+              <p className="grid h-full place-items-center px-3.5 py-8 text-[12.5px] text-[color:var(--color-ink-4)]">
+                Run a query to see results
+              </p>
+            ) : (
               <table className="min-w-full text-xs">
                 <thead className="sticky top-0 bg-[color:var(--color-surface)]">
                   <tr className="border-b border-[color:var(--color-rule-soft)]">
@@ -452,11 +439,49 @@ export default function DataPage() {
                   ))}
                 </tbody>
               </table>
-              <p className="bg-[color:var(--color-surface)] px-3 py-1 text-xs text-[color:var(--color-ink-3)]">
-                {result.length} row{result.length !== 1 ? "s" : ""}{result.length > 200 ? " (showing first 200)" : ""}
-              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Editor pinned below the results frame. */}
+        <div className="rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]" data-testid="query-editor">
+          <div className="p-2.5">
+            <ExpandableTextField
+              ariaLabel="SQL query"
+              value={sql}
+              onChange={setSql}
+              onKeyDown={(e) => { if (e.key === "Enter") runQuery(); }}
+              onModalAction={() => runQuery()}
+              placeholder="SELECT * FROM transactions LIMIT 50"
+              spellCheck={false}
+              modalTitle="SQL query"
+              modalActionLabel="Run"
+              inputClassName="w-full rounded border border-[color:var(--color-rule)] bg-transparent px-3 py-2 font-mono text-xs text-[color:var(--color-ink)] focus:border-[color:var(--color-carrot)] focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-2.5 border-t border-[color:var(--color-rule-soft)] px-2.5 py-2">
+            <p className="hidden min-w-0 truncate text-[11px] text-[color:var(--color-ink-3)] sm:block">
+              Runs server-side against the warehouse. Enter runs the query.
+            </p>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setSaveError(null); setSaveOpen(true); }}
+                disabled={!sql.trim()}
+                className="rounded border border-[color:var(--color-rule)] px-4 py-1.5 text-xs font-medium text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => runQuery()}
+                disabled={loading}
+                className="rounded bg-[color:var(--color-carrot)] px-4 py-1.5 text-xs font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+              >
+                {loading ? "Running…" : "Run"}
+              </button>
             </div>
-          )}
+          </div>
         </div>
       </main>
 
