@@ -71,7 +71,7 @@ export function FilterBar({ filters, options, params, onChange, emitParams = [] 
           onClick={() => set(p, null)}
           title={`Clear ${p}`}
           data-testid={`emit-pill-${p}`}
-          className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-carrot-soft)] px-3 py-1 text-xs font-medium text-[color:var(--color-carrot-deep)]"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-carrot-soft)] px-3 py-[7px] text-xs font-medium leading-4 text-[color:var(--color-carrot-deep)]"
         >
           {p}: {params[p]}
           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
