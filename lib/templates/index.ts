@@ -171,6 +171,16 @@ filters:
     kind: dropdown
     label: Account
     options_sql: SELECT DISTINCT account FROM transactions ORDER BY 1
+  - name: category
+    kind: dropdown
+    label: Category
+    options_sql: |
+      SELECT DISTINCT category FROM transactions
+      WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME') ORDER BY 1
+  - name: merchant
+    kind: dropdown
+    label: Merchant
+    options_sql: SELECT DISTINCT merchant FROM transactions ORDER BY 1
   - name: period
     kind: date_range
     label: Date range
@@ -182,6 +192,8 @@ panels:
       SELECT sum(amount) AS total FROM transactions
       WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
         AND account = coalesce($account, account)
+        AND category = coalesce($category, category)
+        AND merchant = coalesce($merchant, merchant)
         AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
                      AND coalesce($period_to, DATE '9999-12-31')
     value: total
@@ -195,6 +207,8 @@ panels:
       SELECT count(*) AS n FROM transactions
       WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
         AND account = coalesce($account, account)
+        AND category = coalesce($category, category)
+        AND merchant = coalesce($merchant, merchant)
         AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
                      AND coalesce($period_to, DATE '9999-12-31')
     value: n
@@ -207,6 +221,8 @@ panels:
       FROM transactions
       WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
         AND account = coalesce($account, account)
+        AND category = coalesce($category, category)
+        AND merchant = coalesce($merchant, merchant)
         AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
                      AND coalesce($period_to, DATE '9999-12-31')
       GROUP BY category ORDER BY sum(amount) DESC LIMIT 1
@@ -220,11 +236,14 @@ panels:
       SELECT category, sum(amount) AS total FROM transactions
       WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
         AND account = coalesce($account, account)
+        AND category = coalesce($category, category)
+        AND merchant = coalesce($merchant, merchant)
         AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
                      AND coalesce($period_to, DATE '9999-12-31')
       GROUP BY 1 ORDER BY 2 DESC
     label: category
     value: total
+    emit: { param: category }
     grid: { aspect: square, maxHeight: 20rem }
 
   - kind: bar
@@ -234,6 +253,8 @@ panels:
       FROM transactions
       WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
         AND account = coalesce($account, account)
+        AND category = coalesce($category, category)
+        AND merchant = coalesce($merchant, merchant)
         AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
                      AND coalesce($period_to, DATE '9999-12-31')
       GROUP BY 1 ORDER BY 1
@@ -247,12 +268,15 @@ panels:
       SELECT merchant, sum(amount) AS total FROM transactions
       WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
         AND account = coalesce($account, account)
+        AND category = coalesce($category, category)
+        AND merchant = coalesce($merchant, merchant)
         AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
                      AND coalesce($period_to, DATE '9999-12-31')
       GROUP BY 1 ORDER BY 2 DESC LIMIT 10
     x: merchant
     y: total
     horizontal: true
+    emit: { param: merchant }
     grid: { span: full }
 
   - kind: table
@@ -262,6 +286,8 @@ panels:
       FROM transactions
       WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
         AND account = coalesce($account, account)
+        AND category = coalesce($category, category)
+        AND merchant = coalesce($merchant, merchant)
         AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
                      AND coalesce($period_to, DATE '9999-12-31')
       ORDER BY date DESC

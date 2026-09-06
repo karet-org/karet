@@ -15,6 +15,7 @@ import TablePanel from "./TablePanel";
 import ChoroplethMapPanel from "./ChoroplethMapPanel";
 import SymbolMapPanel from "./SymbolMapPanel";
 import { chartAreaProps, panelCardClass, type PanelData } from "./types";
+import type { Params } from "@/lib/services/dashboard-data";
 
 /**
  * Loading placeholder with the same geometry as the rendered panel:
@@ -94,9 +95,13 @@ function PanelSkeleton({ panel }: { panel: PanelV2 }) {
 export function PanelRenderer({
   panel,
   result,
+  params,
+  onEmit,
 }: {
   panel: PanelV2;
   result: PanelData | { error: string } | undefined;
+  params: Params;
+  onEmit: (param: string, value: string) => void;
 }) {
   if (!result) return <PanelSkeleton panel={panel} />;
   if ("error" in result) {
@@ -106,11 +111,11 @@ export function PanelRenderer({
     case "kpi":
       return <KpiPanel config={panel} data={result} />;
     case "bar":
-      return <BarPanel config={panel} data={result} />;
+      return <BarPanel config={panel} data={result} params={params} onEmit={onEmit} />;
     case "line":
       return <LinePanel config={panel} data={result} />;
     case "doughnut":
-      return <DoughnutPanel config={panel} data={result} />;
+      return <DoughnutPanel config={panel} data={result} params={params} onEmit={onEmit} />;
     case "table":
       return <TablePanel config={panel} data={result} />;
     case "sankey":

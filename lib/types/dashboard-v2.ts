@@ -14,6 +14,11 @@ export interface DashboardFilterV2 {
   options_sql?: string;
 }
 
+/** Click-to-filter: clicking a mark sets the named dropdown param. */
+export interface EmitBinding {
+  param: string;
+}
+
 export interface PanelGridV2 {
   /** Column span: a number or "full". */
   span?: number | "full";
@@ -33,9 +38,9 @@ interface PanelBase {
 export type PanelV2 = PanelBase &
   (
     | { kind: "kpi"; value: string; format?: "number" | "currency" | "raw"; currency?: string; icon?: string }
-    | { kind: "bar"; x: string; y: string; series?: string; horizontal?: boolean }
+    | { kind: "bar"; x: string; y: string; series?: string; horizontal?: boolean; emit?: EmitBinding }
     | { kind: "line"; x: string; y: string; series?: string }
-    | { kind: "doughnut"; label: string; value: string }
+    | { kind: "doughnut"; label: string; value: string; emit?: EmitBinding }
     | { kind: "table"; columns?: string[]; page_size?: number }
     | { kind: "sankey"; source: string; target: string; value: string }
     | { kind: "choropleth_map"; region: string; value: string }
@@ -148,6 +153,7 @@ export function validateDashboardV2Detailed(source: string): V2DetailedResult {
   }
 
   const declared = new Set<string>();
+  const dropdownNames = new Set<string>();
   if (cfg.filters === undefined) {
     cfg.filters = [];
   } else if (!Array.isArray(cfg.filters)) {
@@ -163,8 +169,11 @@ export function validateDashboardV2Detailed(source: string): V2DetailedResult {
         err(`filters[${i}].kind must be dropdown or date_range`, ["filters", i, "kind"]);
         return;
       }
-      if (filter.kind === "dropdown" && typeof filter.options_sql !== "string") {
-        err(`filters[${i}] (dropdown) requires options_sql`, ["filters", i]);
+      if (filter.kind === "dropdown") {
+        if (typeof filter.options_sql !== "string") {
+          err(`filters[${i}] (dropdown) requires options_sql`, ["filters", i]);
+        }
+        dropdownNames.add(filter.name);
       }
       for (const p of filterParams(filter as unknown as DashboardFilterV2)) {
         if (declared.has(p)) err(`filter parameter $${p} declared twice`, ["filters", i, "name"]);
@@ -201,6 +210,14 @@ export function validateDashboardV2Detailed(source: string): V2DetailedResult {
           if (!declared.has(param)) {
             err(`panels[${i}] references $${param}, which no filter declares`, ["panels", i, "query"]);
           }
+        }
+      }
+      const emit = panel.emit as Record<string, unknown> | undefined;
+      if (emit !== undefined) {
+        if (kind !== "bar" && kind !== "doughnut") {
+          err(`panels[${i}] (${kind}) does not support emit`, ["panels", i, "emit"]);
+        } else if (typeof emit.param !== "string" || !dropdownNames.has(emit.param)) {
+          err(`panels[${i}].emit.param must name a dropdown filter`, ["panels", i, "emit"]);
         }
       }
     });
