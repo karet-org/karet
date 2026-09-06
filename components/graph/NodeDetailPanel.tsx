@@ -136,13 +136,13 @@ export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps)
 function headerLabel(node: GraphNode): string {
   switch (node.data.kind) {
     case "source-container":
-      return "Source Container";
+      return "Source container";
     case "lookup-mapping":
       return "Lookup";
     case "mapping":
       return "Mapping";
     case "analytic-table":
-      return "Analytic Table";
+      return "Analytic table";
   }
 }
 

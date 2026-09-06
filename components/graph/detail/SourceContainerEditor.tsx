@@ -204,8 +204,8 @@ function LakeFolderField({
     setFolders(null);
     fetch(`/api/lake?prefix=${encodeURIComponent(browsePrefix)}`)
       .then((r) => (r.ok ? r.json() : { folders: [] }))
-      .then((data: { folders?: { prefix: string }[] }) => {
-        if (!stale) setFolders((data.folders ?? []).map((f) => f.prefix));
+      .then((data: { folders?: string[] }) => {
+        if (!stale) setFolders(data.folders ?? []);
       })
       .catch(() => {
         if (!stale) setFolders([]);
