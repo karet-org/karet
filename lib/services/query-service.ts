@@ -11,15 +11,25 @@ import { describeUserQuery, executeUserQuery, warehouseSource, type QueryRelatio
 export { nameToSlug } from "@/lib/config/name-to-slug";
 import { nameToSlug } from "@/lib/config/name-to-slug";
 
-/** Every analytic table exposed as a warehouse relation the query can name. */
-function warehouseRelations(
+/**
+ * Every analytic table exposed as a warehouse relation the query can name.
+ * Both the slugified display name and the table id resolve, so renaming a
+ * table in the inspector cannot break SQL written against the id.
+ */
+export function relationsForConfig(
   pipeline: string,
   config: PipelineConfig,
 ): QueryRelation[] {
-  return config.analytic_tables.map((t) => ({
-    slug: nameToSlug(t.name),
-    source: warehouseSource(pipeline, t.id),
-  }));
+  const out: QueryRelation[] = [];
+  const seen = new Set<string>();
+  for (const t of config.analytic_tables) {
+    for (const slug of new Set([nameToSlug(t.name), t.id])) {
+      if (seen.has(slug)) continue;
+      seen.add(slug);
+      out.push({ slug, source: warehouseSource(pipeline, t.id) });
+    }
+  }
+  return out;
 }
 
 /**
@@ -33,7 +43,7 @@ export function runPipelineQuery(
   sql: string,
   options: { validateOnly?: boolean; values?: (string | null)[] } = {},
 ): ReturnType<typeof executeUserQuery> {
-  return executeUserQuery(warehouseRelations(pipeline, config), sql, options);
+  return executeUserQuery(relationsForConfig(pipeline, config), sql, options);
 }
 
 /** Column names a query would produce against this pipeline's warehouse. */
@@ -42,5 +52,5 @@ export function describePipelineQuery(
   config: PipelineConfig,
   sql: string,
 ) {
-  return describeUserQuery(warehouseRelations(pipeline, config), sql);
+  return describeUserQuery(relationsForConfig(pipeline, config), sql);
 }

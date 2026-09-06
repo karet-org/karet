@@ -53,7 +53,6 @@ function defaultAnalyticTable(): AnalyticTable {
   return {
     id,
     name: "New Table",
-    output_prefix: `${id}/`,
     schema: [{ name: "id", type: "string" }],
   };
 }
@@ -74,21 +73,10 @@ export function addNodeToConfig(cfg: PipelineConfig, kind: NodeKind): PipelineCo
 }
 
 /**
- * Disconnect an edge in the pipeline config by clearing the field that
- * produced it:
- *
- *   - source_container → mapping : clears `mapping.source_container_id`
- *   - mapping → analytic_table   : clears `mapping.analytic_table_id` and
- *     empties `mapping.columns` (columns mirror the table schema and are
- *     re-seeded when a new table is connected; keeping them stale on the
- *     disconnected mapping would leave references to columns that no
- *     longer belong to any table).
- *
- * Lookup → mapping edges are derived from `lookup_ref` AST nodes embedded in
- * `mapping.columns[*].expr`. They cannot be disconnected here because doing
- * so would require rewriting user-authored expressions; callers must remove
- * the reference via the mapping editor instead. Returns `cfg` unchanged for
- * any unrecognized edge (including lookup→mapping).
+ * Disconnect an edge by clearing the field that produced it. Mapping →
+ * table also empties `mapping.columns` (they mirror the table schema).
+ * Lookup edges derive from `lookup_ref` in expressions and can't be
+ * disconnected here; unrecognized edges return `cfg` unchanged.
  */
 export function disconnectEdgeInConfig(
   cfg: PipelineConfig,
@@ -124,27 +112,9 @@ export function disconnectEdgeInConfig(
 }
 
 /**
- * Re-shape a Mapping's `columns` array against the new schema of its
- * target Analytic_Table. Used after the user edits the table schema in
- * the detail panel: every connected Mapping's columns must continue to
- * mirror the table.
- *
- * The mapping is matched against the **previous** schema column-by-column
- * to detect renames at the same index, so the user's authored `expr` is
- * preserved when they only edit a column name.
- *
- * Behavior:
- *
- *   - **Add** (new name appears in `nextSchema`, not in `previousSchema`):
- *     append `{ name, expr: { kind: "null" } }` so the user has a slot
- *     to fill in.
- *   - **Rename** (same index, name changed): keep the existing `expr`,
- *     update the `name`.
- *   - **Delete** (name in `previousSchema` not in `nextSchema`): drop the
- *     mapping column entirely.
- *
- * The result preserves the order of `nextSchema` so downstream Parquet
- * output keeps a stable column order.
+ * Re-shape a Mapping's columns against its table's new schema: adds
+ * become null-expr placeholders, same-index renames keep the authored
+ * expr, deletes drop the column. Output follows `nextSchema` order.
  */
 export function syncMappingColumnsToSchema(
   mapping: Mapping,
@@ -349,6 +319,9 @@ export function scrubLookupReferences(
     case "trim":
     case "substring":
     case "parse_date":
+    case "year":
+    case "month":
+    case "day":
     case "cast":
       return { ...node, input: scrubLookupReferences(node.input, lookupId) };
     case "contains":
@@ -402,6 +375,9 @@ function astReferencesLookup(node: AstNode, lookupId: string): boolean {
     case "trim":
     case "substring":
     case "parse_date":
+    case "year":
+    case "month":
+    case "day":
     case "cast":
       return astReferencesLookup(node.input, lookupId);
     case "contains":
@@ -455,6 +431,9 @@ function astReferencesSourceColumn(
     case "trim":
     case "substring":
     case "parse_date":
+    case "year":
+    case "month":
+    case "day":
     case "cast":
       return astReferencesSourceColumn(node.input, columnNames);
     case "contains":

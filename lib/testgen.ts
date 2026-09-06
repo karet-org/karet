@@ -16,7 +16,6 @@ import type {
   LookupRow,
   Mapping,
   MappingColumn,
-  PartitionBy,
   PipelineConfig,
   SourceContainer,
 } from "./types/config";
@@ -26,7 +25,7 @@ import type {
 // ---------------------------------------------------------------------------
 
 /** ASCII-lowercase identifier: starts with a letter, 1..=8 chars. */
-export const arbId: fc.Arbitrary<string> = fc
+const arbId: fc.Arbitrary<string> = fc
   .tuple(
     fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz".split("")),
     fc.stringMatching(/^[a-z0-9_]{0,7}$/),
@@ -39,7 +38,7 @@ export const arbName: fc.Arbitrary<string> = fc
   .filter((s) => s.length >= 1);
 
 /** Short path prefix like `raw/foo/`. */
-export const arbPathPrefix: fc.Arbitrary<string> = fc
+const arbPathPrefix: fc.Arbitrary<string> = fc
   .stringMatching(/^[a-z][a-z0-9/_-]{0,15}$/);
 
 /** One of the supported logical column types. */
@@ -53,7 +52,7 @@ export const arbColumnType: fc.Arbitrary<string> = fc.constantFrom(
 );
 
 /** One of the four cast targets. */
-export const arbCastType: fc.Arbitrary<CastType> = fc.constantFrom(
+const arbCastType: fc.Arbitrary<CastType> = fc.constantFrom(
   "int64",
   "float64",
   "string",
@@ -111,6 +110,9 @@ export const arbAstNode: fc.Arbitrary<AstNode> = fc.letrec<{
       .tuple(fc.string(), fc.array(tie("node"), { minLength: 0, maxLength: 4 }))
       .map<AstNode>(([sep, args]) => ({ kind: "concat", sep, args })),
     tie("node").map<AstNode>((input) => ({ kind: "upper", input })),
+    tie("node").map<AstNode>((input) => ({ kind: "year", input })),
+    tie("node").map<AstNode>((input) => ({ kind: "month", input })),
+    tie("node").map<AstNode>((input) => ({ kind: "day", input })),
     tie("node").map<AstNode>((input) => ({ kind: "lower", input })),
     tie("node").map<AstNode>((input) => ({ kind: "trim", input })),
     fc
@@ -177,7 +179,7 @@ export const arbAstNode: fc.Arbitrary<AstNode> = fc.letrec<{
 // ---------------------------------------------------------------------------
 
 /** A single {@link ColumnSchema} with a random logical type. */
-export const arbColumnSchema: fc.Arbitrary<ColumnSchema> = fc.record({
+const arbColumnSchema: fc.Arbitrary<ColumnSchema> = fc.record({
   name: arbName,
   type: arbColumnType,
   nullable: fc.option(fc.boolean(), { nil: undefined }),
@@ -195,7 +197,7 @@ export const arbAnalyticTableSchema: fc.Arbitrary<ColumnSchema[]> = fc.array(
 );
 
 /** {@link SourceContainer}, non-empty schema (1..=5 cols). */
-export const arbSourceContainer: fc.Arbitrary<SourceContainer> = fc.record({
+const arbSourceContainer: fc.Arbitrary<SourceContainer> = fc.record({
   id: arbId,
   name: arbName,
   path_prefix: arbPathPrefix,
@@ -203,7 +205,7 @@ export const arbSourceContainer: fc.Arbitrary<SourceContainer> = fc.record({
 });
 
 /** A single {@link LookupRow}: 1..=3 patterns. */
-export const arbLookupRow: fc.Arbitrary<LookupRow> = fc.record(
+const arbLookupRow: fc.Arbitrary<LookupRow> = fc.record(
   {
     input_patterns: fc.array(arbName, { minLength: 1, maxLength: 3 }),
     output: arbName,
@@ -218,7 +220,7 @@ export const arbLookupRow: fc.Arbitrary<LookupRow> = fc.record(
  * Mirrors the Rust generator: `children` is omitted so the generator stays
  * bounded; validator tests build hierarchies explicitly.
  */
-export const arbLookupMapping: fc.Arbitrary<LookupMapping> = fc.record(
+const arbLookupMapping: fc.Arbitrary<LookupMapping> = fc.record(
   {
     id: arbId,
     name: fc.option(arbName, { nil: undefined }),
@@ -229,26 +231,19 @@ export const arbLookupMapping: fc.Arbitrary<LookupMapping> = fc.record(
   { requiredKeys: ["id", "rows"] },
 );
 
-/** {@link PartitionBy} with month granularity. */
-export const arbPartitionBy: fc.Arbitrary<PartitionBy> = fc.record({
-  column: arbName,
-  granularity: fc.constant("month"),
-});
-
 /** A single {@link MappingColumn} with a fresh AST expression. */
-export const arbMappingColumn: fc.Arbitrary<MappingColumn> = fc.record({
+const arbMappingColumn: fc.Arbitrary<MappingColumn> = fc.record({
   name: arbName,
   expr: arbAstNode,
 });
 
 /** {@link Mapping} with 1..=5 columns. */
-export const arbMapping: fc.Arbitrary<Mapping> = fc.record(
+const arbMapping: fc.Arbitrary<Mapping> = fc.record(
   {
     id: arbId,
     name: arbName,
     source_container_id: arbId,
     analytic_table_id: arbId,
-    partition_by: fc.option(arbPartitionBy, { nil: undefined }),
     columns: fc.array(arbMappingColumn, { minLength: 1, maxLength: 5 }),
   },
   {
@@ -266,26 +261,19 @@ export const arbMapping: fc.Arbitrary<Mapping> = fc.record(
 export const arbAnalyticTable: fc.Arbitrary<AnalyticTable> = fc.record({
   id: arbId,
   name: arbName,
-  output_prefix: arbPathPrefix,
   schema: arbAnalyticTableSchema,
 });
 
 /** {@link LayoutPosition}: finite x/y. */
-export const arbLayoutPosition: fc.Arbitrary<LayoutPosition> = fc.record({
+const arbLayoutPosition: fc.Arbitrary<LayoutPosition> = fc.record({
   x: fc.double({ noNaN: true, noDefaultInfinity: true }),
   y: fc.double({ noNaN: true, noDefaultInfinity: true }),
 });
 
 /**
- * Rewrite colliding `id` fields across the four entity collections so that
- * every source_container / lookup_mapping / mapping / analytic_table id in
- * the returned config is globally unique. Appends `_1`, `_2`, ... to the
- * second and subsequent occurrences of a previously seen id.
- *
- * Only the entity `id` fields are rewritten, cross-entity reference fields
- * (`Mapping.source_container_id`, `Mapping.analytic_table_id`, AST
- * `lookup_ref.lookup_id`) are left untouched, preserving the existing
- * contract that references are not guaranteed to resolve.
+ * Suffix colliding entity ids (`_1`, `_2`, ...) so every id is globally
+ * unique. Reference fields are left untouched; references are not
+ * guaranteed to resolve.
  */
 function uniquifyEntityIds(cfg: PipelineConfig): PipelineConfig {
   const seen = new Set<string>();
@@ -322,15 +310,9 @@ function uniquifyEntityIds(cfg: PipelineConfig): PipelineConfig {
 }
 
 /**
- * Full {@link PipelineConfig}. References across collections are NOT
- * guaranteed to resolve, validator tests construct valid configs explicitly.
- *
- * The entity `id` fields in `source_containers`, `lookup_mappings`,
- * `mappings`, and `analytic_tables` are guaranteed to be globally unique
- * across all four collections (colliding ids emitted by the sub-generators
- * are disambiguated with a `_N` suffix after generation). This keeps graph
- * rendering, which emits one node per entity, keyed by `id`, well-defined
- * on arbitrary configs.
+ * Full {@link PipelineConfig} with globally unique entity ids (graph
+ * rendering keys nodes by id). References are not guaranteed to resolve;
+ * validator tests build valid configs explicitly.
  */
 export const arbPipelineConfig: fc.Arbitrary<PipelineConfig> = fc
   .record(

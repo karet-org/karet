@@ -1,28 +1,15 @@
-// Structural editor for a Mapping's output columns.
-//
-// Columns are driven by the connected Analytic_Table's schema: a mapping
-// that is not wired to a table has no columns to edit, and the editor
-// shows a hint prompting the user to make that connection first. Once a
-// final table is selected, the editor renders exactly one row per column
-// in that table's schema (in order) and the user edits only the
-// expression for each. Columns can't be freely added or removed, the
-// set is the target table's schema.
-//
-// Expressions are parsed on blur using the existing expression parser.
+// Structural editor for a Mapping's output columns, display-first.
+// The column set mirrors the connected table's schema; the mapping
+// authors only the expressions, parsed and committed on blur.
 
 import { useEffect, useMemo, useState } from "react";
-import type {
-  AstNode,
-  ColumnSchema,
-  Mapping,
-  MappingColumn,
-  PartitionBy,
-} from "@/lib/types/config";
+import type { AstNode, Mapping, MappingColumn } from "@/lib/types/config";
 import { astExpression } from "../astSummary";
 import { parseExpression } from "@/lib/graph/expressionParser";
 import { useGraphStore } from "@/lib/graph/store";
-import { ExpandableTextField } from "@/components/ui/ExpandableTextField";
-import { EditorField, inputClass } from "./editorPrimitives";
+import { ExpressionField } from "./ExpressionField";
+import { InspRow, kvInputClass, Section } from "./inspector";
+import { inputClass } from "./editorPrimitives";
 import { validateMapping } from "./validation";
 
 export interface MappingEditorProps {
@@ -33,42 +20,24 @@ export interface MappingEditorProps {
 export const MAPPING_COLUMN_EDITOR_TESTID = "mapping-column-editor";
 export const AST_JSON_PARSE_ERROR_TESTID = "ast-json-parse-error";
 export const MAPPING_EDITOR_UNCONNECTED_TESTID = "mapping-editor-unconnected";
-export const PARTITION_BY_EDITOR_TESTID = "partition-by-editor";
-
-/** Granularities the Rust worker currently recognizes. */
-const SUPPORTED_GRANULARITIES = ["month"] as const;
 
 export function MappingEditor({ value, onChange }: MappingEditorProps) {
   const validationResult = useMemo(() => validateMapping(value), [value]);
 
-  // Look up the connected analytic table from the loaded config.
   const table = useGraphStore((s) =>
     value.analytic_table_id
       ? s.config?.analytic_tables.find((t) => t.id === value.analytic_table_id) ?? null
       : null,
   );
 
-  // Source columns are the valid set of `col` references for this
-  // mapping's expressions. Three-state:
-  //   - `string[]`: source is connected and has a known schema. Empty
-  //     array means the source is genuinely empty (no columns).
-  //   - `null`: `source_container_id` is set but the source either
-  //     doesn't exist (deleted) or has no schema field. Every `col`
-  //     reference is broken in that case; the validator treats `null`
-  //     as "nothing is a valid column".
-  //   - `undefined`: no source configured at all. The mapping's amber
-  //     "Not connected to a source container" banner already covers
-  //     this; per-column validation skips the col-ref check.
-  //
-  // The zustand selector returns the resolved `SourceContainer` (or
-  // `null` / `undefined`) rather than a derived `string[]` so the
-  // default Object.is equality doesn't fire on every render, deriving
-  // column names inline would mint a new array each call and trigger
-  // an infinite re-render loop.
+  // Entity selector (not a derived array) so Object.is holds between
+  // renders; three-state semantics documented on `validateExprText`.
   const source = useGraphStore((s) => {
     if (!value.source_container_id) return undefined;
     return s.config?.source_containers.find((c) => c.id === value.source_container_id) ?? null;
   });
+  const lookups = useGraphStore((s) => s.config?.lookup_mappings);
+  const lookupIds = useMemo(() => (lookups ?? []).map((l) => l.id), [lookups]);
   const sourceColumns = useMemo<string[] | null | undefined>(() => {
     if (source === undefined) return undefined;
     if (source === null) return null;
@@ -85,233 +54,79 @@ export function MappingEditor({ value, onChange }: MappingEditorProps) {
     [value.columns, sourceColumns],
   );
 
+  const shownErrors = validationResult.errors.filter((e) => table || !/analytic table/i.test(e));
+
   return (
-    <div data-testid="mapping-editor" className="flex flex-col gap-3">
-      <EditorField label="name">
+    <div data-testid="mapping-editor" className="flex flex-col">
+      <Section label="Name">
         <input
-          className={inputClass()}
+          aria-label="mapping name"
+          className={kvInputClass()}
           value={value.name}
           onChange={(e) => onChange({ ...value, name: e.target.value })}
         />
-      </EditorField>
-      {(() => {
-        // Suppress the "No final table connected" amber entry when the
-        // dashed placeholder below is already showing it, otherwise the
-        // user sees the same warning twice.
-        const shown = validationResult.errors.filter(
-          (e) => table || !/analytic table/i.test(e),
-        );
-        if (shown.length === 0) return null;
-        return (
-          <ul className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            {shown.map((e, i) => <li key={i}>{e}</li>)}
-          </ul>
-        );
-      })()}
+      </Section>
+
+      {shownErrors.length > 0 && (
+        <ul className="mb-3.5 rounded-[7px] border border-amber-200/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+          {shownErrors.map((e, i) => (
+            <li key={i}>{e}</li>
+          ))}
+        </ul>
+      )}
+
       {!table ? (
         <div
           data-testid={MAPPING_EDITOR_UNCONNECTED_TESTID}
-          className="flex flex-col gap-2 rounded border border-dashed border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)] p-3 text-xs text-[color:var(--color-ink-3)]"
+          className="flex flex-col gap-2 rounded-[7px] border border-dashed border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)] p-3 text-xs text-[color:var(--color-ink-3)]"
         >
           <p className="font-semibold text-[color:var(--color-ink-2)]">No final table connected</p>
-          <p>
-            Connect this mapping to an analytic table in the graph to define
-            its output columns.
-          </p>
+          <p>Connect this mapping to an analytic table in the graph to define its output columns.</p>
         </div>
       ) : (
         <>
-          <p className="text-xs text-[color:var(--color-ink-3)]">
-            Columns ({value.columns.length}) · final table{" "}
-            <span className="font-mono text-[color:var(--color-ink-2)]">{table.id}</span>
-            {hasErrors && <span className="ml-2 text-[color:var(--color-rose-deep)]">- fix errors before saving</span>}
-          </p>
-          {value.columns.length === 0 ? (
-            <p className="text-xs text-[color:var(--color-ink-3)]">No columns</p>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {value.columns.map((col, i) => (
-                <li key={i}>
-                  <ColumnExprEditor
+          <Section label="Writes to">
+            <InspRow label="Table">{table.name || table.id}</InspRow>
+            {source && <InspRow label="Source">{source.name || source.id}</InspRow>}
+            {hasErrors && (
+              <p className="pt-1 text-[11px] text-[color:var(--color-rose-deep)]">
+                Fix expression errors before saving
+              </p>
+            )}
+          </Section>
+
+          <Section label={`Columns (${value.columns.length})`} last>
+            {value.columns.length === 0 ? (
+              <p className="text-xs text-[color:var(--color-ink-3)]">No columns</p>
+            ) : (
+              <div className="-mx-1.5 flex flex-col">
+                {value.columns.map((col, i) => (
+                  <ColumnExprRow
+                    key={`${i}-${col.name}`}
                     value={col}
                     onChange={(next) => setColumn(i, next)}
                     sourceColumns={sourceColumns}
+                    lookupIds={lookupIds}
                   />
-                </li>
-              ))}
-            </ul>
-          )}
-          <PartitionByEditor
-            value={value.partition_by}
-            columns={value.columns.map((c) => c.name)}
-            tableSchema={table.schema}
-            onChange={(partition_by) =>
-              onChange(
-                partition_by
-                  ? { ...value, partition_by }
-                  : stripPartitionBy(value),
-              )
-            }
-          />
-          <div className="rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] p-2 text-[10px] text-[color:var(--color-ink-3)]">
-            <span className="font-semibold">Expression syntax:</span>{" "}
-            <code>column_name</code>, <code>&quot;string&quot;</code>, <code>123</code>,{" "}
-            <code>upper(x)</code>, <code>x * 100</code>, <code>x == y</code>,{" "}
-            <code>if(cond, then, else)</code>, <code>lookup_ref(id, input)</code>,{" "}
-            <code>parse_date(col, &quot;%Y-%m-%d&quot;)</code>, <code>cast(x, &quot;int64&quot;)</code>
-          </div>
+                ))}
+              </div>
+            )}
+            <p className="mt-2.5 text-[11px] leading-relaxed text-[color:var(--color-ink-3)]">
+              Column set comes from{" "}
+              <span className="text-[color:var(--color-ink-2)]">{table.name || table.id}</span>
+              &apos;s schema; add or remove columns there. New columns appear here unmapped.
+            </p>
+          </Section>
         </>
       )}
     </div>
   );
 }
 
-interface PartitionByEditorProps {
-  value: PartitionBy | undefined;
-  columns: string[];
-  tableSchema: ColumnSchema[];
-  onChange: (next: PartitionBy | undefined) => void;
-}
-
-function PartitionByEditor({ value, columns, tableSchema, onChange }: PartitionByEditorProps) {
-  const enabled = value !== undefined;
-
-  // Only date columns are legal partition targets: the worker's only
-  // supported granularity is `"month"`, which requires a date-typed
-  // column to bin by. Filter the mapping's produced columns down to the
-  // date-typed subset per the connected analytic table's schema.
-  const dateColumns = columns.filter((name) => {
-    const col = tableSchema.find((c) => c.name === name);
-    return col?.type === "date";
-  });
-
-  const toggle = (on: boolean) => {
-    if (!on) {
-      onChange(undefined);
-      return;
-    }
-    // Seed with the first date column; user can change it. Granularity
-    // starts at "month" (the only one the worker accepts today).
-    onChange({
-      column: value?.column ?? dateColumns[0] ?? "",
-      granularity: value?.granularity ?? "month",
-    });
-  };
-
-  const setColumn = (column: string) => {
-    if (!value) return;
-    onChange({ ...value, column });
-  };
-  const setGranularity = (granularity: string) => {
-    if (!value) return;
-    onChange({ ...value, granularity });
-  };
-
-  const missing = enabled && value && !columns.includes(value.column);
-  const noDates = dateColumns.length === 0;
-
-  return (
-    <div
-      data-testid={PARTITION_BY_EDITOR_TESTID}
-      className="rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] p-2"
-    >
-      <label className="flex items-center gap-1.5 text-xs text-[color:var(--color-ink-2)]">
-        <input
-          type="checkbox"
-          checked={enabled}
-          onChange={(e) => toggle(e.target.checked)}
-          disabled={noDates && !enabled}
-          title={
-            noDates
-              ? "Add a date-typed column to the analytic table schema to enable partitioning"
-              : undefined
-          }
-        />
-        <span className="font-semibold">Partition output</span>
-        {noDates && !enabled && (
-          <span className="text-[color:var(--color-ink-3)]">- needs a date column</span>
-        )}
-      </label>
-      {enabled && value && (
-        <div className="mt-2 flex gap-2">
-          <EditorField label="column" className="flex-1">
-            <select
-              aria-label="partition column"
-              className={inputClass("font-mono")}
-              value={value.column}
-              onChange={(e) => setColumn(e.target.value)}
-            >
-              {/* Keep the current value in the list even if it's not a
-                  produced date column so the validator, not the UI, is
-                  the source of truth about what's acceptable. */}
-              {(missing ||
-                !dateColumns.includes(value.column)) && (
-                <option value={value.column}>{value.column}</option>
-              )}
-              {dateColumns.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </EditorField>
-          <EditorField label="granularity">
-            <select
-              aria-label="partition granularity"
-              className={inputClass()}
-              value={value.granularity}
-              onChange={(e) => setGranularity(e.target.value)}
-            >
-              {!SUPPORTED_GRANULARITIES.includes(
-                value.granularity as (typeof SUPPORTED_GRANULARITIES)[number],
-              ) && (
-                <option value={value.granularity}>{value.granularity}</option>
-              )}
-              {SUPPORTED_GRANULARITIES.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-          </EditorField>
-        </div>
-      )}
-      {missing && (
-        <p className="mt-1 text-[11px] text-[color:var(--color-rose-deep)]">
-          ⚠ column <code className="font-mono">{value!.column}</code> is not
-          produced by this mapping
-        </p>
-      )}
-      {enabled && value && !missing && !dateColumns.includes(value.column) && (
-        <p className="mt-1 text-[11px] text-[color:var(--color-rose-deep)]">
-          ⚠ column <code className="font-mono">{value.column}</code> is not a
-          date-typed column; month partitioning requires a date
-        </p>
-      )}
-    </div>
-  );
-}
-
-function stripPartitionBy(m: Mapping): Mapping {
-  const { partition_by: _drop, ...rest } = m;
-  return rest;
-}
-
 /**
- * Parse `text` as an expression and check every `col` reference resolves
- * against the current source schema. Returns the first error message, or
- * `null` when the expression is valid for saving.
- *
- * `sourceColumns` semantics:
- *   - `string[]`: validate col refs against this set. Empty array means
- *     the source is genuinely empty (no columns); any `col` ref is bad.
- *   - `null`: the mapping's `source_container_id` points at a source
- *     that no longer exists (deleted). Every `col` reference is broken.
- *   - `undefined`: no source configured at all (either newly-created or
- *     source was deleted and its reference cleared). Any `col` reference
- *     in the expression is unresolvable. We still flag it so the user
- *     sees the per-column error immediately on opening the mapping, the
- *     amber banner at the top complements this, it doesn't replace it.
+ * Parse `text` and check every `col` reference against the source schema.
+ * `sourceColumns`: `string[]` = validate against the set; `null` = source
+ * deleted (all refs broken); `undefined` = no source configured.
  */
 function validateExprText(
   text: string,
@@ -335,7 +150,6 @@ function validateExprText(
   return null;
 }
 
-/** Validate an already-persisted MappingColumn for the parent's "any errors?" check. */
 function columnHasError(
   col: MappingColumn,
   sourceColumns: string[] | null | undefined,
@@ -343,13 +157,6 @@ function columnHasError(
   return validateExprText(astExpression(col.expr), sourceColumns) !== null;
 }
 
-interface ColumnExprEditorProps {
-  value: MappingColumn;
-  onChange: (next: MappingColumn) => void;
-  sourceColumns: string[] | null | undefined;
-}
-
-/** Collect all column references from an AST node. */
 function collectColRefs(node: AstNode): string[] {
   if (node.kind === "col") return [node.name];
   const refs: string[] = [];
@@ -360,26 +167,33 @@ function collectColRefs(node: AstNode): string[] {
   return refs;
 }
 
-function ColumnExprEditor({ value, onChange, sourceColumns }: ColumnExprEditorProps) {
-  const [exprText, setExprText] = useState(() => astExpression(value.expr));
+interface ColumnExprRowProps {
+  value: MappingColumn;
+  onChange: (next: MappingColumn) => void;
+  sourceColumns: string[] | null | undefined;
+  lookupIds: string[];
+}
 
-  // If the persisted value changes out from under us (e.g. the source
-  // connection was restored, or another pane edited the column), reset
-  // the local text to match.
+function ColumnExprRow({ value, onChange, sourceColumns, lookupIds }: ColumnExprRowProps) {
+  // Placeholder columns from schema adds carry a bare null expression.
+  const unmapped = value.expr.kind === "null";
+  const [open, setOpen] = useState(unmapped);
+  const [exprText, setExprText] = useState(() => (unmapped ? "" : astExpression(value.expr)));
+
+  // Reset local text if the persisted value changes underneath us.
   const persistedText = astExpression(value.expr);
   useEffect(() => {
-    setExprText(persistedText);
+    setExprText(value.expr.kind === "null" ? "" : persistedText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persistedText]);
 
-  // Validate on every render so errors surface immediately (e.g. right
-  // after a source node is deleted) rather than waiting for the user to
-  // blur the input.
   const error = useMemo(
-    () => validateExprText(exprText, sourceColumns),
+    () => (exprText === "" ? null : validateExprText(exprText, sourceColumns)),
     [exprText, sourceColumns],
   );
 
   const handleBlur = () => {
+    if (exprText === "") return;
     const result = parseExpression(exprText);
     if (result.ok && error === null) {
       onChange({ ...value, expr: result.value });
@@ -387,41 +201,48 @@ function ColumnExprEditor({ value, onChange, sourceColumns }: ColumnExprEditorPr
   };
 
   return (
-    <div
-      data-testid={MAPPING_COLUMN_EDITOR_TESTID}
-      className={`rounded border p-2 ${error ? "border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)]" : "border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)]"}`}
-    >
-      <div className="flex gap-2">
-        <EditorField label="name">
-          <input
-            aria-label="column name"
-            className={inputClass("font-mono w-24 bg-[color:var(--color-surface-2)] text-[color:var(--color-ink-2)]")}
-            value={value.name}
-            readOnly
-            title="Column names come from the connected analytic table"
-          />
-        </EditorField>
-        <EditorField label="expression" className="flex-1">
-          <ExpandableTextField
+    <div data-testid={MAPPING_COLUMN_EDITOR_TESTID} className="rounded-[7px]">
+      <button
+        type="button"
+        title="Edit expression"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2.5 rounded-[7px] px-1.5 py-[5px] text-left hover:bg-white/[0.03]"
+      >
+        <span className="flex-none font-mono text-xs text-[color:var(--color-ink)]">{value.name}</span>
+        <span
+          className={`min-w-0 flex-1 truncate text-right text-[10.5px] ${
+            unmapped && exprText === ""
+              ? "italic text-[color:var(--color-amber, #ffcd29)]"
+              : "font-mono text-[color:var(--color-ink-3)]"
+          }`}
+        >
+          {unmapped && exprText === "" ? "unmapped" : exprText || persistedText}
+        </span>
+      </button>
+      {open && (
+        <div className="px-1.5 pb-2.5 pt-1">
+          <ExpressionField
             ariaLabel="expression"
             value={exprText}
             onChange={setExprText}
-            onBlur={handleBlur}
-            onModalAction={handleBlur}
-            spellCheck={false}
+            onCommit={handleBlur}
             error={error}
             modalTitle={`Expression: ${value.name}`}
-            modalActionLabel="Done"
+            sourceColumns={sourceColumns}
+            lookupIds={lookupIds}
             inputClassName={inputClass(
               `font-mono w-full ${error ? "border-[color:var(--color-rose-deep)]" : ""}`,
             )}
           />
-        </EditorField>
-      </div>
-      {error && (
-        <p data-testid={AST_JSON_PARSE_ERROR_TESTID} className="mt-1 text-[11px] text-[color:var(--color-rose-deep)]">
-          ⚠ {error}
-        </p>
+          {error && (
+            <p
+              data-testid={AST_JSON_PARSE_ERROR_TESTID}
+              className="mt-1 text-[11px] text-[color:var(--color-rose-deep)]"
+            >
+              {error}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

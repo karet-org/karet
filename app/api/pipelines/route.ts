@@ -4,12 +4,23 @@ import { bucketForRelPath, withS3 } from "@/lib/config/s3-client";
 import { sanitizeSlug } from "@/lib/config/slug";
 import { listPipelines } from "@/lib/services/config-service";
 import { TEMPLATES, type TemplateId } from "@/lib/templates";
+import type { PipelineConfig } from "@/lib/types/config";
 
 export async function GET() {
   return withS3("GET /api/pipelines", async (client, config) => {
     const pipelines = await listPipelines(client, config);
     return NextResponse.json({ pipelines });
   });
+}
+
+function absolutizeSourcePrefixes(cfg: PipelineConfig, prefix: string): PipelineConfig {
+  return {
+    ...cfg,
+    source_containers: cfg.source_containers.map((sc) => ({
+      ...sc,
+      path_prefix: `${prefix}${sc.path_prefix}`,
+    })),
+  };
 }
 
 export async function POST(request: Request) {
@@ -37,11 +48,17 @@ export async function POST(request: Request) {
     }
 
     for (const [relPath, content] of Object.entries(template.files)) {
+      // Templates author source prefixes relative to the pipeline; the
+      // stored config uses absolute lake keys, so render them here.
+      const body =
+        relPath === "pipeline.json"
+          ? absolutizeSourcePrefixes(content as PipelineConfig, prefix)
+          : content;
       await client.send(
         new PutObjectCommand({
           Bucket: bucketForRelPath(config, relPath),
           Key: `${prefix}${relPath}`,
-          Body: JSON.stringify(content, null, 2),
+          Body: JSON.stringify(body, null, 2),
           ContentType: "application/json",
         }),
       );

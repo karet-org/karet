@@ -73,6 +73,9 @@ function renderAst(node: AstNode, depth: number, truncate: boolean): string {
     case "upper":
     case "lower":
     case "trim":
+    case "year":
+    case "month":
+    case "day":
       return `${node.kind}(${recurse(node.input, depth, truncate)})`;
     case "parse_date":
       return `parse_date(${recurse(node.input, depth, truncate)}, ${JSON.stringify(node.format)})`;

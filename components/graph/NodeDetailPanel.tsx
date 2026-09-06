@@ -1,4 +1,4 @@
-// Node Detail Panel: 420px right-hand drawer that mounts the structural
+// Node Detail Panel: 300px docked inspector that mounts the structural
 // editor for the selected graph node. Edits flow through the parent via
 // `onEdit` which the graph page uses to rebuild the canvas and mark the
 // config dirty; persistence is handled by the page's Save & Publish button.
@@ -33,16 +33,11 @@ export interface NodeDetailPanelProps {
 type EditableEntity = SourceContainer | LookupMapping | Mapping | AnalyticTable;
 
 /**
- * Distinguish AnalyticTable from the other editable shapes by its
- * `schema` field. Source containers also have `schema`, so we additionally
- * check for `output_prefix`, which is unique to analytic tables.
+ * Distinguish AnalyticTable from the other editable shapes: it has a
+ * `schema` but, unlike source containers, no `path_prefix`.
  */
 function isAnalyticTable(entity: EditableEntity): entity is AnalyticTable {
-  return (
-    "schema" in entity &&
-    "output_prefix" in entity &&
-    typeof (entity as AnalyticTable).output_prefix === "string"
-  );
+  return "schema" in entity && !("path_prefix" in entity);
 }
 
 export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps) {
@@ -96,20 +91,20 @@ export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps)
 
   if (!node) return null;
 
-  // sm:w-[420px] must match the graph page canvas offset (sm:w-[calc(100%-420px)]).
+  // sm:w-[300px] must match the graph page canvas offset (sm:w-[calc(100%-300px)]).
   return (
     <aside
       data-testid="node-detail-panel"
       aria-label="Node detail panel"
-      className="fixed right-0 top-0 z-20 flex h-screen w-full flex-col border-l border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] shadow-lg sm:w-[420px]"
+      className="fixed right-0 top-0 z-20 flex h-screen w-full flex-col border-l border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] sm:w-[300px]"
     >
-      <header className="flex items-center justify-between gap-2 border-b border-[color:var(--color-rule-soft)] px-4 py-3">
+      <header className="flex items-center justify-between gap-2 border-b border-[color:var(--color-rule-soft)] px-4 pb-2.5 pt-3">
         <div className="min-w-0">
-          <div className="text-[11px] font-medium text-[color:var(--color-ink-3)]">
+          <div className="text-[11px] tracking-[0.3px] text-[color:var(--color-ink-3)]">
             {headerLabel(node)}
           </div>
           <h2
-            className="truncate text-sm font-semibold text-[color:var(--color-ink)]"
+            className="mt-px truncate text-[13px] font-semibold text-[color:var(--color-ink)]"
             title={node.id}
           >
             {node.data.entity.name || node.id}
@@ -126,7 +121,7 @@ export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps)
           ) : null}
         </div>
       </header>
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      <div className="flex-1 overflow-y-auto px-4 py-3.5">
         <EditorBody node={node} onChange={updateEntity} />
       </div>
     </aside>
@@ -136,13 +131,13 @@ export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps)
 function headerLabel(node: GraphNode): string {
   switch (node.data.kind) {
     case "source-container":
-      return "Source Container";
+      return "Source container";
     case "lookup-mapping":
-      return "Lookup Mapping";
+      return "Lookup";
     case "mapping":
       return "Mapping";
     case "analytic-table":
-      return "Analytic Table";
+      return "Analytic table";
   }
 }
 

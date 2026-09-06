@@ -36,6 +36,9 @@ const KNOWN_AST_KINDS = new Set<AstNode["kind"]>([
   "contains",
   "if",
   "parse_date",
+  "year",
+  "month",
+  "day",
   "lookup_ref",
   "cast",
 ]);
@@ -62,6 +65,9 @@ function assertKnownAstNode(node: AstNode): void {
       for (const a of node.args) assertKnownAstNode(a);
       break;
     case "upper":
+    case "year":
+    case "month":
+    case "day":
     case "lower":
     case "trim":
     case "substring":

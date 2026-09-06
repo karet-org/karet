@@ -180,6 +180,9 @@ class Parser {
 
     switch (name) {
       case "upper": return { kind: "upper", input: this.requireArg(args, 0, name) };
+      case "year": return { kind: "year", input: this.requireArg(args, 0, name) };
+      case "month": return { kind: "month", input: this.requireArg(args, 0, name) };
+      case "day": return { kind: "day", input: this.requireArg(args, 0, name) };
       case "lower": return { kind: "lower", input: this.requireArg(args, 0, name) };
       case "trim": return { kind: "trim", input: this.requireArg(args, 0, name) };
       case "col": {

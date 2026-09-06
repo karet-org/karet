@@ -93,13 +93,9 @@ export default function PipelineGraphPage() {
     return findNode(config, selectedNodeId);
   }, [selectedNodeId, config]);
 
-  // Warn on navigation when there are unsaved changes. Two guards:
-  //   1. `beforeunload` covers tab close, browser back/forward, reload,
-  //      and any real HTTP navigation (<a href> without a SPA handler).
-  //   2. A document-level capture-phase click listener intercepts
-  //      in-app <Link> clicks. Next.js App Router has no built-in
-  //      "confirm navigation" hook, so we have to gate at the DOM.
-  // Both guards are only attached while `isDirty` is true.
+  // Unsaved-changes guards while dirty: `beforeunload` for real
+  // navigations, a capture-phase click listener for in-app <Link>s
+  // (App Router has no confirm-navigation hook).
   useEffect(() => {
     if (!isDirty) return;
 
@@ -444,9 +440,9 @@ export default function PipelineGraphPage() {
 
   // On mobile the detail panel is a full-width fixed overlay, so the canvas
   // stays full-width underneath; only offset it at sm and up.
-  // 420 must match NodeDetailPanel's sm:w-[420px].
+  // 300 must match NodeDetailPanel's sm:w-[300px].
   const canvasClass = selectedNodeValue
-    ? "relative h-full w-full sm:w-[calc(100%-420px)]"
+    ? "relative h-full w-full sm:w-[calc(100%-300px)]"
     : "relative h-full w-full";
   const initial = initialGraphRef.current ?? { nodes: [], edges: [] };
 
@@ -550,19 +546,9 @@ export default function PipelineGraphPage() {
 }
 
 /**
- * Block-on-save pre-flight for the structural rules the user must
- * resolve before publishing. Catches:
- *
- *   - empty / duplicate analytic-table column names
- *   - empty node names (source / lookup / mapping / table)
- *   - duplicate node names *within* a single kind (two tables both
- *     called "Transactions", the user can't tell them apart in the
- *     sidebar or graph header). Cross-kind name reuse is fine since
- *     the node type is part of the visual identity.
- *
- * Other constraints (worker AST validation, schema-shape sanity)
- * stay on the worker's `/validate` endpoint. Returns one human-
- * readable message per problem so the user knows where to look.
+ * Block-on-save pre-flight: empty/duplicate table column names, empty
+ * node names, duplicate node names within a kind. Everything else is
+ * the worker validator's job. One message per problem.
  */
 function validateConfigForSave(cfg: PipelineConfig): string[] {
   const errors: string[] = [];

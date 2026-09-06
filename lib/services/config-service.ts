@@ -63,17 +63,9 @@ async function streamToString(body: unknown): Promise<string> {
 }
 
 /**
- * Normalize an S3-style ETag for comparison.
- *
- * Strips:
- * - Surrounding quotes (S3 wraps the value: `"abc123"`).
- * - Trailing alphabetic codec suffix `-<codec>` (RustFS returns ETags
- *   like `<md5>-zstd` for compressed-at-rest objects, but the same
- *   `GetObject` can return the bare `<md5>` form on later reads, which
- *   would break optimistic concurrency).
- *
- * Multipart ETags (`<md5>-<digits>`) are preserved: only an alphabetic
- * suffix is stripped, never a numeric one.
+ * Normalize an ETag: strip quotes and RustFS's alphabetic codec suffix
+ * (`<md5>-zstd`), which flip-flops across reads and would break the
+ * compare-and-swap. Numeric multipart suffixes are preserved.
  */
 function normalizeETag(etag: string | undefined): string | undefined {
   if (!etag) return undefined;
@@ -148,15 +140,9 @@ export async function getPipelineConfig(
 }
 
 /**
- * Writes the Pipeline_Config body to S3.
- *
- * `ifMatch` enables optimistic concurrency. S3 PutObject doesn't honor
- * `If-Match` consistently across S3-compatible stores (notably RustFS),
- * so we do the compare-and-swap ourselves against a fresh GET.
- *
- * The returned ETag is read via HEAD after the PUT, not taken from the
- * PutObject response: on RustFS the two values can differ, which would
- * make the next save spuriously 412.
+ * Write the Pipeline_Config. The `ifMatch` compare-and-swap runs against
+ * a fresh GET (RustFS doesn't honor If-Match), and the returned ETag
+ * comes from a HEAD after the PUT (the PutObject ETag can differ).
  */
 export async function putPipelineConfig(
   client: S3Client,
@@ -446,25 +432,11 @@ export async function deleteQuery(
 // ---------------------------------------------------------------------------
 
 /**
- * Move every object from `pipelines/<from>/` to `pipelines/<to>/` by
- * copying then deleting, across all three data-plane buckets (a pipeline's
- * config, raw data, and warehouse output each live in their own bucket).
- * S3 has no atomic rename; this performs:
- *
- *   1. Pre-flight HEAD on `<to>/pipeline.json` in the pipelines bucket,
- *      throws `TargetExistsError` (409) before touching any data if the
- *      destination is occupied.
- *   2. Lists every object under the source prefix across all buckets,
- *      throws `SourceNotFoundError` (404) if none exist anywhere.
- *   3. Copies each object to the new prefix within its own bucket.
- *   4. Deletes the originals in batches of 1000 (S3's API cap).
- *
- * If a copy fails the old prefix is intact and the caller can retry. If a
- * delete fails after all copies succeed, the pipeline lives at the new
- * slug while orphaned bytes remain at the old one (subsequent rename to
- * the same target hits the 409 pre-flight; cleanup is out-of-band).
- *
- * Returns the total number of objects moved across all buckets.
+ * Rename a pipeline prefix across all three buckets: 409 pre-flight if
+ * the target exists, copy everything, then delete originals in batches.
+ * A failed copy leaves the source intact; a failed delete after copies
+ * leaves orphaned bytes at the old slug (cleanup is out-of-band).
+ * Returns the number of objects moved.
  */
 export async function renamePipelinePrefix(
   client: S3Client,

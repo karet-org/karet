@@ -4,7 +4,7 @@ import type { ButtonHTMLAttributes } from "react";
  * The dismiss glyph as an SVG (two strokes), crisper than a "×" character.
  * Inherits `currentColor` and size from the parent.
  */
-export function CloseIcon({ size = 16 }: { size?: number }) {
+function CloseIcon({ size = 16 }: { size?: number }) {
   return (
     <svg
       width={size}

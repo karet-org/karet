@@ -15,7 +15,7 @@ export interface UiSettings {
   starred: string[];
 }
 
-export const DEFAULT_SETTINGS: UiSettings = {
+const DEFAULT_SETTINGS: UiSettings = {
   displayName: "",
   workspaceName: "",
   starred: [],

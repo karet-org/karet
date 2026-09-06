@@ -1,419 +1,366 @@
-// Structural editor for an Analytic_Table.
+// Structural editor for an Analytic_Table, display-first per the
+// partition-keys v2 design (doc rev 1.4).
 //
-// Edits the table's name, output_prefix, schema columns, and each column's
-// optional data-quality assertions (mirrors `ColumnAssertions` in the Rust
-// worker: not_null, unique, accepted_values, min, max). Validation reuses
-// the same KNOWN_COLUMN_TYPES / duplicate-column rules as
-// `SourceContainerEditor`, since analytic-table schemas share the same
-// structural shape.
+// The table owns structure: schema columns (name, type, not-null,
+// min/max for numerics), the hive partition_keys (max 2, non-float),
+// and the dedup_keys. Mappings own only expressions; schema edits here
+// propagate placeholders via the parent's schema-sync (NodeDetailPanel).
+//
+// Section layout: Name / Output prefix / Partition keys / Dedup keys /
+// Schema. Key sections render as quiet rows and switch to chips behind
+// the pencil; schema rows edit in place on click.
 
 import { useMemo, useState } from "react";
-import type {
-  AnalyticTable,
-  ColumnAssertions,
-  ColumnSchema,
-} from "@/lib/types/config";
-import Modal from "@/components/ui/Modal";
-import { DeleteButton } from "@/components/ui/DeleteButton";
+import type { AnalyticTable, ColumnSchema } from "@/lib/types/config";
 import {
-  EditorField,
-  InlineErrorList,
-  inputClass,
-} from "./editorPrimitives";
-import {
-  KNOWN_COLUMN_TYPES,
-  validateSourceContainer,
-  type ValidationResult,
-} from "./validation";
+  AddChip,
+  EditField,
+  InspRow,
+  KeyChip,
+  kvInputClass,
+  editInputClass,
+  LabelButton,
+  PencilIcon,
+  PlusIcon,
+  Section,
+  Switch,
+  TrashIcon,
+} from "./inspector";
+import { InlineErrorList } from "./editorPrimitives";
+import { KNOWN_COLUMN_TYPES } from "./validation";
+
+export const ANALYTIC_TABLE_EDITOR_ERROR_TESTID = "analytic-table-editor-error";
+export const PARTITION_KEYS_TESTID = "partition-keys-section";
+export const DEDUP_KEYS_TESTID = "dedup-keys-section";
+
+const MAX_PARTITION_KEYS = 2;
 
 export interface AnalyticTableEditorProps {
   value: AnalyticTable;
   onChange: (next: AnalyticTable) => void;
-  onValidate?: (result: ValidationResult) => void;
 }
 
-export const ANALYTIC_TABLE_EDITOR_ERROR_TESTID = "analytic-table-editor-error";
+function validate(t: AnalyticTable): string[] {
+  const errors: string[] = [];
+  if (!t.name || t.name.trim() === "") errors.push("Name is required");
+  if (t.schema.length === 0) errors.push("Schema must have at least one column");
+  const seen = new Set<string>();
+  for (const c of t.schema) {
+    if (seen.has(c.name)) errors.push(`Duplicate column name: ${c.name}`);
+    seen.add(c.name);
+    if (c.name.trim() === "") errors.push("Column names cannot be empty");
+  }
+  return errors;
+}
 
-export function AnalyticTableEditor({
-  value,
-  onChange,
-  onValidate,
-}: AnalyticTableEditorProps) {
-  const result = useMemo(
-    () =>
-      validateSourceContainer({ name: value.name, schema: value.schema }),
-    [value.name, value.schema],
-  );
-  if (onValidate) onValidate(result);
+/** Placeholder path segment for a key column, derived from its type. */
+function placeholder(type: string | undefined): string {
+  switch (type) {
+    case "int64":
+    case "number":
+      return "<int64>";
+    case "date":
+      return "<date>";
+    case "bool":
+      return "<bool>";
+    default:
+      return "<string>";
+  }
+}
 
-  // Track which column the user is asking to remove. The Modal opens
-  // when this is non-null and closes back to null on cancel/confirm.
-  const [columnToRemove, setColumnToRemove] = useState<number | null>(null);
+export function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProps) {
+  const [editingKeys, setEditingKeys] = useState(false);
+  const [editingDedup, setEditingDedup] = useState(false);
+  const [editingRow, setEditingRow] = useState<number | null>(null);
 
-  const setName = (name: string) => onChange({ ...value, name });
-  const setOutputPrefix = (output_prefix: string) =>
-    onChange({ ...value, output_prefix });
+  const errors = useMemo(() => validate(value), [value]);
+  const partitionKeys = value.partition_keys ?? [];
+  const dedupKeys = value.dedup_keys ?? [];
 
-  const setColumn = (index: number, patch: Partial<ColumnSchema>) => {
-    const schema = value.schema.map((c, i) =>
-      i === index ? { ...c, ...patch } : c,
-    );
-    onChange({ ...value, schema });
+  const setKeys = (partition_keys: string[]) =>
+    onChange({ ...value, partition_keys: partition_keys.length ? partition_keys : undefined });
+  const setDedup = (dedup_keys: string[]) =>
+    onChange({ ...value, dedup_keys: dedup_keys.length ? dedup_keys : undefined });
+
+  const typeOf = (name: string) => value.schema.find((c) => c.name === name)?.type;
+
+  // Rename and delete cascade through both key lists; the parent's
+  // schema-sync cascades into mapping columns.
+  const renameColumn = (index: number, name: string) => {
+    const prev = value.schema[index].name;
+    const schema = value.schema.map((c, i) => (i === index ? { ...c, name } : c));
+    onChange({
+      ...value,
+      schema,
+      partition_keys: partitionKeys.map((k) => (k === prev ? name : k)),
+      dedup_keys: dedupKeys.map((k) => (k === prev ? name : k)),
+    });
   };
-  const setAssertions = (index: number, patch: Partial<ColumnAssertions> | null) => {
+  const retypeColumn = (index: number, type: string) => {
+    const name = value.schema[index].name;
+    const schema = value.schema.map((c, i) => (i === index ? { ...c, type } : c));
+    onChange({
+      ...value,
+      schema,
+      // Floats are ineligible partition keys; the chip disappears with
+      // the retype and the path preview updates in the same frame.
+      partition_keys:
+        type === "float64" ? partitionKeys.filter((k) => k !== name) : value.partition_keys,
+    });
+  };
+  const deleteColumn = (index: number) => {
+    const name = value.schema[index].name;
+    setEditingRow(null);
+    onChange({
+      ...value,
+      schema: value.schema.filter((_, i) => i !== index),
+      partition_keys: partitionKeys.filter((k) => k !== name),
+      dedup_keys: dedupKeys.filter((k) => k !== name),
+    });
+  };
+  const addColumn = () => {
+    onChange({ ...value, schema: [...value.schema, { name: "new_column", type: "string" }] });
+    setEditingRow(value.schema.length);
+  };
+
+  const setAssertion = (index: number, patch: Partial<NonNullable<ColumnSchema["assertions"]>>) => {
     const schema = value.schema.map((c, i) => {
       if (i !== index) return c;
-      if (patch === null) {
-        // Drop the assertions object entirely (keep JSON minimal).
-        const { assertions: _drop, ...rest } = c;
-        return rest;
-      }
-      const next: ColumnAssertions = { ...(c.assertions ?? {}), ...patch };
-      // If every field is unset, drop the object, the worker treats
-      // missing and all-empty the same, but omitting keeps pipeline.json
-      // tidy.
-      const cleaned = pruneEmptyAssertions(next);
-      return cleaned ? { ...c, assertions: cleaned } : stripAssertions(c);
+      const merged = { ...c.assertions, ...patch };
+      const active = merged.not_null || merged.min !== undefined || merged.max !== undefined;
+      return { ...c, assertions: active ? merged : undefined };
     });
     onChange({ ...value, schema });
   };
 
-  const addColumn = () => {
-    onChange({
-      ...value,
-      schema: [...value.schema, { name: "", type: "string" }],
-    });
-  };
-  // Open the confirm modal. The actual removal happens in
-  // `confirmRemoveColumn` once the user accepts, and is also responsible
-  // for dropping the same-named column from every connected Mapping
-  // (cross-entity sync lives in `NodeDetailPanel.updateEntity`).
-  const removeColumn = (index: number) => {
-    setColumnToRemove(index);
-  };
-  const confirmRemoveColumn = () => {
-    if (columnToRemove === null) return;
-    onChange({
-      ...value,
-      schema: value.schema.filter((_, i) => i !== columnToRemove),
-    });
-    setColumnToRemove(null);
-  };
-
-  return (
-    <div
-      data-testid="analytic-table-editor"
-      className="flex flex-col gap-3"
-    >
-      <EditorField label="name">
-        <input
-          data-testid="analytic-table-editor-name"
-          className={inputClass()}
-          value={value.name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </EditorField>
-      <EditorField label="output_prefix">
-        <input
-          data-testid="analytic-table-editor-output-prefix"
-          className={inputClass("font-mono")}
-          value={value.output_prefix}
-          onChange={(e) => setOutputPrefix(e.target.value)}
-        />
-      </EditorField>
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-[color:var(--color-ink-3)]">Schema</span>
-          <button
-            type="button"
-            data-testid="analytic-table-editor-add-column"
-            onClick={addColumn}
-            className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-2 py-0.5 text-[11px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
-          >
-            + Add column
-          </button>
-        </div>
-        {value.schema.length === 0 ? (
-          <p className="text-xs text-[color:var(--color-ink-3)]">No columns</p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {value.schema.map((col, i) => (
-              <li
-                key={i}
-                data-testid="analytic-table-editor-column-row"
-                className="rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] p-2"
-              >
-                <div className="flex items-center gap-1.5">
-                  <input
-                    aria-label={`column ${i} name`}
-                    className={inputClass("flex-1 font-mono")}
-                    value={col.name}
-                    onChange={(e) => setColumn(i, { name: e.target.value })}
-                  />
-                  <select
-                    aria-label={`column ${i} type`}
-                    className={inputClass("w-24")}
-                    value={col.type}
-                    onChange={(e) => setColumn(i, { type: e.target.value })}
-                  >
-                    {!KNOWN_COLUMN_TYPES.includes(
-                      col.type as (typeof KNOWN_COLUMN_TYPES)[number],
-                    ) && <option value={col.type}>{col.type}</option>}
-                    {KNOWN_COLUMN_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                  <DeleteButton
-                    label={`remove column ${i}`}
-                    onClick={() => removeColumn(i)}
-                  />
-                </div>
-                <AssertionsSection
-                  index={i}
-                  columnName={col.name || `column ${i}`}
-                  columnType={col.type}
-                  value={col.assertions}
-                  onChange={(patch) => setAssertions(i, patch)}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <InlineErrorList
-        errors={result.errors}
-        testId={ANALYTIC_TABLE_EDITOR_ERROR_TESTID}
-      />
-
-      {columnToRemove !== null ? (
-        <Modal
-          open
-          onClose={() => setColumnToRemove(null)}
-        >
-          <h2 className="text-lg font-semibold text-[color:var(--color-ink)]">Remove column</h2>
-          <p className="mt-2 text-sm text-[color:var(--color-ink-2)]">
-            Remove{" "}
-            <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono text-[12px]">
-              {value.schema[columnToRemove]?.name ||
-                `column ${columnToRemove + 1}`}
-            </code>{" "}
-            from <span className="font-medium">{value.name || "this table"}</span>?
-          </p>
-          <p className="mt-2 text-xs text-[color:var(--color-ink-3)]">
-            It will also be removed from any Mapping that writes to this
-            table. The change is staged in the editor; Save &amp; Publish
-            commits it.
-          </p>
-          <div className="mt-6 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setColumnToRemove(null)}
-              className="rounded-md px-4 py-2 text-sm text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={confirmRemoveColumn}
-              data-testid="analytic-table-editor-confirm-remove-column"
-              className="rounded-md bg-[color:var(--color-rose-deep)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-rose-deep)]"
-            >
-              Remove column
-            </button>
-          </div>
-        </Modal>
-      ) : null}
+  const pathPreview = (
+    <div className="mt-1.5 break-all font-mono text-[10.5px] leading-relaxed text-[color:var(--color-ink-3)]">
+      {value.id}/
+      {partitionKeys.map((k) => (
+        <span key={k}>
+          {k}=<span className="text-[color:var(--color-ink-2)]">{placeholder(typeOf(k))}</span>/
+        </span>
+      ))}
+      {"<mapping>"}.parquet
     </div>
   );
-}
-
-interface AssertionsSectionProps {
-  index: number;
-  columnName: string;
-  columnType: string;
-  value: ColumnAssertions | undefined;
-  onChange: (patch: Partial<ColumnAssertions> | null) => void;
-}
-
-function AssertionsSection({
-  index,
-  columnName,
-  columnType,
-  value,
-  onChange,
-}: AssertionsSectionProps) {
-  const [expanded, setExpanded] = useState<boolean>(
-    () => value !== undefined && !isEmptyAssertions(value),
-  );
-  const hasAny = value !== undefined && !isEmptyAssertions(value);
-  const numeric = isNumericType(columnType);
-
-  const [acceptedText, setAcceptedText] = useState<string>(
-    () => (value?.accepted_values ?? []).join(", "),
-  );
 
   return (
-    <div className="mt-2">
-      <button
-        type="button"
-        onClick={() => setExpanded((e) => !e)}
-        aria-expanded={expanded}
-        aria-label={`toggle assertions for ${columnName}`}
-        data-testid={`analytic-table-editor-assertions-toggle-${index}`}
-        className="flex items-center gap-1 text-[11px] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink-2)]"
+    <div data-testid="analytic-table-editor" className="flex flex-col">
+      <Section label="Name">
+        <input
+          aria-label="table name"
+          className={kvInputClass()}
+          value={value.name}
+          onChange={(e) => onChange({ ...value, name: e.target.value })}
+        />
+      </Section>
+
+      <Section
+        label="Partition keys"
+        action={
+          <LabelButton
+            title="Edit partition keys"
+            testId="edit-partition-keys"
+            active={editingKeys}
+            onClick={() => setEditingKeys((v) => !v)}
+          >
+            <PencilIcon />
+          </LabelButton>
+        }
       >
-        <span>{expanded ? "▾" : "▸"}</span>
-        <span>Assertions</span>
-        {hasAny && (
-          <span className="rounded-full bg-[rgba(108,178,255,0.16)] px-1.5 text-[9px] font-medium text-[#6cb2ff]">
-            {countAssertions(value!)}
-          </span>
-        )}
-      </button>
-      {expanded && (
-        <div className="mt-1.5 flex flex-col gap-1.5 rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-2">
-          <label className="flex items-center gap-1.5 text-[11px] text-[color:var(--color-ink-2)]">
-            <input
-              type="checkbox"
-              aria-label={`column ${index} not_null`}
-              checked={value?.not_null === true}
-              onChange={(e) =>
-                onChange({ not_null: e.target.checked || undefined })
-              }
-            />
-            <span>not null</span>
-          </label>
-          <label className="flex items-center gap-1.5 text-[11px] text-[color:var(--color-ink-2)]">
-            <input
-              type="checkbox"
-              aria-label={`column ${index} unique`}
-              checked={value?.unique === true}
-              onChange={(e) =>
-                onChange({ unique: e.target.checked || undefined })
-              }
-            />
-            <span>unique</span>
-          </label>
-          <label className="flex flex-col gap-0.5 text-[11px] text-[color:var(--color-ink-2)]">
-            <span>accepted values (comma-separated)</span>
-            <input
-              aria-label={`column ${index} accepted_values`}
-              className={inputClass("font-mono")}
-              value={acceptedText}
-              placeholder="FOOD, TRAVEL, SHOPPING"
-              onChange={(e) => setAcceptedText(e.target.value)}
-              onBlur={() => {
-                const parsed = parseCsvList(acceptedText);
-                onChange({ accepted_values: parsed.length ? parsed : undefined });
-              }}
-            />
-          </label>
-          {numeric ? (
-            <div className="flex gap-2">
-              <label className="flex flex-1 flex-col gap-0.5 text-[11px] text-[color:var(--color-ink-2)]">
-                <span>min</span>
-                <input
-                  type="number"
-                  aria-label={`column ${index} min`}
-                  className={inputClass()}
-                  value={value?.min ?? ""}
-                  onChange={(e) =>
-                    onChange({
-                      min: e.target.value === "" ? undefined : Number(e.target.value),
-                    })
-                  }
+        <div data-testid={PARTITION_KEYS_TESTID}>
+          {editingKeys ? (
+            <div className="flex flex-wrap gap-1.5">
+              {partitionKeys.map((k) => (
+                <KeyChip key={k} name={k} onRemove={() => setKeys(partitionKeys.filter((x) => x !== k))} />
+              ))}
+              {partitionKeys.length < MAX_PARTITION_KEYS && (
+                <AddChip
+                  label="Add key"
+                  emptyNote="No eligible columns left"
+                  options={value.schema
+                    .filter(
+                      (c) =>
+                        c.type !== "float64" &&
+                        c.type !== "number" &&
+                        !partitionKeys.includes(c.name),
+                    )
+                    .map((c) => ({ name: c.name, note: c.type }))}
+                  onPick={(name) => setKeys([...partitionKeys, name])}
                 />
-              </label>
-              <label className="flex flex-1 flex-col gap-0.5 text-[11px] text-[color:var(--color-ink-2)]">
-                <span>max</span>
-                <input
-                  type="number"
-                  aria-label={`column ${index} max`}
-                  className={inputClass()}
-                  value={value?.max ?? ""}
-                  onChange={(e) =>
-                    onChange({
-                      max: e.target.value === "" ? undefined : Number(e.target.value),
-                    })
-                  }
-                />
-              </label>
+              )}
             </div>
           ) : (
-            <p className="text-[10px] text-[color:var(--color-ink-3)]">
-              min/max only apply to numeric column types
-            </p>
+            <InspRow label="Keys">{partitionKeys.length ? partitionKeys.join(", ") : "none"}</InspRow>
           )}
-          {hasAny && (
-            <button
-              type="button"
-              onClick={() => {
-                setAcceptedText("");
-                onChange(null);
-              }}
-              className="self-start text-[11px] text-[color:var(--color-rose-deep)] hover:text-[color:var(--color-rose-deep)]"
-            >
-              Clear all assertions
-            </button>
+          {pathPreview}
+        </div>
+      </Section>
+
+      <Section
+        label="Dedup keys"
+        action={
+          <LabelButton
+            title="Edit dedup keys"
+            testId="edit-dedup-keys"
+            active={editingDedup}
+            onClick={() => setEditingDedup((v) => !v)}
+          >
+            <PencilIcon />
+          </LabelButton>
+        }
+      >
+        <div data-testid={DEDUP_KEYS_TESTID}>
+          {editingDedup ? (
+            <div className="flex flex-wrap gap-1.5">
+              {dedupKeys.map((k) => (
+                <KeyChip key={k} name={k} onRemove={() => setDedup(dedupKeys.filter((x) => x !== k))} />
+              ))}
+              <AddChip
+                label="Add key"
+                emptyNote="No columns left"
+                options={value.schema
+                  .filter((c) => !dedupKeys.includes(c.name))
+                  .map((c) => ({ name: c.name, note: c.type }))}
+                onPick={(name) => setDedup([...dedupKeys, name])}
+              />
+            </div>
+          ) : (
+            <InspRow label="Keys">{dedupKeys.length ? dedupKeys.join(", ") : "none"}</InspRow>
           )}
         </div>
-      )}
+      </Section>
+
+      <Section
+        label={
+          <>
+            Schema ({value.schema.length})
+            <LabelButton title="Add column" testId="add-schema-column" onClick={addColumn}>
+              <PlusIcon />
+            </LabelButton>
+          </>
+        }
+        action={<span className="text-[9.5px]">not null</span>}
+        last
+      >
+        <div className="-mx-1.5">
+          {value.schema.map((col, i) => {
+            const numeric = col.type === "int64" || col.type === "float64" || col.type === "number";
+            if (editingRow === i) {
+              return (
+                <div
+                  key={i}
+                  className="my-1 rounded-lg bg-[color:var(--color-surface-2)] p-2"
+                  data-testid="schema-column-editing"
+                >
+                  <div className="flex items-end gap-1.5">
+                    <EditField label="name" className="flex-1">
+                      <input
+                        aria-label={`column ${i} name`}
+                        className={editInputClass("font-mono")}
+                        value={col.name}
+                        onChange={(e) => renameColumn(i, e.target.value)}
+                      />
+                    </EditField>
+                    <EditField label="type">
+                      <select
+                        aria-label={`column ${i} type`}
+                        className={editInputClass("w-[86px]")}
+                        value={col.type}
+                        onChange={(e) => retypeColumn(i, e.target.value)}
+                      >
+                        {!KNOWN_COLUMN_TYPES.includes(col.type as (typeof KNOWN_COLUMN_TYPES)[number]) && (
+                          <option value={col.type}>{col.type}</option>
+                        )}
+                        {KNOWN_COLUMN_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </EditField>
+                    <button
+                      type="button"
+                      aria-label={`delete column ${i}`}
+                      title="Delete column"
+                      onClick={() => deleteColumn(i)}
+                      className="mb-[3px] grid h-6 w-6 flex-none place-items-center rounded-md text-[color:var(--color-ink-3)] hover:bg-white/5 hover:text-[color:var(--color-rose-deep)]"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                  {numeric && (
+                    <div className="mt-2 flex gap-1.5">
+                      <EditField label="min" className="flex-1">
+                        <input
+                          aria-label={`column ${i} min`}
+                          type="number"
+                          className={editInputClass("font-mono")}
+                          value={col.assertions?.min ?? ""}
+                          onChange={(e) =>
+                            setAssertion(i, {
+                              min: e.target.value === "" ? undefined : Number(e.target.value),
+                            })
+                          }
+                        />
+                      </EditField>
+                      <EditField label="max" className="flex-1">
+                        <input
+                          aria-label={`column ${i} max`}
+                          type="number"
+                          className={editInputClass("font-mono")}
+                          value={col.assertions?.max ?? ""}
+                          onChange={(e) =>
+                            setAssertion(i, {
+                              max: e.target.value === "" ? undefined : Number(e.target.value),
+                            })
+                          }
+                        />
+                      </EditField>
+                      <span className="w-6 flex-none" />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setEditingRow(null)}
+                    className="mt-2 text-[10.5px] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
+                  >
+                    Done
+                  </button>
+                </div>
+              );
+            }
+            return (
+              <div
+                key={i}
+                role="button"
+                tabIndex={0}
+                title="Edit column"
+                data-testid="schema-column-row"
+                onClick={() => setEditingRow(i)}
+                onKeyDown={(e) => e.key === "Enter" && setEditingRow(i)}
+                className="flex cursor-pointer items-center gap-2.5 rounded-[7px] px-1.5 py-[5px] hover:bg-white/[0.03]"
+              >
+                <span className="min-w-0 flex-1 truncate font-mono text-xs text-[color:var(--color-ink)]">
+                  {col.name}
+                </span>
+                <span className="text-[11px] text-[color:var(--color-ink-3)]">{col.type}</span>
+                <Switch
+                  on={col.assertions?.not_null === true}
+                  title={`Not null: ${col.name}`}
+                  onToggle={() => setAssertion(i, { not_null: col.assertions?.not_null ? undefined : true })}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-2">
+          <InlineErrorList errors={errors} testId={ANALYTIC_TABLE_EDITOR_ERROR_TESTID} />
+        </div>
+      </Section>
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function isNumericType(type: string): boolean {
-  return type === "number" || type === "int64" || type === "float64";
-}
-
-function parseCsvList(text: string): string[] {
-  return text
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-}
-
-function isEmptyAssertions(a: ColumnAssertions): boolean {
-  return (
-    a.not_null === undefined &&
-    a.unique === undefined &&
-    (a.accepted_values === undefined || a.accepted_values.length === 0) &&
-    a.min === undefined &&
-    a.max === undefined
-  );
-}
-
-function countAssertions(a: ColumnAssertions): number {
-  let n = 0;
-  if (a.not_null) n++;
-  if (a.unique) n++;
-  if (a.accepted_values && a.accepted_values.length > 0) n++;
-  if (a.min !== undefined) n++;
-  if (a.max !== undefined) n++;
-  return n;
-}
-
-function pruneEmptyAssertions(a: ColumnAssertions): ColumnAssertions | null {
-  const cleaned: ColumnAssertions = {};
-  if (a.not_null) cleaned.not_null = true;
-  if (a.unique) cleaned.unique = true;
-  if (a.accepted_values && a.accepted_values.length > 0) {
-    cleaned.accepted_values = a.accepted_values;
-  }
-  if (a.min !== undefined) cleaned.min = a.min;
-  if (a.max !== undefined) cleaned.max = a.max;
-  return isEmptyAssertions(cleaned) ? null : cleaned;
-}
-
-function stripAssertions(c: ColumnSchema): ColumnSchema {
-  const { assertions: _drop, ...rest } = c;
-  return rest;
 }
 
 export default AnalyticTableEditor;

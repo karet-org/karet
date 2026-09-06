@@ -32,6 +32,9 @@ export type AstNode =
   | { kind: "if"; cond: AstNode; then: AstNode; else: AstNode }
   | { kind: "coalesce"; args: AstNode[] }
   | { kind: "parse_date"; input: AstNode; format: string }
+  | { kind: "year"; input: AstNode }
+  | { kind: "month"; input: AstNode }
+  | { kind: "day"; input: AstNode }
   | { kind: "lookup_ref"; lookup_id: string; input: AstNode }
   | { kind: "cast"; input: AstNode; to: CastType };
 
@@ -53,8 +56,6 @@ export interface ColumnSchema {
  */
 export interface ColumnAssertions {
   not_null?: boolean;
-  unique?: boolean;
-  accepted_values?: string[];
   min?: number;
   max?: number;
 }
@@ -98,11 +99,6 @@ export interface LookupCatchAll {
   output: string;
 }
 
-export interface PartitionBy {
-  column: string;
-  granularity: string; // currently "month"
-}
-
 export interface MappingColumn {
   name: string;
   expr: AstNode;
@@ -113,15 +109,17 @@ export interface Mapping {
   name: string;
   source_container_id: string;
   analytic_table_id: string;
-  partition_by?: PartitionBy;
   columns: MappingColumn[];
 }
 
 export interface AnalyticTable {
   id: string;
   name: string;
-  output_prefix: string;
   schema: ColumnSchema[];
+  /** Ordered hive partition keys naming schema columns. Max 2, no floats. */
+  partition_keys?: string[];
+  /** Row-identity columns; duplicate tuples collapse at write time. */
+  dedup_keys?: string[];
 }
 
 export interface LayoutPosition {

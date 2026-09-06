@@ -17,7 +17,7 @@ export const editorTheme = EditorView.theme(
       caretColor: "var(--color-ink)",
       padding: "12px 0",
     },
-    ".cm-line": { padding: "0 16px" },
+    ".cm-line": { padding: "0 16px 0 8px" },
     "&.cm-focused": { outline: "none" },
     ".cm-cursor": { borderLeftColor: "var(--color-ink)" },
     ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
@@ -30,6 +30,10 @@ export const editorTheme = EditorView.theme(
       border: "none",
       fontFamily: "var(--font-mono)",
       fontSize: "11px",
+    },
+    ".cm-lineNumbers .cm-gutterElement": {
+      padding: "0 4px 0 8px",
+      minWidth: "0",
     },
     ".cm-activeLineGutter": {
       backgroundColor: "transparent",

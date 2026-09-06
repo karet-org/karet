@@ -22,7 +22,7 @@ const cfg: PipelineConfig = {
     },
   ],
   analytic_tables: [
-    { id: "tbl1", name: "Tbl", output_prefix: "clean/", schema: [] },
+    { id: "tbl1", name: "Tbl", schema: [] },
   ],
   layout: { src1: { x: 10, y: 20 } },
 };

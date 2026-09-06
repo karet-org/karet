@@ -51,7 +51,6 @@ function baseConfig(): PipelineConfig {
       {
         id: "tbl1",
         name: "Tbl",
-        output_prefix: "clean/",
         schema: [{ name: "c", type: "string" }],
       },
     ],
