@@ -107,7 +107,17 @@ export function DashboardView({
       <div style={gridStyle}>
         {config.panels.map((panel, i) => (
           <div key={i} className="flex min-w-0" style={spanStyle(panel, columns)}>
-            <PanelRenderer panel={panel} result={data?.panels[i]} />
+            <PanelRenderer
+              panel={panel}
+              result={data?.panels[i]}
+              params={params}
+              onEmit={(param, value) =>
+                setParams((prev) => ({
+                  ...prev,
+                  [param]: prev[param] === value ? null : value,
+                }))
+              }
+            />
           </div>
         ))}
       </div>

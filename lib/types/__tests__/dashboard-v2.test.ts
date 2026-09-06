@@ -140,3 +140,37 @@ describe("filterParams", () => {
     expect(filterParams({ name: "a", kind: "dropdown" })).toEqual(["a"]);
   });
 });
+
+describe("emit", () => {
+  const base = `
+version: 2
+id: x
+name: X
+filters:
+  - name: account
+    kind: dropdown
+    options_sql: SELECT 1
+  - name: period
+    kind: date_range
+panels:
+`;
+  it("accepts emit naming a dropdown filter on bar/doughnut", () => {
+    const r = validateDashboardV2(
+      base + "  - kind: doughnut\n    title: T\n    query: SELECT 1 AS a, 2 AS b\n    label: a\n    value: b\n    emit: { param: account }\n",
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  it("rejects emit on unsupported kinds and non-dropdown params", () => {
+    const r = validateDashboardV2(
+      base +
+        "  - kind: kpi\n    title: T\n    query: SELECT 1 AS a\n    value: a\n    emit: { param: account }\n" +
+        "  - kind: bar\n    title: B\n    query: SELECT 1 AS a, 2 AS b\n    x: a\n    y: b\n    emit: { param: period }\n",
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.errors.join()).toMatch(/does not support emit/);
+      expect(r.errors.join()).toMatch(/must name a dropdown filter/);
+    }
+  });
+});
