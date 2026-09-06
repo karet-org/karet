@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { createS3Client, loadS3Config, pipelineS3Config } from "@/lib/config/s3-client";
-import { getDashboardV2 } from "@/lib/services/config-service";
+import { fetchDashboardV2 } from "@/lib/services/dashboard-fetch";
 import DashboardView from "@/components/dashboard/DashboardView";
 
 export const dynamic = "force-dynamic";
@@ -11,10 +10,7 @@ export default async function PipelineDashboardPage({
   params: Promise<{ pipeline: string; name: string }>;
 }) {
   const { pipeline, name } = await params;
-  const cfg = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(cfg);
-
-  const dashboard = await getDashboardV2(client, cfg, name);
+  const dashboard = await fetchDashboardV2(pipeline, name, false);
   if (!dashboard) notFound();
 
   return (

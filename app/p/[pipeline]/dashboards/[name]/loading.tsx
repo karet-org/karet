@@ -1,20 +1,20 @@
-// Shown instantly during navigation while the dashboard's server data
-// (config + parquet rows) loads, so the click feels responsive instead of
-// blocking on a blank screen.
+// Shown instantly on navigation while the dashboard config loads. The
+// config isn't known yet, so this is a generic dashboard-shaped frame;
+// DashboardView's config-derived skeletons take over once it arrives.
+
 export default function DashboardLoading() {
   return (
-    <main className="mx-auto min-h-screen max-w-[1400px] space-y-3 p-3 sm:space-y-4 sm:p-4 lg:p-6">
-      <header className="rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] px-3 py-2 shadow-sm sm:px-4 sm:py-3">
-        <div className="h-5 w-40 animate-pulse rounded bg-[color:var(--color-rule)]" />
-        <div className="mt-1.5 h-3 w-56 animate-pulse rounded bg-[color:var(--color-surface-2)]" />
-      </header>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-48 animate-pulse rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] shadow-sm"
-          />
-        ))}
+    <main className="min-h-screen" aria-busy>
+      <div className="mx-auto max-w-[1400px] space-y-4 p-3 sm:p-4 lg:p-6">
+        <div className="skeleton h-[58px] rounded-[13px]" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="skeleton h-[76px] rounded-[13px]" />
+          ))}
+          {[0, 1].map((i) => (
+            <div key={i} className="skeleton h-[300px] rounded-[13px] md:col-span-3" />
+          ))}
+        </div>
       </div>
     </main>
   );
