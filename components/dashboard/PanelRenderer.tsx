@@ -14,7 +14,82 @@ import SummaryPanel from "./SummaryPanel";
 import TablePanel from "./TablePanel";
 import ChoroplethMapPanel from "./ChoroplethMapPanel";
 import SymbolMapPanel from "./SymbolMapPanel";
-import type { PanelData } from "./types";
+import { chartAreaProps, panelCardClass, type PanelData } from "./types";
+
+/**
+ * Loading placeholder with the same geometry as the rendered panel:
+ * identical card, title row, and area-sizing classes, plus per-kind
+ * intrinsic heights (KPI tile, table rows from page_size, sankey's
+ * fixed height). The data swap then changes pixels, not layout.
+ */
+function PanelSkeleton({ panel }: { panel: PanelV2 }) {
+  const title = (
+    <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{panel.title}</h3>
+  );
+
+  if (panel.kind === "kpi") {
+    return (
+      <div className={`${panelCardClass()} p-3`} aria-busy>
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-[color:var(--color-ink-3)]">
+          {panel.title}
+        </div>
+        <div className="mt-1.5 h-7 w-24 animate-pulse rounded bg-[color:var(--color-surface-2)]" />
+      </div>
+    );
+  }
+
+  if (panel.kind === "summary") {
+    return (
+      <div className={panelCardClass()} aria-busy>
+        {title}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="h-[52px] animate-pulse rounded bg-[color:var(--color-surface-2)]" />
+          <div className="h-[52px] animate-pulse rounded bg-[color:var(--color-surface-2)]" />
+        </div>
+      </div>
+    );
+  }
+
+  if (panel.kind === "table") {
+    const rows = panel.page_size ?? 10;
+    return (
+      <div className={panelCardClass()} aria-busy>
+        {title}
+        <div className="mt-3 flex-1 space-y-[9px] pt-2">
+          {Array.from({ length: Math.min(rows, 15) + 1 }, (_, i) => (
+            <div
+              key={i}
+              className="h-[26px] animate-pulse rounded bg-[color:var(--color-surface-2)]"
+              style={{ opacity: i === 0 ? 0.5 : 1 }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (panel.kind === "sankey") {
+    // Mirrors SankeyPanel: fixed height from grid.maxHeight, else 320px.
+    const h = panel.grid?.maxHeight ?? "320px";
+    return (
+      <div className={panelCardClass()} aria-busy>
+        {title}
+        <div className="mt-3 animate-pulse rounded bg-[color:var(--color-surface-2)]" style={{ height: h }} />
+      </div>
+    );
+  }
+
+  // Chart kinds share the chart-area sizing (aspect / maxHeight / min-h).
+  const area = chartAreaProps(panel);
+  return (
+    <div className={panelCardClass()} aria-busy>
+      {title}
+      <div {...area}>
+        <div className="h-full w-full animate-pulse rounded bg-[color:var(--color-surface-2)]" />
+      </div>
+    </div>
+  );
+}
 
 export function PanelRenderer({
   panel,
@@ -23,13 +98,7 @@ export function PanelRenderer({
   panel: PanelV2;
   result: PanelData | { error: string } | undefined;
 }) {
-  if (!result) {
-    return (
-      <div className="flex flex-1 animate-pulse items-center justify-center rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 text-sm text-[color:var(--color-ink-4)]">
-        Loading…
-      </div>
-    );
-  }
+  if (!result) return <PanelSkeleton panel={panel} />;
   if ("error" in result) {
     return <ErrorPanel title={panel.title} message={result.error} />;
   }
