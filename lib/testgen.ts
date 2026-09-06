@@ -16,7 +16,6 @@ import type {
   LookupRow,
   Mapping,
   MappingColumn,
-  PartitionBy,
   PipelineConfig,
   SourceContainer,
 } from "./types/config";
@@ -111,6 +110,9 @@ export const arbAstNode: fc.Arbitrary<AstNode> = fc.letrec<{
       .tuple(fc.string(), fc.array(tie("node"), { minLength: 0, maxLength: 4 }))
       .map<AstNode>(([sep, args]) => ({ kind: "concat", sep, args })),
     tie("node").map<AstNode>((input) => ({ kind: "upper", input })),
+    tie("node").map<AstNode>((input) => ({ kind: "year", input })),
+    tie("node").map<AstNode>((input) => ({ kind: "month", input })),
+    tie("node").map<AstNode>((input) => ({ kind: "day", input })),
     tie("node").map<AstNode>((input) => ({ kind: "lower", input })),
     tie("node").map<AstNode>((input) => ({ kind: "trim", input })),
     fc
@@ -229,12 +231,6 @@ export const arbLookupMapping: fc.Arbitrary<LookupMapping> = fc.record(
   { requiredKeys: ["id", "rows"] },
 );
 
-/** {@link PartitionBy} with month granularity. */
-export const arbPartitionBy: fc.Arbitrary<PartitionBy> = fc.record({
-  column: arbName,
-  granularity: fc.constant("month"),
-});
-
 /** A single {@link MappingColumn} with a fresh AST expression. */
 export const arbMappingColumn: fc.Arbitrary<MappingColumn> = fc.record({
   name: arbName,
@@ -248,7 +244,6 @@ export const arbMapping: fc.Arbitrary<Mapping> = fc.record(
     name: arbName,
     source_container_id: arbId,
     analytic_table_id: arbId,
-    partition_by: fc.option(arbPartitionBy, { nil: undefined }),
     columns: fc.array(arbMappingColumn, { minLength: 1, maxLength: 5 }),
   },
   {

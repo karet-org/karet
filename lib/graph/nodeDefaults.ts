@@ -349,6 +349,9 @@ export function scrubLookupReferences(
     case "trim":
     case "substring":
     case "parse_date":
+    case "year":
+    case "month":
+    case "day":
     case "cast":
       return { ...node, input: scrubLookupReferences(node.input, lookupId) };
     case "contains":
@@ -402,6 +405,9 @@ function astReferencesLookup(node: AstNode, lookupId: string): boolean {
     case "trim":
     case "substring":
     case "parse_date":
+    case "year":
+    case "month":
+    case "day":
     case "cast":
       return astReferencesLookup(node.input, lookupId);
     case "contains":
@@ -455,6 +461,9 @@ function astReferencesSourceColumn(
     case "trim":
     case "substring":
     case "parse_date":
+    case "year":
+    case "month":
+    case "day":
     case "cast":
       return astReferencesSourceColumn(node.input, columnNames);
     case "contains":

@@ -37,6 +37,12 @@ const CLEANED_DESCRIPTION: AstNode = {
 
 // `cast(col(amount), float64)`. Reused by amount and the inflow/outflow/net
 // derived columns.
+const PARSED_DATE: AstNode = {
+  kind: "parse_date",
+  input: { kind: "col", name: "date" },
+  format: "%Y-%m-%d",
+};
+
 const AMOUNT_FLOAT: AstNode = {
   kind: "cast",
   input: { kind: "col", name: "amount" },
@@ -120,9 +126,8 @@ const spendingPipeline: PipelineConfig = {
       name: "Transactions Mapping",
       source_container_id: "transactions_raw",
       analytic_table_id: "transactions",
-      partition_by: { column: "date", granularity: "month" },
       columns: [
-        { name: "date", expr: { kind: "parse_date", input: { kind: "col", name: "date" }, format: "%Y-%m-%d" } },
+        { name: "date", expr: PARSED_DATE },
         { name: "description", expr: CLEANED_DESCRIPTION },
         // Known merchants get a canonical name; anything else falls
         // back to the cleaned description.
@@ -142,6 +147,8 @@ const spendingPipeline: PipelineConfig = {
           name: "category",
           expr: { kind: "lookup_ref", lookup_id: "categories", input: CLEANED_DESCRIPTION },
         },
+        { name: "year", expr: { kind: "year", input: PARSED_DATE } },
+        { name: "month", expr: { kind: "month", input: PARSED_DATE } },
       ],
     },
   ],
@@ -157,7 +164,10 @@ const spendingPipeline: PipelineConfig = {
         { name: "amount", type: "float64" },
         { name: "account", type: "string" },
         { name: "category", type: "string" },
+        { name: "year", type: "int64" },
+        { name: "month", type: "int64" },
       ],
+      partition_keys: ["year", "month"],
     },
   ],
 };

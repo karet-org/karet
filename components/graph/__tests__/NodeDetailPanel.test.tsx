@@ -2,7 +2,7 @@
 
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, cleanup, fireEvent } from "@testing-library/react";
 import type { GraphNode } from "@/lib/graph/build";
 import { NODE_TYPE } from "@/lib/graph/build";
 import type { Mapping, SourceContainer } from "@/lib/types/config";
@@ -100,6 +100,12 @@ describe("NodeDetailPanel", () => {
       React.createElement(NodeDetailPanel, { node, onEdit }),
     );
 
+    // Column rows render quietly; expand the first row to reach the input.
+    const row = container.querySelector<HTMLButtonElement>(
+      '[data-testid="mapping-column-editor"] button',
+    );
+    expect(row).not.toBeNull();
+    fireEvent.click(row!);
     const exprInput = container.querySelector<HTMLInputElement>(
       'input[aria-label="expression"]',
     );

@@ -444,9 +444,9 @@ export default function PipelineGraphPage() {
 
   // On mobile the detail panel is a full-width fixed overlay, so the canvas
   // stays full-width underneath; only offset it at sm and up.
-  // 420 must match NodeDetailPanel's sm:w-[420px].
+  // 300 must match NodeDetailPanel's sm:w-[300px].
   const canvasClass = selectedNodeValue
-    ? "relative h-full w-full sm:w-[calc(100%-420px)]"
+    ? "relative h-full w-full sm:w-[calc(100%-300px)]"
     : "relative h-full w-full";
   const initial = initialGraphRef.current ?? { nodes: [], edges: [] };
 

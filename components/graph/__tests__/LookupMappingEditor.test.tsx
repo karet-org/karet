@@ -76,10 +76,12 @@ describe("LookupMappingEditor", () => {
   });
 
   it("renders a priority input for each row, reflecting the current value", () => {
-    const { getByLabelText } = renderEditor({
+    const { getByLabelText, getAllByTestId } = renderEditor({
       id: "L",
       rows: [{ input_patterns: ["A"], output: "X", priority: 7 }],
     });
+    // Rows render quietly; the fields appear once the row is opened.
+    fireEvent.click(getAllByTestId("lookup-mapping-editor-row")[0]);
     const input = getByLabelText("row 0 priority") as HTMLInputElement;
     expect(input).not.toBeNull();
     expect(input.value).toBe("7");
@@ -92,7 +94,7 @@ describe("LookupMappingEditor", () => {
       id: "L",
       rows: [{ input_patterns: ["A"], output: "X" }],
     };
-    const { getByLabelText } = render(
+    const { getByLabelText, getAllByTestId } = render(
       React.createElement(LookupMappingEditor, {
         value,
         onChange: (next: LookupMapping) => {
@@ -100,6 +102,7 @@ describe("LookupMappingEditor", () => {
         },
       }),
     );
+    fireEvent.click(getAllByTestId("lookup-mapping-editor-row")[0]);
     fireEvent.change(getByLabelText("row 0 priority"), {
       target: { value: "5" },
     });
