@@ -1,13 +1,7 @@
 "use client";
 
-// Bar panel. Two shapes:
-//   - Without `x_bin`: top-N horizontal bars (`indexAxis: "y"`),
-//     sorted by aggregated value descending, optional `limit`.
-//   - With `x_bin`: vertical bars over `binDate(group_by, x_bin)`,
-//     sorted chronologically, no `limit`.
-//
-// Both forms emit cross-filter clicks; the binned form passes `x_bin`
-// so DashboardView matches rows by `binDate`.
+// Bar panel: x/y bound columns, optional series pivot, optional
+// horizontal orientation.
 
 import {
   BarElement,
@@ -19,126 +13,43 @@ import {
   Tooltip,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
-import type { Panel } from "@/lib/types/dashboard";
-import { CHART_ACCENT, CHART_PALETTE } from "@/lib/dashboard/palette";
-import { resolveValue } from "@/lib/dashboard/evalValue";
-import { aggregateValues, binDate, groupAndAggregate } from "./aggregate";
-import { chartAreaProps, type CrossFilterProps, type PanelProps } from "./types";
+import type { PanelV2 } from "@/lib/types/dashboard-v2";
+import { CHART_PALETTE } from "@/lib/dashboard/palette";
+import { toNum } from "@/lib/dashboard/format";
+import { pivotSeries } from "./series";
+import { chartAreaProps, panelCardClass, type PanelProps } from "./types";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-type BarPanelConfig = Extract<Panel, { kind: "bar" }>;
+type BarConfig = Extract<PanelV2, { kind: "bar" }>;
 
-/** `(labels, values)` pair derived from `rows` per the panel config. */
-function computeData(
-  rows: Record<string, unknown>[],
-  config: BarPanelConfig,
-): { labels: string[]; values: number[] } {
-  if (config.x_bin) {
-    const buckets = new Map<string, number[]>();
-    for (const row of rows) {
-      const key = binDate(row[config.group_by], config.x_bin);
-      const v = resolveValue(row, config.value) ?? 0;
-      const bucket = buckets.get(key);
-      if (bucket) bucket.push(v);
-      else buckets.set(key, [v]);
-    }
-    const labels = Array.from(buckets.keys()).sort();
-    const values = labels.map((k) =>
-      aggregateValues(buckets.get(k) ?? [], config.agg),
-    );
-    return { labels, values };
-  }
-  const totals = groupAndAggregate(rows, config.group_by, config.value, config.agg);
-  const entries = Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
-  const limited =
-    typeof config.limit === "number" && config.limit > 0
-      ? entries.slice(0, config.limit)
-      : entries;
-  return {
-    labels: limited.map(([k]) => k),
-    values: limited.map(([, v]) => v),
-  };
-}
+export function BarPanel({ config, data }: PanelProps<BarConfig>) {
+  const { labels, datasets } = pivotSeries(data.rows, config.x, config.y, config.series);
 
-export function BarPanel({
-  config,
-  rows,
-  onFilter,
-  activeFilter,
-}: PanelProps<BarPanelConfig> & CrossFilterProps) {
-  const { labels, values } = computeData(rows, config);
-
-  // Only treat the active filter as ours when both column and bin
-  // shape match. A doughnut filter on `category` shouldn't dim a
-  // bar grouped by `merchant` or binned by month.
-  const isFiltered =
-    activeFilter !== null &&
-    activeFilter !== undefined &&
-    activeFilter.column === config.group_by &&
-    activeFilter.bin === config.x_bin;
-
-  const data = {
+  const chartData = {
     labels,
-    datasets: [
-      {
-        label: config.title,
-        data: values,
-        backgroundColor: labels.map((label, i) => {
-          const base = CHART_PALETTE[i % CHART_PALETTE.length];
-          if (isFiltered && label !== activeFilter!.value) return base + "33";
-          return base;
-        }),
-        borderWidth: labels.map((label) =>
-          isFiltered && label === activeFilter!.value ? 3 : 1,
-        ),
-        borderColor: labels.map((label) =>
-          isFiltered && label === activeFilter!.value ? CHART_ACCENT : "transparent",
-        ),
-      },
-    ],
+    datasets: datasets.map((d, i) => ({
+      label: d.name ?? config.title,
+      data: d.values,
+      backgroundColor:
+        datasets.length > 1
+          ? CHART_PALETTE[i % CHART_PALETTE.length]
+          : labels.map((_, j) => CHART_PALETTE[j % CHART_PALETTE.length]),
+    })),
   };
 
   const options = {
-    indexAxis: config.x_bin ? ("x" as const) : ("y" as const),
+    indexAxis: config.horizontal ? ("y" as const) : ("x" as const),
     responsive: true,
     maintainAspectRatio: false,
-    onClick: (_event: unknown, elements: { index: number }[]) => {
-      if (elements.length > 0 && onFilter) {
-        const label = labels[elements[0].index];
-        if (label) onFilter(config.group_by, label, config.x_bin);
-      }
-    },
-    onHover: (event: { native: Event | null }, elements: unknown[]) => {
-      const target = event.native?.target as HTMLElement | null;
-      if (target) target.style.cursor = elements.length > 0 ? "pointer" : "default";
-    },
-    plugins: {
-      legend: { display: false },
-    },
-    scales: config.x_bin
-      ? {
-          x: { grid: { display: false } },
-          y: { beginAtZero: true },
-        }
-      : {
-          x: { beginAtZero: true },
-          y: { grid: { display: false } },
-        },
+    plugins: { legend: { display: datasets.length > 1 } },
+    scales: config.horizontal
+      ? { x: { beginAtZero: true }, y: { grid: { display: false } } }
+      : { x: { grid: { display: false } }, y: { beginAtZero: true } },
   };
 
   return (
-    <div
-      data-testid="bar-panel"
-      className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm"
-    >
+    <div data-testid="bar-panel" className={panelCardClass()}>
       <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
       <div {...chartAreaProps(config)}>
         {labels.length === 0 ? (
@@ -146,7 +57,7 @@ export function BarPanel({
             No data
           </div>
         ) : (
-          <Bar data={data} options={options} />
+          <Bar data={chartData} options={options} />
         )}
       </div>
     </div>
@@ -154,3 +65,4 @@ export function BarPanel({
 }
 
 export default BarPanel;
+export { toNum };

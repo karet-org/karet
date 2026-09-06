@@ -1,7 +1,6 @@
 "use client";
 
-// Line panel: bins rows by `x` (optionally via `x_bin`), aggregates `y`,
-// renders a Chart.js Line. Read-only.
+// Line panel: x/y bound columns, optional series pivot.
 
 import {
   CategoryScale,
@@ -14,84 +13,40 @@ import {
   Tooltip,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
-import type { Panel } from "@/lib/types/dashboard";
-import { applyWhere } from "@/lib/dashboard/evalWhere";
-import { resolveValue } from "@/lib/dashboard/evalValue";
-import { aggregateValues, binDate, previousPeriodLabel, runningTotal } from "./aggregate";
-import { chartAreaProps, type PanelProps } from "./types";
+import type { PanelV2 } from "@/lib/types/dashboard-v2";
+import { CHART_PALETTE } from "@/lib/dashboard/palette";
+import { pivotSeries } from "./series";
+import { chartAreaProps, panelCardClass, type PanelProps } from "./types";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-);
+ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Title, Tooltip, Legend);
 
-type LinePanelConfig = Extract<Panel, { kind: "line" }>;
+type LineConfig = Extract<PanelV2, { kind: "line" }>;
 
-export function LinePanel({ config, rows }: PanelProps<LinePanelConfig>) {
-  const scopedRows = applyWhere(rows, config.where);
-  const buckets = new Map<string, number[]>();
-  for (const row of scopedRows) {
-    const key = binDate(row[config.x], config.x_bin);
-    const y = resolveValue(row, config.y) ?? 0;
-    const bucket = buckets.get(key);
-    if (bucket) bucket.push(y);
-    else buckets.set(key, [y]);
-  }
-  const sortedLabels = Array.from(buckets.keys()).sort();
-  const aggregated = sortedLabels.map((k) =>
-    aggregateValues(buckets.get(k) ?? [], config.agg),
-  );
+export function LinePanel({ config, data }: PanelProps<LineConfig>) {
+  const { labels, datasets } = pivotSeries(data.rows, config.x, config.y, config.series);
 
-  let labels = sortedLabels;
-  let values: number[];
-  if (config.cumulative) {
-    // Anchor at 0 on the period before the first bucket so the curve reads as growth.
-    const totals = runningTotal(aggregated);
-    if (sortedLabels.length > 0) {
-      labels = [previousPeriodLabel(sortedLabels[0], config.x_bin), ...sortedLabels];
-      values = [0, ...totals];
-    } else {
-      values = totals;
-    }
-  } else {
-    values = aggregated;
-  }
-
-  const data = {
+  const chartData = {
     labels,
-    datasets: [
-      {
-        label: config.title,
-        data: values,
-        borderColor: "#ff6b35",
-        backgroundColor: "rgba(255, 107, 53, 0.2)",
-        tension: 0.3,
-      },
-    ],
+    datasets: datasets.map((d, i) => ({
+      label: d.name ?? config.title,
+      data: d.values,
+      borderColor: CHART_PALETTE[i % CHART_PALETTE.length],
+      backgroundColor: CHART_PALETTE[i % CHART_PALETTE.length],
+      pointRadius: labels.length > 60 ? 0 : 2,
+      tension: 0.25,
+      spanGaps: true,
+    })),
   };
 
   const options = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-    },
-    scales: {
-      x: { grid: { display: false } },
-      y: { beginAtZero: true },
-    },
+    plugins: { legend: { display: datasets.length > 1 } },
+    scales: { x: { grid: { display: false } }, y: { beginAtZero: false } },
   };
 
   return (
-    <div
-      data-testid="line-panel"
-      className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm"
-    >
+    <div data-testid="line-panel" className={panelCardClass()}>
       <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
       <div {...chartAreaProps(config)}>
         {labels.length === 0 ? (
@@ -99,7 +54,7 @@ export function LinePanel({ config, rows }: PanelProps<LinePanelConfig>) {
             No data
           </div>
         ) : (
-          <Line data={data} options={options} />
+          <Line data={chartData} options={options} />
         )}
       </div>
     </div>

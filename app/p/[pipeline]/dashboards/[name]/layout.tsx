@@ -1,8 +1,5 @@
 import { createS3Client, loadS3Config, pipelineS3Config } from "@/lib/config/s3-client";
-import {
-  getDashboard,
-  getDraftDashboard,
-} from "@/lib/services/config-service";
+import { getDashboardV2 } from "@/lib/services/config-service";
 import DashboardTopBar from "@/components/dashboard/DashboardTopBar";
 
 export default async function DashboardLayout({
@@ -19,19 +16,14 @@ export default async function DashboardLayout({
   // Title: published name, else draft name, else the id.
   let title = name;
   let isDraft = false;
-  const published = await getDashboard(client, cfg, name).catch(() => null);
+  const published = await getDashboardV2(client, cfg, name).catch(() => null);
   if (published) {
-    title = published.name?.trim() || name;
+    title = published.config?.name?.trim() || name;
   } else {
-    const draft = await getDraftDashboard(client, cfg, name).catch(() => null);
+    const draft = await getDashboardV2(client, cfg, name, { draft: true }).catch(() => null);
     if (draft !== null) {
       isDraft = true;
-      try {
-        const parsed = JSON.parse(draft) as { name?: string };
-        title = parsed.name?.trim() || name;
-      } catch {
-        // Unparseable draft keeps the id as its title.
-      }
+      title = draft.config?.name?.trim() || name;
     }
   }
 

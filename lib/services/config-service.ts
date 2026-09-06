@@ -17,7 +17,6 @@ import {
 } from "@aws-sdk/client-s3";
 import { allBuckets, type S3Config } from "../config/s3-client";
 import type { PipelineConfig } from "../types/config";
-import type { DashboardConfig } from "../types/dashboard";
 import type { SavedQuery } from "../types/query";
 import { listAllObjectKeys, readBodyToBuffer } from "./s3-helpers";
 
@@ -203,22 +202,6 @@ export async function putPipelineConfig(
 // Dashboards
 // ---------------------------------------------------------------------------
 
-/** Lists dashboard config file stems (name without `.json`). */
-export async function listDashboards(
-  client: S3Client,
-  config: S3Config,
-): Promise<string[]> {
-  const allKeys = await listAllObjectKeys(client, config.pipelinesBucket, config.dashboardsPrefix);
-  const names: string[] = [];
-  for (const key of allKeys) {
-    if (!key.endsWith(".json")) continue;
-    const rel = key.slice(config.dashboardsPrefix.length);
-    // Skip nested keys (e.g. `dashboards/subdir/x.json`).
-    if (rel.includes("/")) continue;
-    names.push(rel.slice(0, -".json".length));
-  }
-  return names;
-}
 
 /** A dashboard's stem id plus its display name. */
 export interface DashboardListing {
@@ -226,45 +209,7 @@ export interface DashboardListing {
   name: string;
 }
 
-/** Lists dashboards with display names, falling back to the id, sorted by name. */
-export async function listDashboardsWithNames(
-  client: S3Client,
-  config: S3Config,
-): Promise<DashboardListing[]> {
-  const ids = await listDashboards(client, config);
-  const listings = await Promise.all(
-    ids.map(async (id): Promise<DashboardListing> => {
-      try {
-        const dash = await getDashboard(client, config, id);
-        const name = dash?.name?.trim();
-        return { id, name: name && name.length > 0 ? name : id };
-      } catch {
-        return { id, name: id };
-      }
-    }),
-  );
-  listings.sort((a, b) => a.name.localeCompare(b.name));
-  return listings;
-}
 
-/** Reads a dashboard by stem. Returns `null` when missing. */
-export async function getDashboard(
-  client: S3Client,
-  config: S3Config,
-  name: string,
-): Promise<DashboardConfig | null> {
-  const key = `${config.dashboardsPrefix}${name}.json`;
-  try {
-    const response = await client.send(
-      new GetObjectCommand({ Bucket: config.pipelinesBucket, Key: key }),
-    );
-    const body = await streamToString(response.Body);
-    return JSON.parse(body) as DashboardConfig;
-  } catch (err) {
-    if (isNotFound(err)) return null;
-    throw err;
-  }
-}
 
 // --- v2 (YAML) dashboard storage. v1 JSON functions below are removed at
 // the top of the v2 stack. ---
@@ -407,96 +352,6 @@ export async function publishDashboardV2(
         Bucket: config.pipelinesBucket,
         Key: yamlKey(config, id, true),
       }),
-    );
-  } catch (err) {
-    if (!isNotFound(err)) throw err;
-  }
-}
-
-/** Drafts live under `dashboards/drafts/`, invisible to listDashboards. */
-function draftKey(config: S3Config, id: string): string {
-  return `${config.dashboardsPrefix}drafts/${id}.json`;
-}
-
-function publishedKey(config: S3Config, id: string): string {
-  return `${config.dashboardsPrefix}${id}.json`;
-}
-
-/** Reads a draft dashboard body. Returns `null` when missing. */
-export async function getDraftDashboard(
-  client: S3Client,
-  config: S3Config,
-  id: string,
-): Promise<string | null> {
-  try {
-    const response = await client.send(
-      new GetObjectCommand({ Bucket: config.pipelinesBucket, Key: draftKey(config, id) }),
-    );
-    return await streamToString(response.Body);
-  } catch (err) {
-    if (isNotFound(err)) return null;
-    throw err;
-  }
-}
-
-/** Lists draft dashboard ids. */
-export async function listDraftDashboards(
-  client: S3Client,
-  config: S3Config,
-): Promise<string[]> {
-  const prefix = `${config.dashboardsPrefix}drafts/`;
-  const allKeys = await listAllObjectKeys(client, config.pipelinesBucket, prefix);
-  return allKeys
-    .filter((k) => k.endsWith(".json") && !k.slice(prefix.length).includes("/"))
-    .map((k) => k.slice(prefix.length, -".json".length));
-}
-
-/** Writes a dashboard body, as a draft or directly to the published key. */
-export async function putDashboard(
-  client: S3Client,
-  config: S3Config,
-  id: string,
-  body: string,
-  opts: { draft: boolean },
-): Promise<void> {
-  await client.send(
-    new PutObjectCommand({
-      Bucket: config.pipelinesBucket,
-      Key: opts.draft ? draftKey(config, id) : publishedKey(config, id),
-      Body: body,
-      ContentType: "application/json",
-    }),
-  );
-}
-
-/** Deletes a dashboard (both the draft and published objects, if present). */
-export async function deleteDashboard(
-  client: S3Client,
-  config: S3Config,
-  id: string,
-): Promise<void> {
-  for (const key of [draftKey(config, id), publishedKey(config, id)]) {
-    try {
-      await client.send(
-        new DeleteObjectCommand({ Bucket: config.pipelinesBucket, Key: key }),
-      );
-    } catch (err) {
-      if (!isNotFound(err)) throw err;
-    }
-  }
-}
-
-/** Copies a validated draft body to the published key, removes the draft. */
-export async function publishDashboard(
-  client: S3Client,
-  config: S3Config,
-  id: string,
-  body: string,
-): Promise<void> {
-  await putDashboard(client, config, id, body, { draft: false });
-  try {
-    await client.send(
-      new DeleteObjectCommand({ Bucket: config.pipelinesBucket, Key: draftKey(config, id) }),
     );
   } catch (err) {
     if (!isNotFound(err)) throw err;

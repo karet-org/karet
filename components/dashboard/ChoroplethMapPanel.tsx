@@ -23,12 +23,11 @@ import {
   ProjectionScale,
 } from "chartjs-chart-geo";
 import type { Feature, Geometry } from "geojson";
-import type { Panel } from "@/lib/types/dashboard";
+import type { PanelV2 } from "@/lib/types/dashboard-v2";
 import { resolveCountry } from "@/lib/dashboard/iso3166";
 import { useWorldAtlas } from "@/lib/dashboard/worldAtlas";
 import { formatValue, toNum } from "@/lib/dashboard/format";
-import { aggregateValues } from "./aggregate";
-import { chartAreaProps, type PanelProps, type CrossFilterProps } from "./types";
+import { chartAreaProps, panelCardClass, type PanelProps } from "./types";
 
 ChartJS.register(
   ChoroplethController,
@@ -39,16 +38,11 @@ ChartJS.register(
   Legend,
 );
 
-type ChoroplethMapPanelConfig = Extract<Panel, { kind: "choropleth_map" }>;
+type ChoroplethMapPanelConfig = Extract<PanelV2, { kind: "choropleth_map" }>;
 
 type CountryFeature = Feature<Geometry, { name: string }>;
 
-export function ChoroplethMapPanel({
-  config,
-  rows,
-  onFilter,
-  activeFilter,
-}: PanelProps<ChoroplethMapPanelConfig> & CrossFilterProps) {
+export function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfig>) {
   const atlas = useWorldAtlas();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<ChartJS<"choropleth"> | null>(null);
@@ -62,8 +56,8 @@ export function ChoroplethMapPanel({
     const buckets = new Map<string, number[]>();
     const originals = new Map<string, string>();
     let unresolved = 0;
-    for (const row of rows) {
-      const raw = row[config.country];
+    for (const row of data.rows) {
+      const raw = row[config.region];
       const entry = resolveCountry(raw);
       if (!entry) {
         if (raw != null) unresolved++;
@@ -71,12 +65,7 @@ export function ChoroplethMapPanel({
       }
       const key = entry.numeric.replace(/^0+/, "");
       const bucket = buckets.get(key) ?? [];
-      if (config.value) {
-        const v = toNum(row[config.value]);
-        bucket.push(v ?? 0);
-      } else {
-        bucket.push(1);
-      }
+      bucket.push(toNum(row[config.value]) ?? 0);
       buckets.set(key, bucket);
       // Remember the first raw form we saw so cross-filter clicks pass
       // back something the dashboard's filter can match against.
@@ -85,17 +74,17 @@ export function ChoroplethMapPanel({
       }
     }
     const aggregated = new Map<string, number>();
-    for (const [k, vs] of buckets) aggregated.set(k, aggregateValues(vs, config.agg));
+    for (const [k, vs] of buckets) aggregated.set(k, vs.reduce((a, b) => a + b, 0));
     originalCountryByNumeric.current = originals;
     // Build one data point per atlas feature. Features without data get
     // value 0 so the color scale still paints them in a "zero" shade.
-    const data = atlas.features.map((f) => {
+    const points = atlas.features.map((f) => {
       const key = f.id != null ? String(f.id).replace(/^0+/, "") : "";
       const value = key ? aggregated.get(key) ?? 0 : 0;
       return { feature: f as CountryFeature, value };
     });
-    return { chartData: data, unresolved };
-  }, [atlas, rows, config.country, config.value, config.agg]);
+    return { chartData: points, unresolved };
+  }, [atlas, data.rows, config.region, config.value]);
 
   // Create / recreate the chart when atlas or data changes.
   useEffect(() => {
@@ -105,10 +94,7 @@ export function ChoroplethMapPanel({
     // existing choropleth cleanly.
     chartRef.current?.destroy();
 
-    const active = activeFilter && activeFilter.column === config.country;
-    const activeNumeric = active
-      ? resolveCountry(activeFilter.value)?.numeric.replace(/^0+/, "") ?? null
-      : null;
+    const activeNumeric: string | null = null;
 
     const chartCfg: ChartConfiguration<"choropleth"> = {
       type: "choropleth",
@@ -169,21 +155,6 @@ export function ChoroplethMapPanel({
             legend: { position: "bottom-right", align: "bottom" },
           },
         },
-        onClick: (_evt, elements) => {
-          if (!onFilter || elements.length === 0) return;
-          const el = elements[0];
-          const raw = chartData[el.index];
-          if (!raw) return;
-          const key = raw.feature.id != null
-            ? String(raw.feature.id).replace(/^0+/, "")
-            : "";
-          const original = originalCountryByNumeric.current.get(key);
-          if (original) onFilter(config.country, original);
-        },
-        onHover: (event, elements) => {
-          const target = event.native?.target as HTMLElement | null;
-          if (target) target.style.cursor = elements.length > 0 ? "pointer" : "default";
-        },
       },
     };
     chartRef.current = new ChartJS(canvasRef.current, chartCfg);
@@ -191,14 +162,7 @@ export function ChoroplethMapPanel({
       chartRef.current?.destroy();
       chartRef.current = null;
     };
-  }, [
-    atlas,
-    chartData,
-    config.title,
-    config.country,
-    onFilter,
-    activeFilter,
-  ]);
+  }, [atlas, chartData, config.title, config.region]);
 
   return (
     <div className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm">

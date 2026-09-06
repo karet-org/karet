@@ -11,16 +11,35 @@ import {
   type SankeyLink as D3Link,
   type SankeyNode as D3Node,
 } from "d3-sankey";
-import type { Panel } from "@/lib/types/dashboard";
-import { CHART_ACCENT, CHART_PALETTE } from "@/lib/dashboard/palette";
-import { aggregateSankey } from "./aggregateSankey";
-import type { CrossFilterProps, PanelProps } from "./types";
+import type { PanelV2 } from "@/lib/types/dashboard-v2";
+import { CHART_PALETTE } from "@/lib/dashboard/palette";
+import { toNum } from "@/lib/dashboard/format";
+import type { PanelProps } from "./types";
 
-type SankeyPanelConfig = Extract<Panel, { kind: "sankey" }>;
+type SankeyPanelConfig = Extract<PanelV2, { kind: "sankey" }>;
+
+/** Would adding from->to close a cycle? d3-sankey requires a DAG. */
+function wouldCreateCycle(
+  links: { from: string; to: string }[],
+  from: string,
+  to: string,
+): boolean {
+  const reachable = new Set([to]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const l of links) {
+      if (reachable.has(l.from) && !reachable.has(l.to)) {
+        reachable.add(l.to);
+        grew = true;
+      }
+    }
+  }
+  return reachable.has(from);
+}
 
 interface NodeDatum {
   name: string;
-  columnHint?: number;
 }
 
 interface LinkDatum {
@@ -48,23 +67,11 @@ function colorFor(key: string): string {
   return CHART_PALETTE[Math.abs(h) % CHART_PALETTE.length];
 }
 
-function displayName(
-  name: string,
-  labels: Record<string, string> | undefined,
-): string {
-  return labels?.[name] ?? name;
-}
-
 type Hover =
   | { kind: "node"; name: string; value: number; x: number; y: number }
   | { kind: "link"; from: string; to: string; value: number; x: number; y: number };
 
-export function SankeyPanel({
-  config,
-  rows,
-  onFilter,
-  activeFilter,
-}: PanelProps<SankeyPanelConfig> & CrossFilterProps) {
+export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hover, setHover] = useState<Hover | null>(null);
@@ -86,7 +93,24 @@ export function SankeyPanel({
 
   // d3-sankey mutates its input; recompute every render.
   const computed = useMemo(() => {
-    const { links, columns, nodeColumns } = aggregateSankey(rows, config.flows);
+    // One link per result row: source/target/value bound columns.
+    // Duplicate edges sum; self-links and cycle-closers are skipped.
+    const sums = new Map<string, { from: string; to: string; flow: number }>();
+    for (const row of data.rows) {
+      const from = String(row[config.source] ?? "");
+      const to = String(row[config.target] ?? "");
+      const flow = toNum(row[config.value]);
+      if (!from || !to || flow === null || flow <= 0) continue;
+      const key = `${from}\u0000${to}`;
+      const cur = sums.get(key);
+      if (cur) cur.flow += flow;
+      else sums.set(key, { from, to, flow });
+    }
+    const links: { from: string; to: string; flow: number }[] = [];
+    for (const l of sums.values()) {
+      if (l.from === l.to || wouldCreateCycle(links, l.from, l.to)) continue;
+      links.push(l);
+    }
     if (links.length === 0) return null;
 
     const indexByName = new Map<string, number>();
@@ -96,7 +120,7 @@ export function SankeyPanel({
       if (i === undefined) {
         i = nodes.length;
         indexByName.set(name, i);
-        nodes.push({ name, columnHint: columns[name] });
+        nodes.push({ name });
       }
       return i;
     };
@@ -107,27 +131,14 @@ export function SankeyPanel({
       value: l.flow,
     }));
 
-    const columnByIndex = nodes.map((n) => n.columnHint ?? -1);
-    const maxCol = Math.max(0, ...columnByIndex);
-
+    // Column placement follows flow topology: sources left, sinks right.
     const sankeyGen = d3Sankey<NodeDatum, LinkDatum>()
       .nodeWidth(NODE_WIDTH)
       .nodePadding(NODE_PADDING)
       .extent([
         [LABEL_PAD_LEFT, PADDING],
         [Math.max(renderWidth - LABEL_PAD_RIGHT, LABEL_PAD_LEFT + 100), height - PADDING],
-      ])
-      .nodeAlign((node) => {
-        const idx = (node as D3Node<NodeDatum, LinkDatum>).index;
-        const hint = idx !== undefined ? columnByIndex[idx] : -1;
-        if (hint >= 0) return hint;
-        const n = node as D3Node<NodeDatum, LinkDatum>;
-        const hasInflow = (n.targetLinks?.length ?? 0) > 0;
-        const hasOutflow = (n.sourceLinks?.length ?? 0) > 0;
-        if (!hasInflow) return 0;
-        if (!hasOutflow) return maxCol;
-        return Math.floor(maxCol / 2);
-      });
+      ]);
 
     // Guard the layout: d3-sankey throws "circular link" on any cycle.
     try {
@@ -135,22 +146,12 @@ export function SankeyPanel({
         nodes: nodes.map((n) => ({ ...n })),
         links: linkData.map((l) => ({ ...l })),
       });
-      // Re-pin each node's x to its declared column. d3-sankey collapses
-      // disjoint chains into too few columns, stacking nodes vertically.
-      const left = LABEL_PAD_LEFT;
-      const right = Math.max(renderWidth - LABEL_PAD_RIGHT, LABEL_PAD_LEFT + 100);
-      const colSpacing = maxCol > 0 ? (right - left - NODE_WIDTH) / maxCol : 0;
-      for (const node of graph.nodes) {
-        const col = node.columnHint ?? 0;
-        node.x0 = left + col * colSpacing;
-        node.x1 = node.x0 + NODE_WIDTH;
-      }
-      return { graph, nodeColumns };
+      return { graph };
     } catch (err) {
       console.warn("Sankey layout failed; rendering empty panel:", err);
       return null;
     }
-  }, [rows, config.flows, renderWidth, height]);
+  }, [data.rows, config.source, config.target, config.value, renderWidth, height]);
 
   return (
     <div
@@ -171,16 +172,12 @@ export function SankeyPanel({
           <>
             <SankeySvg
               layout={computed.graph}
-              nodeColumns={computed.nodeColumns}
               width={renderWidth}
               height={height}
-              labels={config.labels}
-              activeFilter={activeFilter ?? null}
-              onFilter={onFilter}
               onHover={setHover}
             />
             {hover ? (
-              <SankeyTooltip hover={hover} labels={config.labels} containerWidth={renderWidth} />
+              <SankeyTooltip hover={hover} containerWidth={renderWidth} />
             ) : null}
           </>
         )}
@@ -191,62 +188,23 @@ export function SankeyPanel({
 
 function SankeySvg({
   layout,
-  nodeColumns,
   width,
   height,
-  labels,
-  activeFilter,
-  onFilter,
   onHover,
 }: {
   layout: SankeyGraph<NodeDatum, LinkDatum>;
-  nodeColumns: Record<string, string>;
   width: number;
   height: number;
-  labels: Record<string, string> | undefined;
-  activeFilter: { column: string; value: string } | null;
-  onFilter?: (column: string, value: string) => void;
   onHover: (h: Hover | null) => void;
 }) {
   const linkPath = sankeyLinkHorizontal<NodeDatum, LinkDatum>();
   const midX = width / 2;
 
-  const filterColumns = new Set(Object.values(nodeColumns));
-  const isFiltered =
-    activeFilter !== null && filterColumns.has(activeFilter.column);
+  const isFiltered = false;
 
-  let activeIdx = -1;
+  const activeIdx = -1;
   const litNodes = new Set<number>();
   const litLinks = new Set<number>();
-  if (isFiltered) {
-    for (const n of layout.nodes) {
-      if (
-        n.name === activeFilter.value &&
-        nodeColumns[n.name] === activeFilter.column
-      ) {
-        activeIdx = n.index ?? -1;
-        break;
-      }
-    }
-    if (activeIdx >= 0) {
-      litNodes.add(activeIdx);
-      layout.links.forEach((l, i) => {
-        const src = (l.source as D3Node<NodeDatum, LinkDatum>).index ?? -1;
-        const tgt = (l.target as D3Node<NodeDatum, LinkDatum>).index ?? -1;
-        if (src === activeIdx || tgt === activeIdx) {
-          litLinks.add(i);
-          litNodes.add(src);
-          litNodes.add(tgt);
-        }
-      });
-    }
-  }
-
-  const handleNodeClick = (name: string) => {
-    if (!onFilter) return;
-    const col = nodeColumns[name];
-    if (col) onFilter(col, name);
-  };
 
   return (
     <svg
@@ -313,7 +271,6 @@ function SankeySvg({
           const labelOnRight = (x0 + x1) / 2 < midX;
           const lit = !isFiltered || litNodes.has(i);
           const isActive = i === activeIdx;
-          const clickable = onFilter !== undefined && nodeColumns[n.name] !== undefined;
           return (
             <g key={`node-${i}`}>
               <rect
@@ -322,11 +279,9 @@ function SankeySvg({
                 width={Math.max(0, x1 - x0)}
                 height={Math.max(0, y1 - y0)}
                 fill={colorFor(n.name)}
-                stroke={isActive ? CHART_ACCENT : "rgba(0,0,0,0.2)"}
-                strokeWidth={isActive ? 2 : 1}
+                stroke={isActive ? "transparent" : "rgba(0,0,0,0.2)"}
+                strokeWidth={1}
                 opacity={lit ? 1 : DIM_OPACITY}
-                style={{ cursor: clickable ? "pointer" : "default" }}
-                onClick={() => handleNodeClick(n.name)}
                 onMouseMove={(e) =>
                   onHover({
                     kind: "node",
@@ -347,7 +302,7 @@ function SankeySvg({
                 opacity={lit ? 1 : DIM_OPACITY}
                 style={{ pointerEvents: "none" }}
               >
-                {displayName(n.name, labels)}
+                {n.name}
               </text>
             </g>
           );
@@ -359,17 +314,15 @@ function SankeySvg({
 
 function SankeyTooltip({
   hover,
-  labels,
   containerWidth,
 }: {
   hover: Hover;
-  labels: Record<string, string> | undefined;
   containerWidth: number;
 }) {
   const text =
     hover.kind === "node"
-      ? `${displayName(hover.name, labels)}: ${hover.value.toLocaleString()}`
-      : `${displayName(hover.from, labels)} → ${displayName(hover.to, labels)}: ${hover.value.toLocaleString()}`;
+      ? `${hover.name}: ${hover.value.toLocaleString()}`
+      : `${hover.from} to ${hover.to}: ${hover.value.toLocaleString()}`;
 
   const flip = hover.x > containerWidth - 200;
   const style: React.CSSProperties = flip

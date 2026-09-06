@@ -6,10 +6,10 @@
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import JsonEditor from "@/components/dashboard/JsonEditor";
+import CodeEditor from "@/components/dashboard/CodeEditor";
 import Modal from "@/components/ui/Modal";
 import { TOPBAR_ACTIONS_ID } from "@/components/dashboard/DashboardTopBar";
-import { validateDashboardConfig } from "@/lib/services/dashboard-validation";
+import { validateDashboardV2 } from "@/lib/types/dashboard-v2";
 
 export default function DashboardEditPage({
   params,
@@ -44,12 +44,7 @@ export default function DashboardEditPage({
         const body = await res.text();
         if (cancelled) return;
         setIsDraft(res.headers.get("X-Karet-Draft") === "1");
-        // Start the editor formatted.
-        try {
-          setSource(JSON.stringify(JSON.parse(body), null, 2));
-        } catch {
-          setSource(body);
-        }
+        setSource(body);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }
@@ -59,17 +54,10 @@ export default function DashboardEditPage({
     };
   }, [pipeline, name]);
 
-  const validation = useMemo(() => {
-    if (source === null) return null;
-    try {
-      return validateDashboardConfig(JSON.parse(source));
-    } catch (e) {
-      return {
-        ok: false as const,
-        errors: [e instanceof Error ? e.message : "Invalid JSON"],
-      };
-    }
-  }, [source]);
+  const validation = useMemo(
+    () => (source === null ? null : validateDashboardV2(source)),
+    [source],
+  );
 
   const save = useCallback(
     async (publish: boolean) => {
@@ -198,7 +186,7 @@ export default function DashboardEditPage({
       ) : (
         <div className="flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-6">
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]">
-            <JsonEditor value={source} onChange={setSource} ariaLabel="Dashboard config JSON" />
+            <CodeEditor value={source} onChange={setSource} ariaLabel="Dashboard config YAML" />
             <footer
               className="flex items-center gap-2 border-t border-[color:var(--color-rule-soft)] px-3.5 py-2 text-[11.5px]"
               data-testid="dashboard-validation"
@@ -239,7 +227,7 @@ export default function DashboardEditPage({
           <p className="mt-1 text-sm text-[color:var(--color-ink-3)]">
             Removes{" "}
             <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono text-[12px]">
-              {name}.json
+              {name}.yaml
             </code>{" "}
             {isDraft ? "(draft)" : "and its draft, if any,"} from S3. Cannot be undone.
           </p>

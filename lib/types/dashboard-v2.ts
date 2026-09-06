@@ -39,7 +39,7 @@ export type PanelV2 = PanelBase &
     | { kind: "table"; columns?: string[]; page_size?: number }
     | { kind: "sankey"; source: string; target: string; value: string }
     | { kind: "choropleth_map"; region: string; value: string }
-    | { kind: "symbol_map"; lat: string; lon: string; value: string; label?: string }
+    | { kind: "symbol_map"; lat: string; lon: string; value: string; label?: string; max_radius?: number }
     | { kind: "summary" }
   );
 

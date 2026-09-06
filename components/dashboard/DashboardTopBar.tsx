@@ -62,7 +62,7 @@ export default function DashboardTopBar({
       )}
       <span className="hidden text-[11.5px] text-[color:var(--color-ink-3)] sm:block">
         dashboards/{isDraft ? "drafts/" : ""}
-        {id}.json
+        {id}.yaml
       </span>
       <span id={TOPBAR_ACTIONS_ID} className="ml-auto flex items-center gap-2" />
     </header>
