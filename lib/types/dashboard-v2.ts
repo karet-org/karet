@@ -103,81 +103,103 @@ export type V2ValidationResult =
   | { ok: true; config: DashboardConfigV2; panelCount: number }
   | { ok: false; errors: string[] };
 
-/** Parse YAML source and structurally validate it as a v2 config. */
+export interface DetailedError {
+  message: string;
+  /** YAML path for editor diagnostics; null when positionless. */
+  path: (string | number)[] | null;
+}
+
+export type V2DetailedResult =
+  | { ok: true; config: DashboardConfigV2; panelCount: number }
+  | { ok: false; errors: DetailedError[] };
+
+/** String-error wrapper over the detailed validator. */
 export function validateDashboardV2(source: string): V2ValidationResult {
+  const result = validateDashboardV2Detailed(source);
+  if (result.ok) return result;
+  return { ok: false, errors: result.errors.map((e) => e.message) };
+}
+
+/** Parse YAML source and structurally validate it as a v2 config. */
+export function validateDashboardV2Detailed(source: string): V2DetailedResult {
   let raw: unknown;
   try {
     raw = parse(source, { schema: "core" });
   } catch (e) {
-    return { ok: false, errors: [e instanceof Error ? e.message.split("\n")[0] : "Invalid YAML"] };
+    return {
+      ok: false,
+      errors: [{ message: e instanceof Error ? e.message.split("\n")[0] : "Invalid YAML", path: null }],
+    };
   }
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    return { ok: false, errors: ["Config must be a YAML mapping"] };
+    return { ok: false, errors: [{ message: "Config must be a YAML mapping", path: null }] };
   }
   const cfg = raw as Record<string, unknown>;
-  const errors: string[] = [];
+  const errors: DetailedError[] = [];
+  const err = (message: string, path: (string | number)[] | null) =>
+    errors.push({ message, path });
 
-  if (cfg.version !== 2) errors.push('"version" must be 2');
+  if (cfg.version !== 2) err('"version" must be 2', ["version"]);
   if (typeof cfg.id !== "string" || !ID_RE.test(cfg.id)) {
-    errors.push('"id" must be a lowercase slug');
+    err('"id" must be a lowercase slug', ["id"]);
   }
   if (typeof cfg.name !== "string" || cfg.name.trim() === "") {
-    errors.push('"name" must be a non-empty string');
+    err('"name" must be a non-empty string', ["name"]);
   }
 
   const declared = new Set<string>();
   if (cfg.filters === undefined) {
     cfg.filters = [];
   } else if (!Array.isArray(cfg.filters)) {
-    errors.push('"filters" must be a list');
+    err('"filters" must be a list', ["filters"]);
   } else {
     cfg.filters.forEach((f, i) => {
       const filter = (f ?? {}) as Record<string, unknown>;
       if (typeof filter.name !== "string" || !PARAM_NAME_RE.test(filter.name)) {
-        errors.push(`filters[${i}].name must be a lowercase identifier`);
+        err(`filters[${i}].name must be a lowercase identifier`, ["filters", i, "name"]);
         return;
       }
       if (filter.kind !== "dropdown" && filter.kind !== "date_range") {
-        errors.push(`filters[${i}].kind must be dropdown or date_range`);
+        err(`filters[${i}].kind must be dropdown or date_range`, ["filters", i, "kind"]);
         return;
       }
       if (filter.kind === "dropdown" && typeof filter.options_sql !== "string") {
-        errors.push(`filters[${i}] (dropdown) requires options_sql`);
+        err(`filters[${i}] (dropdown) requires options_sql`, ["filters", i]);
       }
       for (const p of filterParams(filter as unknown as DashboardFilterV2)) {
-        if (declared.has(p)) errors.push(`filter parameter $${p} declared twice`);
+        if (declared.has(p)) err(`filter parameter $${p} declared twice`, ["filters", i, "name"]);
         declared.add(p);
       }
     });
   }
 
   if (!Array.isArray(cfg.panels) || cfg.panels.length === 0) {
-    errors.push('"panels" must be a non-empty list');
+    err('"panels" must be a non-empty list', ["panels"]);
   } else {
     cfg.panels.forEach((p, i) => {
       const panel = (p ?? {}) as Record<string, unknown>;
       const kind = panel.kind as string;
       if (!PANEL_KINDS_V2.includes(kind as (typeof PANEL_KINDS_V2)[number])) {
-        errors.push(`panels[${i}].kind "${String(panel.kind)}" is not one of: ${PANEL_KINDS_V2.join(", ")}`);
+        err(`panels[${i}].kind "${String(panel.kind)}" is not one of: ${PANEL_KINDS_V2.join(", ")}`, ["panels", i, "kind"]);
         return;
       }
       if (typeof panel.title !== "string" || panel.title.trim() === "") {
-        errors.push(`panels[${i}].title must be a non-empty string`);
+        err(`panels[${i}].title must be a non-empty string`, ["panels", i, "title"]);
       }
       const hasQuery = typeof panel.query === "string" && panel.query.trim() !== "";
       const hasRef = typeof panel.query_id === "string" && panel.query_id.trim() !== "";
       if (hasQuery === hasRef) {
-        errors.push(`panels[${i}] needs exactly one of query or query_id`);
+        err(`panels[${i}] needs exactly one of query or query_id`, ["panels", i]);
       }
       for (const b of REQUIRED_BINDINGS[kind]) {
         if (typeof panel[b] !== "string" || panel[b] === "") {
-          errors.push(`panels[${i}] (${kind}) requires the "${b}" binding`);
+          err(`panels[${i}] (${kind}) requires the "${b}" binding`, ["panels", i]);
         }
       }
       if (hasQuery) {
         for (const param of extractParams(panel.query as string)) {
           if (!declared.has(param)) {
-            errors.push(`panels[${i}] references $${param}, which no filter declares`);
+            err(`panels[${i}] references $${param}, which no filter declares`, ["panels", i, "query"]);
           }
         }
       }

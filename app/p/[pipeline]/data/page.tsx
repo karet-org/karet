@@ -9,14 +9,7 @@ import type { SavedQuery } from "@/lib/types/query";
 interface Column { name: string; type: string }
 interface TableInfo { id: string; name: string; schema: Column[]; fileCount: number }
 
-/** Convert a display name into a SQL-safe identifier (matches the query endpoint). */
-function nameToSlug(name: string): string {
-  const cleaned = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return cleaned || "_x";
-}
+import { nameToSlug } from "@/lib/config/name-to-slug";
 
 interface Relation {
   key: string;

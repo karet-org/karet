@@ -6,10 +6,12 @@
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import CodeEditor from "@/components/dashboard/CodeEditor";
+import YamlEditor, { type EditorDiagnostic } from "@/components/dashboard/YamlEditor";
+import { cachedJson } from "@/lib/client/fetch-cache";
+import { nameToSlug } from "@/lib/config/name-to-slug";
 import Modal from "@/components/ui/Modal";
 import { TOPBAR_ACTIONS_ID } from "@/components/dashboard/DashboardTopBar";
-import { validateDashboardV2 } from "@/lib/types/dashboard-v2";
+import { validateDashboardV2Detailed } from "@/lib/types/dashboard-v2";
 import { notifyDashboardsChanged } from "@/lib/client/dashboards-index";
 
 export default function DashboardEditPage({
@@ -56,9 +58,29 @@ export default function DashboardEditPage({
   }, [pipeline, name]);
 
   const structural = useMemo(
-    () => (source === null ? null : validateDashboardV2(source)),
+    () => (source === null ? null : validateDashboardV2Detailed(source)),
     [source],
   );
+
+  // Warehouse schema for query completions (table slug -> columns).
+  const [sqlSchema, setSqlSchema] = useState<Record<string, string[]>>({});
+  useEffect(() => {
+    let cancelled = false;
+    cachedJson<{ tables?: { name: string; schema: { name: string }[] }[] }>(
+      `/api/p/${pipeline}/tables`,
+      60_000,
+    )
+      .then((body) => {
+        if (cancelled || !body.tables) return;
+        const schema: Record<string, string[]> = {};
+        for (const t of body.tables) schema[nameToSlug(t.name)] = t.schema.map((c) => c.name);
+        setSqlSchema(schema);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pipeline]);
 
   // Server-side SQL + binding validation, debounced, once structure
   // passes. `checking` keeps Publish/Save disabled until the verdict.
@@ -90,11 +112,31 @@ export default function DashboardEditPage({
 
   const validation = useMemo(() => {
     if (structural === null) return null;
-    if (!structural.ok) return structural;
+    if (!structural.ok)
+      return { ok: false as const, errors: structural.errors.map((e) => e.message) };
     if (checking || sqlErrors === null) return { ok: false as const, errors: [], pending: true };
     if (sqlErrors.length > 0) return { ok: false as const, errors: sqlErrors };
-    return structural;
+    return { ok: true as const, panelCount: structural.panelCount };
   }, [structural, checking, sqlErrors]);
+
+  // Inline diagnostics: structural errors carry paths; server SQL errors
+  // map to their panel or filter by index.
+  const diagnostics = useMemo<EditorDiagnostic[]>(() => {
+    if (structural === null) return [];
+    if (!structural.ok) {
+      return structural.errors.map((e) => ({ message: e.message, path: e.path }));
+    }
+    return (sqlErrors ?? []).map((message) => {
+      const panel = message.match(/^panels\[(\d+)\]/);
+      if (panel) {
+        const i = Number(panel[1]);
+        return { message, path: message.includes(" SQL:") ? ["panels", i, "query"] : ["panels", i] };
+      }
+      const filter = message.match(/^filters\[(\d+)\]/);
+      if (filter) return { message, path: ["filters", Number(filter[1]), "options_sql"] };
+      return { message, path: null };
+    });
+  }, [structural, sqlErrors]);
 
   const save = useCallback(
     async (publish: boolean) => {
@@ -226,7 +268,13 @@ export default function DashboardEditPage({
       ) : (
         <div className="flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-6">
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]">
-            <CodeEditor value={source} onChange={setSource} ariaLabel="Dashboard config YAML" />
+            <YamlEditor
+              value={source}
+              onChange={setSource}
+              diagnostics={diagnostics}
+              sqlSchema={sqlSchema}
+              ariaLabel="Dashboard config YAML"
+            />
             <footer
               className="flex items-center gap-2 border-t border-[color:var(--color-rule-soft)] px-3.5 py-2 text-[11.5px]"
               data-testid="dashboard-validation"

@@ -13,62 +13,11 @@ import {
   closeBrackets,
   completionKeymap,
 } from "@codemirror/autocomplete";
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { syntaxHighlighting } from "@codemirror/language";
 import { sql } from "@codemirror/lang-sql";
-import { tags } from "@lezer/highlight";
+import { editorHighlight, editorTheme } from "@/components/editor/theme";
 
-const theme = EditorView.theme(
-  {
-    "&": {
-      backgroundColor: "transparent",
-      fontSize: "12px",
-      height: "100%",
-    },
-    ".cm-content": {
-      fontFamily: "var(--font-mono)",
-      caretColor: "var(--color-ink)",
-      padding: "12px 0",
-    },
-    ".cm-line": { padding: "0 16px" },
-    "&.cm-focused": { outline: "none" },
-    ".cm-cursor": { borderLeftColor: "var(--color-ink)" },
-    ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
-      backgroundColor: "rgba(255, 107, 53, 0.22) !important",
-    },
-    ".cm-activeLine": { backgroundColor: "rgba(255, 255, 255, 0.03)" },
-    ".cm-tooltip": {
-      backgroundColor: "var(--color-surface-2)",
-      border: "1px solid var(--color-rule-soft)",
-      borderRadius: "8px",
-      color: "var(--color-ink-2)",
-      overflow: "hidden",
-    },
-    ".cm-tooltip-autocomplete ul li": {
-      fontFamily: "var(--font-mono)",
-      fontSize: "12px",
-      padding: "3px 8px",
-    },
-    ".cm-tooltip-autocomplete ul li[aria-selected]": {
-      backgroundColor: "var(--color-carrot-soft)",
-      color: "var(--color-ink)",
-    },
-    ".cm-completionMatchedText": {
-      color: "var(--color-carrot-deep)",
-      textDecoration: "none",
-    },
-  },
-  { dark: true },
-);
 
-const highlight = HighlightStyle.define([
-  { tag: tags.keyword, color: "var(--color-carrot-deep)" },
-  { tag: tags.string, color: "#93ce8c" },
-  { tag: tags.number, color: "var(--color-amber-deep)" },
-  { tag: tags.comment, color: "var(--color-ink-3)", fontStyle: "italic" },
-  { tag: tags.operator, color: "var(--color-ink-2)" },
-  { tag: tags.typeName, color: "#6cb2ff" },
-  { tag: tags.function(tags.variableName), color: "#6cb2ff" },
-]);
 
 export interface SqlSchema {
   /** table slug -> column names */
@@ -120,8 +69,8 @@ export default function SqlEditor({
           ),
           keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap]),
           schemaCompartment.current.of(sql({ schema: {} })),
-          theme,
-          syntaxHighlighting(highlight),
+          editorTheme,
+          syntaxHighlighting(editorHighlight),
           cmPlaceholder(placeholder ?? ""),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) onChangeRef.current(update.state.doc.toString());
