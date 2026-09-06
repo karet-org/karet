@@ -115,7 +115,6 @@ export interface Mapping {
 export interface AnalyticTable {
   id: string;
   name: string;
-  output_prefix: string;
   schema: ColumnSchema[];
   /** Ordered hive partition keys naming schema columns. Max 2, no floats. */
   partition_keys?: string[];

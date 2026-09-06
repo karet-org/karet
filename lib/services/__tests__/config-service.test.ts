@@ -174,7 +174,6 @@ const SAMPLE_CONFIG: PipelineConfig = {
     {
       id: "transactions",
       name: "Transactions",
-      output_prefix: "clean/transactions/",
       schema: [{ name: "date", type: "date" }],
     },
   ],

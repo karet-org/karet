@@ -33,16 +33,11 @@ export interface NodeDetailPanelProps {
 type EditableEntity = SourceContainer | LookupMapping | Mapping | AnalyticTable;
 
 /**
- * Distinguish AnalyticTable from the other editable shapes by its
- * `schema` field. Source containers also have `schema`, so we additionally
- * check for `output_prefix`, which is unique to analytic tables.
+ * Distinguish AnalyticTable from the other editable shapes: it has a
+ * `schema` but, unlike source containers, no `path_prefix`.
  */
 function isAnalyticTable(entity: EditableEntity): entity is AnalyticTable {
-  return (
-    "schema" in entity &&
-    "output_prefix" in entity &&
-    typeof (entity as AnalyticTable).output_prefix === "string"
-  );
+  return "schema" in entity && !("path_prefix" in entity);
 }
 
 export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps) {

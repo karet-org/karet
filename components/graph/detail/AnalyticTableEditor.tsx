@@ -134,7 +134,7 @@ export function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProp
   };
 
   const pathPreview = (
-    <div className="mt-1.5 truncate font-mono text-[10.5px] text-[color:var(--color-ink-3)]">
+    <div className="mt-1.5 break-all font-mono text-[10.5px] leading-relaxed text-[color:var(--color-ink-3)]">
       {value.id}/
       {partitionKeys.map((k) => (
         <span key={k}>
@@ -153,15 +153,6 @@ export function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProp
           className={kvInputClass()}
           value={value.name}
           onChange={(e) => onChange({ ...value, name: e.target.value })}
-        />
-      </Section>
-
-      <Section label="Output prefix">
-        <input
-          aria-label="output prefix"
-          className={kvInputClass("font-mono")}
-          value={value.output_prefix}
-          onChange={(e) => onChange({ ...value, output_prefix: e.target.value })}
         />
       </Section>
 

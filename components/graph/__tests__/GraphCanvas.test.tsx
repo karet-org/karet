@@ -117,7 +117,6 @@ const nodes: GraphNode[] = [
       entity: {
         id: "tbl1",
         name: "Transactions",
-        output_prefix: "clean/transactions/",
         schema: [{ name: "amt", type: "int64" }],
       },
     },

@@ -261,7 +261,6 @@ export const arbMapping: fc.Arbitrary<Mapping> = fc.record(
 export const arbAnalyticTable: fc.Arbitrary<AnalyticTable> = fc.record({
   id: arbId,
   name: arbName,
-  output_prefix: arbPathPrefix,
   schema: arbAnalyticTableSchema,
 });
 

@@ -86,7 +86,6 @@ describe("NodeDetailPanel", () => {
           {
             id: "tbl_tx",
             name: "Transactions",
-            output_prefix: "clean/tx/",
             schema: [{ name: "amt", type: "float64" }],
           },
         ],

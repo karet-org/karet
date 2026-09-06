@@ -156,7 +156,6 @@ const spendingPipeline: PipelineConfig = {
     {
       id: "transactions",
       name: "Transactions",
-      output_prefix: "transactions/",
       schema: [
         { name: "date", type: "date" },
         { name: "description", type: "string" },

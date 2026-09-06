@@ -53,7 +53,6 @@ function defaultAnalyticTable(): AnalyticTable {
   return {
     id,
     name: "New Table",
-    output_prefix: `${id}/`,
     schema: [{ name: "id", type: "string" }],
   };
 }
