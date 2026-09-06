@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Modal from "@/components/ui/Modal";
+import SqlEditor from "@/components/data/SqlEditor";
 import type { SavedQuery } from "@/lib/types/query";
 
 interface Column { name: string; type: string }
@@ -116,6 +117,15 @@ export default function DataPage() {
       return { key, name: t.name, schema: t.schema, slug, meta, collidesWith: owner };
     });
   }, [tables]);
+
+  // table slug -> column names, for editor autocomplete.
+  const sqlSchema = useMemo(() => {
+    const schema: Record<string, string[]> = {};
+    for (const r of relations) {
+      if (!r.collidesWith) schema[r.slug] = r.schema.map((c) => c.name);
+    }
+    return schema;
+  }, [relations]);
 
   const runQuery = useCallback(async (query?: string) => {
     const q = query ?? sql;
@@ -310,19 +320,12 @@ export default function DataPage() {
 
         {/* Editor pinned below the results frame. */}
         <div className="rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]" data-testid="query-editor">
-          <textarea
+          <SqlEditor
             value={sql}
-            onChange={(e) => setSql(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                runQuery();
-              }
-            }}
-            spellCheck={false}
-            aria-label="SQL query"
+            onChange={setSql}
+            onRun={() => runQuery()}
+            schema={sqlSchema}
             placeholder="SELECT * FROM transactions LIMIT 50"
-            className="block h-[88px] w-full resize-none bg-transparent px-3.5 py-3 font-mono text-[12px] leading-[1.7] text-[color:var(--color-ink)] outline-none placeholder:text-[color:var(--color-ink-4)]"
           />
           <div className="flex items-center gap-1.5 border-t border-[color:var(--color-rule-soft)] px-2.5 py-2">
             <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
