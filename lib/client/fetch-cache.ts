@@ -20,17 +20,3 @@ export function cachedJson<T>(url: string, ttlMs = 5000): Promise<T> {
 export function invalidateCached(url: string): void {
   cache.delete(url);
 }
-
-/** Deduped text fetch, same cache semantics as cachedJson. */
-export function cachedText(url: string, ttlMs = 5000): Promise<string> {
-  const key = `text:${url}`;
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < ttlMs) return hit.promise as Promise<string>;
-  const promise = fetch(url).then((r) => {
-    if (!r.ok) throw new Error(`${url} -> ${r.status}`);
-    return r.text();
-  });
-  cache.set(key, { at: Date.now(), promise });
-  promise.catch(() => cache.delete(key));
-  return promise;
-}
