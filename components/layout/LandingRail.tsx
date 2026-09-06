@@ -60,7 +60,7 @@ export default function LandingRail({
       {starred.length > 0 && (
         <>
           <div className="px-2.5 pb-1.5 pt-4 text-[10.5px] font-medium tracking-[0.06em] text-[color:var(--color-ink-3)]">
-            STARRED
+            Starred
           </div>
           {starred.map((slug) => (
             <Link

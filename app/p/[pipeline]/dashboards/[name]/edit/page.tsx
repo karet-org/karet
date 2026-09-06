@@ -10,6 +10,7 @@ import CodeEditor from "@/components/dashboard/CodeEditor";
 import Modal from "@/components/ui/Modal";
 import { TOPBAR_ACTIONS_ID } from "@/components/dashboard/DashboardTopBar";
 import { validateDashboardV2 } from "@/lib/types/dashboard-v2";
+import { notifyDashboardsChanged } from "@/lib/client/dashboards-index";
 
 export default function DashboardEditPage({
   params,
@@ -121,6 +122,7 @@ export default function DashboardEditPage({
                   : (body.message ?? `Publish failed (${pub.status})`),
               );
             }
+            notifyDashboardsChanged(pipeline);
             router.push(`${base}/${name}`);
             router.refresh();
             return;
@@ -140,6 +142,7 @@ export default function DashboardEditPage({
             );
           }
           setNotice("Saved");
+          notifyDashboardsChanged(pipeline);
           router.refresh();
         }
       } catch (e) {
@@ -159,6 +162,7 @@ export default function DashboardEditPage({
         method: "DELETE",
       });
       if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+      notifyDashboardsChanged(pipeline);
       router.push(`/p/${pipeline}/graph`);
       router.refresh();
     } catch (e) {

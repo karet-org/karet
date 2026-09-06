@@ -30,7 +30,7 @@ function PanelSkeleton({ panel }: { panel: PanelV2 }) {
   if (panel.kind === "kpi") {
     return (
       <div className={`${panelCardClass()} p-3`} aria-busy>
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-[color:var(--color-ink-3)]">
+        <div className="text-[11px] font-medium text-[color:var(--color-ink-3)]">
           {panel.title}
         </div>
         <div className="skeleton mt-1.5 h-7 w-24 rounded" />

@@ -18,6 +18,7 @@ import {
 import { sanitizeSlug } from "@/lib/config/slug";
 import Modal from "@/components/ui/Modal";
 import { cachedJson } from "@/lib/client/fetch-cache";
+import { notifyDashboardsChanged, useDashboardsIndex } from "@/lib/client/dashboards-index";
 
 /** Mobile top bar height; pages offset content by this below md. */
 export const MOBILE_NAV_HEIGHT_PX = 48;
@@ -28,9 +29,8 @@ import { formatRelative } from "@/lib/format/relative-time";
 export default function SideNav({ pipeline }: { pipeline: string }) {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
-  const [dashboards, setDashboards] = useState<{ id: string; name: string }[]>([]);
+  const { listings: dashboards, drafts } = useDashboardsIndex(pipeline);
   const [statusLine, setStatusLine] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [pipelines, setPipelines] = useState<string[]>([]);
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -54,29 +54,6 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
     setDrawerOpen(false);
   }, [pathname]);
 
-  // Load dashboards for the current pipeline.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const body = await cachedJson<{
-          dashboards?: string[];
-          listings?: { id: string; name: string }[];
-          drafts?: string[];
-        }>(`/api/p/${pipeline}/dashboards`);
-        if (cancelled) return;
-        if (Array.isArray(body.listings)) setDashboards(body.listings);
-        else if (Array.isArray(body.dashboards))
-          setDashboards(body.dashboards.map((id) => ({ id, name: id })));
-        if (Array.isArray(body.drafts)) setDrafts(body.drafts);
-      } catch {
-        // Nav stays usable if the list can't load.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [pipeline]);
 
   // Latest terminal run for the identity subline.
   useEffect(() => {
@@ -253,7 +230,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
 
       {/* Dashboards */}
       <div className="flex items-center justify-between px-2.5 pb-1 pt-4 text-[10.5px] font-medium tracking-[0.06em] text-[color:var(--color-ink-3)]">
-        DASHBOARDS
+        Dashboards
         <button
           type="button"
           aria-label="New dashboard"
@@ -270,6 +247,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
               });
               const body = (await res.json()) as { id?: string };
               if (res.ok && body.id) {
+                notifyDashboardsChanged(pipeline);
                 router.push(`${base}/dashboards/${body.id}/edit`);
               }
             } finally {
@@ -309,8 +287,8 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
                 <path d="M11.1 2.4a1.4 1.4 0 0 1 2 2L5.5 12l-2.8.8.8-2.8 7.6-7.6Z" />
               </svg>
               <span className="truncate">{id}</span>
-              <span className="ml-auto shrink-0 rounded bg-[color:var(--color-amber-soft)] px-1 text-[9px] font-semibold text-[color:var(--color-amber-deep)]">
-                DRAFT
+              <span className="ml-auto shrink-0 rounded bg-[color:var(--color-amber-soft)] px-1 text-[9.5px] font-semibold text-[color:var(--color-amber-deep)]">
+                Draft
               </span>
             </Link>
           );

@@ -58,7 +58,7 @@ export function KpiPanel({ config, data }: PanelProps<KpiConfig>) {
 
   return (
     <div data-testid="kpi-panel" className={`${panelCardClass()} p-3`}>
-      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--color-ink-3)]">
+      <div className="flex items-center gap-2 text-[11px] font-medium text-[color:var(--color-ink-3)]">
         {icon && (
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--color-leaf-soft)] text-[color:var(--color-leaf-deep)]">
             {icon}

@@ -5,6 +5,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useDashboardsIndex } from "@/lib/client/dashboards-index";
 
 export const TOPBAR_ACTIONS_ID = "dashboard-topbar-actions";
 
@@ -23,12 +24,20 @@ export default function DashboardTopBar({
   const editing = pathname.endsWith("/edit");
   const base = `/p/${pipeline}/dashboards/${id}`;
 
+  // Live identity: the index refreshes on create/publish/delete, so the
+  // draft badge and title track without a reload. Server props seed the
+  // first paint.
+  const index = useDashboardsIndex(pipeline);
+  const known = index.listings.some((l) => l.id === id) || index.drafts.includes(id);
+  const liveDraft = known ? index.drafts.includes(id) : isDraft;
+  const liveName = index.listings.find((l) => l.id === id)?.name ?? name;
+
   return (
     <header
       className="sticky top-0 z-20 flex min-h-[46px] flex-wrap items-center gap-2.5 border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 py-1.5 sm:px-6"
       data-testid="dashboard-topbar"
     >
-      {!isDraft && (
+      {!liveDraft && (
         <div className="flex items-center rounded-[9px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-[3px]">
           <Link
             href={base}
@@ -54,14 +63,14 @@ export default function DashboardTopBar({
           </Link>
         </div>
       )}
-      <h1 className="text-[15px] font-semibold text-[color:var(--color-ink)]">{name}</h1>
-      {isDraft && (
-        <span className="rounded-md bg-[color:var(--color-amber-soft)] px-2 py-[2px] text-[10px] font-semibold tracking-wide text-[color:var(--color-amber-deep)]">
-          DRAFT
+      <h1 className="text-[15px] font-semibold text-[color:var(--color-ink)]">{liveName}</h1>
+      {liveDraft && (
+        <span className="rounded-md bg-[color:var(--color-amber-soft)] px-2 py-[2px] text-[10.5px] font-semibold text-[color:var(--color-amber-deep)]">
+          Draft
         </span>
       )}
       <span className="hidden text-[11.5px] text-[color:var(--color-ink-3)] sm:block">
-        dashboards/{isDraft ? "drafts/" : ""}
+        dashboards/{liveDraft ? "drafts/" : ""}
         {id}.yaml
       </span>
       <span id={TOPBAR_ACTIONS_ID} className="ml-auto flex items-center gap-2" />

@@ -426,7 +426,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
         >
           {contextMenu.nodeId ? (
             <>
-              <div className="px-3 py-1 text-[10px] font-semibold uppercase text-[color:var(--color-ink-3)]">Node</div>
+              <div className="px-3 py-1 text-[10.5px] font-medium text-[color:var(--color-ink-3)]">Node</div>
               <button
                 type="button"
                 onClick={handleDeleteNode}
@@ -437,7 +437,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
             </>
           ) : contextMenu.edge ? (
             <>
-              <div className="px-3 py-1 text-[10px] font-semibold uppercase text-[color:var(--color-ink-3)]">Edge</div>
+              <div className="px-3 py-1 text-[10.5px] font-medium text-[color:var(--color-ink-3)]">Edge</div>
               {contextMenu.edge.kind === "lookup-to-mapping" ? (
                 <div
                   className="px-3 py-1.5 text-xs text-[color:var(--color-ink-3)]"
@@ -458,7 +458,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
             </>
           ) : (
             <>
-              <div className="px-3 py-1 text-[10px] font-semibold uppercase text-[color:var(--color-ink-3)]">Add node</div>
+              <div className="px-3 py-1 text-[10.5px] font-medium text-[color:var(--color-ink-3)]">Add node</div>
               {([
                 ["source", "Source", IconSource],
                 ["lookup", "Lookup", IconLookup],

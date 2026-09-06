@@ -398,7 +398,7 @@ export default function DataPage() {
           className="w-full shrink-0 overflow-y-auto border-t border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] px-4 py-4 md:w-[264px] md:border-l md:border-t-0"
         >
           <div className="pb-2 text-[10.5px] font-medium tracking-[0.06em] text-[color:var(--color-ink-3)]">
-            TABLES {tablesLoading ? "" : `(${relations.length})`}
+            Tables {tablesLoading ? "" : `(${relations.length})`}
           </div>
           {tablesError ? (
             <p className="text-[11.5px] text-[color:var(--color-rose-deep)]">{tablesError}</p>
