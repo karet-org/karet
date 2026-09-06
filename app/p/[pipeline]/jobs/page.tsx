@@ -12,7 +12,6 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [running, setRunning] = useState(false);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [bucketError, setBucketError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -22,7 +21,6 @@ export default function JobsPage() {
   const [total, setTotal] = useState(0);
 
   const loadJobs = useCallback(async () => {
-    setRefreshing(true);
     try {
       const r = await fetch(
         `/api/p/${pipeline}/jobs?page=${page}&pageSize=${pageSize}`,
@@ -41,7 +39,6 @@ export default function JobsPage() {
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : String(e));
     } finally {
-      setRefreshing(false);
       setLoaded(true);
     }
   }, [pipeline, page, pageSize]);
@@ -131,20 +128,30 @@ export default function JobsPage() {
     }
   };
 
-  /** One-line live progress, e.g. `ingesting · 3/7 mappings · 12 partitions`. */
+  /** One-line live progress, e.g. `ingesting 3/7 mappings, 12 partitions`. */
   function progressLine(job: Job): string {
     const p = job.progress;
     if (!p) return job.status === "queued" ? "waiting for a worker" : "running…";
     if (p.stage === "downloading") {
       return p.files_total
-        ? `downloading · ${p.files_done ?? 0}/${p.files_total} files`
+        ? `downloading ${p.files_done ?? 0}/${p.files_total} files`
         : "downloading…";
     }
-    const parts = [`ingesting · ${p.mappings_done ?? 0}/${p.mappings_total ?? "?"} mappings`];
+    const parts = [`ingesting ${p.mappings_done ?? 0}/${p.mappings_total ?? "?"} mappings`];
     if (job.partitions_written !== undefined) {
       parts.push(`${job.partitions_written} partition(s)`);
     }
-    return parts.join(" · ");
+    return parts.join(", ");
+  }
+
+  /** Fraction complete for the progress bar; null = indeterminate. */
+  function progressPct(job: Job): number | null {
+    const p = job.progress;
+    if (!p) return null;
+    if (p.stage === "downloading") {
+      return p.files_total ? (0.5 * (p.files_done ?? 0)) / p.files_total : null;
+    }
+    return p.mappings_total ? 0.5 + (0.5 * (p.mappings_done ?? 0)) / p.mappings_total : null;
   }
 
   function scheduledCountdown(nextRunAt: string): string {
@@ -175,30 +182,19 @@ export default function JobsPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-[color:var(--color-ink)]">Jobs</h1>
-          <p className="mt-1 text-sm text-[color:var(--color-ink-3)]">
-            Run the pipeline and watch its progress. Each run reads raw CSVs, applies the configured mappings, and writes Parquet output.
+          <p className="mt-1 text-[12.5px] text-[color:var(--color-ink-3)]">
+            Runs for this pipeline,{" "}
+            {sseConnected ? "live updates connected" : "reconnecting to live updates"}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <button
-            type="button"
-            onClick={() => loadJobs()}
-            disabled={refreshing}
-            title="Refresh job list"
-            aria-label="Refresh"
-            className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-2 text-xs text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
-          >
-            {refreshing ? "Refreshing…" : "↻ Refresh"}
-          </button>
-          <button
-            type="button"
-            onClick={() => triggerJob()}
-            disabled={running}
-            className="flex items-center gap-1.5 rounded bg-[color:var(--color-carrot)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
-          >
-            {running ? "Running…" : <><IconPlay size={12} /> Run Pipeline</>}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => triggerJob()}
+          disabled={running}
+          className="flex shrink-0 items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+        >
+          {running ? "Running…" : <><IconPlay size={12} /> Run Pipeline</>}
+        </button>
       </div>
 
       <div className="mt-6">
@@ -225,7 +221,7 @@ export default function JobsPage() {
             No jobs yet. Click &quot;Run Pipeline&quot; to start one.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]">
+          <div className="overflow-x-auto">
             <table className="data-table min-w-full">
               <thead>
                 <tr>
@@ -269,7 +265,19 @@ export default function JobsPage() {
                           {job.status === "scheduled" && job.nextRunAt ? (
                             scheduledCountdown(job.nextRunAt)
                           ) : active ? (
-                            progressLine(job)
+                            <span className="inline-flex items-center gap-2" title={progressLine(job)}>
+                              <span className="h-1 w-[120px] overflow-hidden rounded-full bg-[color:var(--color-surface-2)]">
+                                {progressPct(job) === null ? (
+                                  <span className="block h-full w-1/3 animate-pulse rounded-full bg-[color:var(--color-carrot)]" />
+                                ) : (
+                                  <span
+                                    className="block h-full rounded-full bg-[color:var(--color-carrot)] transition-[width]"
+                                    style={{ width: `${Math.round(progressPct(job)! * 100)}%` }}
+                                  />
+                                )}
+                              </span>
+                              <span className="text-[11px]">{progressLine(job)}</span>
+                            </span>
                           ) : job.status === "failed" && job.error ? (
                             <span className="block max-w-[260px] truncate text-[color:var(--color-rose-deep)]" title={job.error}>
                               {job.error}
