@@ -103,7 +103,7 @@ export function TrashIcon() {
   );
 }
 
-export function XIcon({ size = 9 }: { size?: number }) {
+function XIcon({ size = 9 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <path d="M4 4l8 8M12 4l-8 8" />

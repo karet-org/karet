@@ -1,7 +1,4 @@
 // Shared small primitives used across the structural editors.
-//
-// Kept separate from the read-only `primitives.tsx` to avoid mixing
-// view-mode and edit-mode visual vocabularies.
 
 import type { ReactNode } from "react";
 
@@ -28,22 +25,6 @@ export function InlineErrorList({ errors, testId }: InlineErrorListProps) {
         <li key={i}>{e}</li>
       ))}
     </ul>
-  );
-}
-
-export interface EditorFieldProps {
-  label: string;
-  children: ReactNode;
-  className?: string;
-}
-
-/** Label/control pair laid out the same way for every editor field. */
-export function EditorField({ label, children, className }: EditorFieldProps) {
-  return (
-    <label className={`flex flex-col gap-1 text-xs ${className ?? ""}`}>
-      <span className="text-[color:var(--color-ink-3)]">{label}</span>
-      {children}
-    </label>
   );
 }
 

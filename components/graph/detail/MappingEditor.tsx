@@ -1,12 +1,6 @@
 // Structural editor for a Mapping's output columns, display-first.
-//
-// The column set mirrors the connected Analytic_Table's schema; the
-// mapping authors only the expressions. Rows render quietly (name +
-// expression preview, or an amber "unmapped" marker for placeholder
-// columns created by schema adds) and expand in place to the editor.
-// Partitioning is not a mapping concern anymore; it lives on the table.
-//
-// Expressions are parsed on blur using the existing expression parser.
+// The column set mirrors the connected table's schema; the mapping
+// authors only the expressions, parsed and committed on blur.
 
 import { useEffect, useMemo, useState } from "react";
 import type { AstNode, Mapping, MappingColumn } from "@/lib/types/config";
@@ -36,10 +30,8 @@ export function MappingEditor({ value, onChange }: MappingEditorProps) {
       : null,
   );
 
-  // Source columns are the valid set of `col` references for this
-  // mapping's expressions. Three-state semantics documented on
-  // `validateExprText`. The selector returns the entity (not a derived
-  // array) so Object.is equality holds between renders.
+  // Entity selector (not a derived array) so Object.is holds between
+  // renders; three-state semantics documented on `validateExprText`.
   const source = useGraphStore((s) => {
     if (!value.source_container_id) return undefined;
     return s.config?.source_containers.find((c) => c.id === value.source_container_id) ?? null;

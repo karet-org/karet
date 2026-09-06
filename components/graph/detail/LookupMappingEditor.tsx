@@ -12,7 +12,7 @@
 import { useMemo, useState } from "react";
 import type { LookupCatchAll, LookupMapping, LookupRow } from "@/lib/types/config";
 import { ChipListEditor } from "@/components/ui/ChipListEditor";
-import { InlineErrorList, inputClass } from "./editorPrimitives";
+import { InlineErrorList } from "./editorPrimitives";
 import {
   EditField,
   InspRow,

@@ -26,7 +26,7 @@ export const KNOWN_COLUMN_TYPES = [
 
 export type KnownColumnType = (typeof KNOWN_COLUMN_TYPES)[number];
 
-export function isKnownColumnType(t: string): t is KnownColumnType {
+function isKnownColumnType(t: string): t is KnownColumnType {
   return (KNOWN_COLUMN_TYPES as readonly string[]).includes(t);
 }
 
