@@ -54,10 +54,46 @@ export default function DashboardEditPage({
     };
   }, [pipeline, name]);
 
-  const validation = useMemo(
+  const structural = useMemo(
     () => (source === null ? null : validateDashboardV2(source)),
     [source],
   );
+
+  // Server-side SQL + binding validation, debounced, once structure
+  // passes. `checking` keeps Publish/Save disabled until the verdict.
+  const [sqlErrors, setSqlErrors] = useState<string[] | null>(null);
+  const [checking, setChecking] = useState(false);
+  useEffect(() => {
+    if (source === null || !structural?.ok) {
+      setSqlErrors(null);
+      setChecking(false);
+      return;
+    }
+    setChecking(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/p/${pipeline}/dashboards/${name}/validate`, {
+          method: "POST",
+          body: source,
+        });
+        const gate = (await res.json()) as { ok?: boolean; errors?: string[] };
+        setSqlErrors(gate.ok ? [] : (gate.errors ?? ["Validation failed"]));
+      } catch {
+        setSqlErrors(["Could not reach the validator"]);
+      } finally {
+        setChecking(false);
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [source, structural, pipeline, name]);
+
+  const validation = useMemo(() => {
+    if (structural === null) return null;
+    if (!structural.ok) return structural;
+    if (checking || sqlErrors === null) return { ok: false as const, errors: [], pending: true };
+    if (sqlErrors.length > 0) return { ok: false as const, errors: sqlErrors };
+    return structural;
+  }, [structural, checking, sqlErrors]);
 
   const save = useCallback(
     async (publish: boolean) => {
@@ -191,7 +227,12 @@ export default function DashboardEditPage({
               className="flex items-center gap-2 border-t border-[color:var(--color-rule-soft)] px-3.5 py-2 text-[11.5px]"
               data-testid="dashboard-validation"
             >
-            {validation?.ok ? (
+            {validation && "pending" in validation ? (
+              <span className="inline-flex items-center gap-1.5 text-[color:var(--color-ink-3)]">
+                <span className="skeleton h-3 w-3 rounded-full" aria-hidden />
+                Checking SQL against the warehouse…
+              </span>
+            ) : validation?.ok ? (
               <span className="inline-flex items-center gap-1.5 text-[color:var(--color-leaf-deep)]">
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                   <path d="m3 8.5 3.5 3.5L13 5" />
@@ -203,7 +244,7 @@ export default function DashboardEditPage({
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0" aria-hidden>
                   <path d="M4 4l8 8M12 4l-8 8" />
                 </svg>
-                <span className="truncate">{validation?.errors[0]}</span>
+                <span className="truncate">{validation?.errors[0] ?? ""}</span>
                 {validation && validation.errors.length > 1 && (
                   <span className="shrink-0 text-[color:var(--color-ink-3)]">
                     +{validation.errors.length - 1} more

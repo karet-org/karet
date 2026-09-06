@@ -154,6 +154,48 @@ export async function validateDashboardSql(
   return errors;
 }
 
+/**
+ * The full validation gate shared by publish, published saves, and the
+ * editor's validate endpoint: YAML + structure, then SQL planning and
+ * binding checks against the warehouse.
+ */
+export async function fullDashboardGate(
+  client: import("@aws-sdk/client-s3").S3Client,
+  s3cfg: import("@/lib/config/s3-client").S3Config,
+  pipeline: string,
+  expectedId: string,
+  body: string,
+): Promise<{ ok: boolean; errors: string[] }> {
+  const { validateDashboardV2 } = await import("@/lib/types/dashboard-v2");
+  const { getPipelineConfig, getQuery } = await import("@/lib/services/config-service");
+
+  const result = validateDashboardV2(body);
+  if (!result.ok) return { ok: false, errors: result.errors };
+  if (result.config.id !== expectedId) {
+    return { ok: false, errors: [`Config id "${result.config.id}" must match "${expectedId}"`] };
+  }
+  const pipelineCfg = await getPipelineConfig(client, s3cfg);
+  if (!pipelineCfg) return { ok: false, errors: ["Pipeline config not found"] };
+
+  const referenced = [
+    ...new Set(result.config.panels.flatMap((p) => (p.query_id ? [p.query_id] : []))),
+  ];
+  const savedQueries = new Map<string, SavedQuery>();
+  await Promise.all(
+    referenced.map(async (id) => {
+      const q = await getQuery(client, s3cfg, id);
+      if (q) savedQueries.set(id, q);
+    }),
+  );
+  const sqlErrors = await validateDashboardSql(
+    pipeline,
+    pipelineCfg.config,
+    result.config,
+    savedQueries,
+  );
+  return { ok: sqlErrors.length === 0, errors: sqlErrors };
+}
+
 async function runOne(
   pipeline: string,
   config: PipelineConfig,

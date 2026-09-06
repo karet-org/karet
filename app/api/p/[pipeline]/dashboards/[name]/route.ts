@@ -5,7 +5,7 @@ import {
   getDashboardV2,
   putDashboardV2,
 } from "@/lib/services/config-service";
-import { validateDashboardV2 } from "@/lib/types/dashboard-v2";
+import { fullDashboardGate } from "@/lib/services/dashboard-data";
 
 export async function GET(
   request: Request,
@@ -46,23 +46,18 @@ export async function PUT(
   const draft = new URL(request.url).searchParams.get("draft") === "1";
 
   const body = await request.text();
-  if (!draft) {
-    const result = validateDashboardV2(body);
-    if (!result.ok) {
-      return NextResponse.json(
-        { error: "invalid_config", errors: result.errors },
-        { status: 422 },
-      );
-    }
-    if (result.config.id !== name) {
-      return NextResponse.json(
-        { error: "id_mismatch", message: `Config id "${result.config.id}" must match "${name}"` },
-        { status: 422 },
-      );
-    }
-  }
-
   return wrapS3Error(async () => {
+    if (!draft) {
+      // Published saves pass the same full gate as publish, including
+      // SQL planning and binding checks.
+      const gate = await fullDashboardGate(client, config, pipeline, name, body);
+      if (!gate.ok) {
+        return NextResponse.json(
+          { error: "invalid_config", errors: gate.errors },
+          { status: 422 },
+        );
+      }
+    }
     await putDashboardV2(client, config, name, body, { draft });
     return NextResponse.json({ ok: true, draft });
   }, `PUT /api/p/${pipeline}/dashboards/${name}`);
