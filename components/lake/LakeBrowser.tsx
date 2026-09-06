@@ -286,25 +286,25 @@ export default function LakeBrowser() {
                           download
                           title="Download"
                           aria-label={`Download ${name}`}
-                          className="grid h-6 w-6 place-items-center rounded text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
+                          className="grid h-8 w-8 place-items-center rounded-md text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
                         >
-                          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
                             <path d="M8 3v8m0 0-3-3m3 3 3-3M2.5 13.5h11" />
                           </svg>
                         </a>
                         <button
                           type="button"
-                          title="Rename"
-                          aria-label={`Rename ${name}`}
+                          title="Move"
+                          aria-label={`Move ${name}`}
                           onClick={() => {
                             setActionError(null);
                             setRenameValue(f.key);
                             setRenameTarget(f.key);
                           }}
-                          className="grid h-6 w-6 place-items-center rounded text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
+                          className="grid h-8 w-8 place-items-center rounded-md text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
                         >
-                          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-                            <path d="M11.1 2.4a1.4 1.4 0 0 1 2 2L5.5 12l-2.8.8.8-2.8 7.6-7.6Z" />
+                          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                            <path d="M2 8h9m0 0L8 5m3 3-3 3M13.5 3v10" />
                           </svg>
                         </button>
                         <button
@@ -315,9 +315,9 @@ export default function LakeBrowser() {
                             setActionError(null);
                             setDeleteTarget(f.key);
                           }}
-                          className="grid h-6 w-6 place-items-center rounded text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-rose-soft)] hover:text-[color:var(--color-rose-deep)]"
+                          className="grid h-8 w-8 place-items-center rounded-md text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-rose-soft)] hover:text-[color:var(--color-rose-deep)]"
                         >
-                          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
                             <path d="M2.5 4.5h11M6.5 4.5v-2h3v2M4 4.5l.7 9a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9l.7-9M6.5 7.5v4M9.5 7.5v4" />
                           </svg>
                         </button>
@@ -344,17 +344,18 @@ export default function LakeBrowser() {
               void doRename();
             }}
           >
-            <h2 className="text-lg font-semibold">Rename file</h2>
+            <h2 className="text-lg font-semibold">Move file</h2>
             <p className="mt-1 text-xs text-[color:var(--color-ink-3)]">
-              Edits the full S3 key. Moving a CSV under a different pipeline
-              prefix changes which pipeline it feeds.
+              Edits the full S3 key, so this can rename in place or move
+              across prefixes. A CSV under a different pipeline prefix feeds
+              that pipeline instead.
             </p>
             <input
               autoFocus
               type="text"
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
-              data-testid="lake-rename-input"
+              data-testid="lake-move-input"
               className="mt-4 w-full rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-2 font-mono text-sm focus:border-[color:var(--color-carrot)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
             />
             {actionError && (
@@ -374,7 +375,7 @@ export default function LakeBrowser() {
                 disabled={busy || !renameValue.trim() || renameValue.trim() === renameTarget}
                 className="rounded-md bg-[color:var(--color-carrot)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
               >
-                {busy ? "Renaming…" : "Rename"}
+                {busy ? "Moving…" : "Move"}
               </button>
             </div>
           </form>
