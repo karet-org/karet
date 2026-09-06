@@ -62,6 +62,9 @@ function assertKnownAstNode(node: AstNode): void {
       for (const a of node.args) assertKnownAstNode(a);
       break;
     case "upper":
+    case "year":
+    case "month":
+    case "day":
     case "lower":
     case "trim":
     case "substring":
