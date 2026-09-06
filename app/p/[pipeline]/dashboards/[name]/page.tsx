@@ -29,7 +29,12 @@ export default async function PipelineDashboardPage({
             Open the editor to fix it.
           </div>
         ) : (
-          <DashboardView pipeline={pipeline} id={name} config={dashboard.config} />
+          <DashboardView
+            key={`${pipeline}/${name}`}
+            pipeline={pipeline}
+            id={name}
+            config={dashboard.config}
+          />
         )}
       </div>
     </main>
