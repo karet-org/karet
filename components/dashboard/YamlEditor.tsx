@@ -11,9 +11,11 @@ import {
   defaultKeymap,
   history,
   historyKeymap,
-  indentWithTab,
+  indentLess,
+  indentMore,
 } from "@codemirror/commands";
 import {
+  acceptCompletion,
   autocompletion,
   completionKeymap,
   type CompletionContext,
@@ -141,7 +143,28 @@ export default function YamlEditor({
           lineNumbers(),
           history(),
           indentUnit.of("  "),
-          keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap, ...completionKeymap]),
+          keymap.of([
+            {
+              key: "Tab",
+              shift: indentLess,
+              run: (view) => {
+                // Accept an open completion; indent a selection; else
+                // insert the indent unit at the cursor.
+                if (acceptCompletion(view)) return true;
+                if (view.state.selection.ranges.some((r) => !r.empty)) {
+                  return indentMore(view);
+                }
+                view.dispatch(view.state.replaceSelection("  "), {
+                  scrollIntoView: true,
+                  userEvent: "input",
+                });
+                return true;
+              },
+            },
+            ...defaultKeymap,
+            ...historyKeymap,
+            ...completionKeymap,
+          ]),
           yaml(),
           autocompletion({ override: [complete] }),
           linter(lintSource, { delay: 300 }),
