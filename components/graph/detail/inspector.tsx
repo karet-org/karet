@@ -121,7 +121,12 @@ export function editInputClass(extra = ""): string {
   return `w-full rounded-[7px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-2 py-[5px] text-xs text-[color:var(--color-ink)] focus:border-[color:var(--color-carrot)] focus:outline-none ${extra}`;
 }
 
-/** Labeled field inside an editing card. */
+/** Labeled field inside an editing card.
+ *
+ * Deliberately a div, not a label: a label forwards clicks to its first
+ * labelable descendant, and for composite children (chip lists) that is
+ * a chip's remove button, so clicking the caption deleted a pattern.
+ * Controls carry their own aria-labels. */
 export function EditField({
   label,
   children,
@@ -132,12 +137,12 @@ export function EditField({
   className?: string;
 }) {
   return (
-    <label className={`flex flex-col gap-[3px] ${className ?? ""}`}>
+    <div className={`flex flex-col gap-[3px] ${className ?? ""}`}>
       <span className="pl-px text-[9.5px] tracking-[0.3px] text-[color:var(--color-ink-3)]">
         {label}
       </span>
       {children}
-    </label>
+    </div>
   );
 }
 
