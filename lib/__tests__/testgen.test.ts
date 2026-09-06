@@ -36,6 +36,9 @@ const KNOWN_AST_KINDS = new Set<AstNode["kind"]>([
   "contains",
   "if",
   "parse_date",
+  "year",
+  "month",
+  "day",
   "lookup_ref",
   "cast",
 ]);
