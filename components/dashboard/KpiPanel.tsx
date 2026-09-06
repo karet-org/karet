@@ -112,13 +112,13 @@ export function KpiPanel({ config, rows }: PanelProps<KpiPanelConfig>) {
     >
       <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--color-ink-3)]">
         {icon && (
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--color-leaf-soft)] text-[color:var(--color-leaf-deep)]">
             {icon}
           </span>
         )}
         <span>{config.title}</span>
       </div>
-      <div className="mt-1.5 text-lg font-semibold text-emerald-600">{display}</div>
+      <div className="mt-1.5 text-lg font-semibold text-[color:var(--color-leaf-deep)]">{display}</div>
     </div>
   );
 }

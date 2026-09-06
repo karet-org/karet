@@ -157,7 +157,7 @@ export function SankeyPanel({
       data-testid="sankey-panel"
       className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm"
     >
-      <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
+      <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
       <div
         ref={containerRef}
         className="relative mt-3 overflow-x-auto overflow-y-hidden"
@@ -343,7 +343,7 @@ function SankeySvg({
                 dy="0.35em"
                 textAnchor={labelOnRight ? "start" : "end"}
                 fontSize={11}
-                fill="#374151"
+                fill="var(--color-ink-2)"
                 opacity={lit ? 1 : DIM_OPACITY}
                 style={{ pointerEvents: "none" }}
               >

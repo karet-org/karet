@@ -51,7 +51,7 @@ export function SummaryPanel({ config, rows }: PanelProps<SummaryPanelConfig>) {
       data-testid="summary-panel"
       className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm"
     >
-      <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
+      <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <div className="rounded bg-[color:var(--color-surface-2)] p-2">
           <div className="text-xs text-[color:var(--color-ink-3)]">Rows</div>
