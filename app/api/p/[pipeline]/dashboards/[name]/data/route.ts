@@ -53,7 +53,7 @@ export async function POST(
       }),
     );
 
-    const params = coerceParams(dash.config.filters, body.params);
+    const params = coerceParams(dash.config, body.params);
     const data = await executeDashboard(
       pipeline,
       pipelineCfg.config,

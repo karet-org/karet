@@ -15,7 +15,22 @@ const DEBOUNCE_MS = 250;
 function emptyParams(config: DashboardConfigV2): Params {
   const params: Params = {};
   for (const f of config.filters) for (const p of filterParams(f)) params[p] = null;
+  for (const panel of config.panels) {
+    if ("emit" in panel && panel.emit) params[panel.emit.param] = null;
+  }
   return params;
+}
+
+/** Params set by emits with no filter control of their own. */
+function emitOnlyParams(config: DashboardConfigV2): string[] {
+  const filterOwned = new Set(config.filters.flatMap((f) => filterParams(f)));
+  const out = new Set<string>();
+  for (const panel of config.panels) {
+    if ("emit" in panel && panel.emit && !filterOwned.has(panel.emit.param)) {
+      out.add(panel.emit.param);
+    }
+  }
+  return [...out];
 }
 
 function spanStyle(panel: PanelV2, columns: number): React.CSSProperties {
@@ -95,6 +110,7 @@ export function DashboardView({
         options={data?.filters ?? {}}
         params={params}
         onChange={setParams}
+        emitParams={emitOnlyParams(config)}
       />
       {error && (
         <div
