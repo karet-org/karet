@@ -22,7 +22,7 @@ export function InlineErrorList({ errors, testId }: InlineErrorListProps) {
     <ul
       data-testid={testId}
       role="alert"
-      className="rounded border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700"
+      className="rounded border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-2 py-1 text-[11px] text-[color:var(--color-rose-deep)]"
     >
       {errors.map((e, i) => (
         <li key={i}>{e}</li>
@@ -41,7 +41,7 @@ export interface EditorFieldProps {
 export function EditorField({ label, children, className }: EditorFieldProps) {
   return (
     <label className={`flex flex-col gap-1 text-xs ${className ?? ""}`}>
-      <span className="text-gray-500">{label}</span>
+      <span className="text-[color:var(--color-ink-3)]">{label}</span>
       {children}
     </label>
   );
@@ -49,5 +49,5 @@ export function EditorField({ label, children, className }: EditorFieldProps) {
 
 /** Thin wrapper that gives text/number inputs a uniform look. */
 export function inputClass(extra = ""): string {
-  return `rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:border-gray-400 focus:outline-none ${extra}`;
+  return `rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-2 py-1 text-xs text-[color:var(--color-ink)] focus:border-gray-400 focus:outline-none ${extra}`;
 }

@@ -111,9 +111,9 @@ export function MappingEditor({ value, onChange }: MappingEditorProps) {
       {!table ? (
         <div
           data-testid={MAPPING_EDITOR_UNCONNECTED_TESTID}
-          className="flex flex-col gap-2 rounded border border-dashed border-gray-300 bg-gray-50 p-3 text-xs text-gray-500"
+          className="flex flex-col gap-2 rounded border border-dashed border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)] p-3 text-xs text-[color:var(--color-ink-3)]"
         >
-          <p className="font-semibold text-gray-700">No final table connected</p>
+          <p className="font-semibold text-[color:var(--color-ink-2)]">No final table connected</p>
           <p>
             Connect this mapping to an analytic table in the graph to define
             its output columns.
@@ -121,13 +121,13 @@ export function MappingEditor({ value, onChange }: MappingEditorProps) {
         </div>
       ) : (
         <>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[color:var(--color-ink-3)]">
             Columns ({value.columns.length}) · final table{" "}
-            <span className="font-mono text-gray-700">{table.id}</span>
-            {hasErrors && <span className="ml-2 text-red-500">- fix errors before saving</span>}
+            <span className="font-mono text-[color:var(--color-ink-2)]">{table.id}</span>
+            {hasErrors && <span className="ml-2 text-[color:var(--color-rose-deep)]">- fix errors before saving</span>}
           </p>
           {value.columns.length === 0 ? (
-            <p className="text-xs text-gray-400">No columns</p>
+            <p className="text-xs text-[color:var(--color-ink-3)]">No columns</p>
           ) : (
             <ul className="flex flex-col gap-3">
               {value.columns.map((col, i) => (
@@ -153,7 +153,7 @@ export function MappingEditor({ value, onChange }: MappingEditorProps) {
               )
             }
           />
-          <div className="rounded border border-gray-100 bg-gray-50 p-2 text-[10px] text-gray-400">
+          <div className="rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] p-2 text-[10px] text-[color:var(--color-ink-3)]">
             <span className="font-semibold">Expression syntax:</span>{" "}
             <code>column_name</code>, <code>&quot;string&quot;</code>, <code>123</code>,{" "}
             <code>upper(x)</code>, <code>x * 100</code>, <code>x == y</code>,{" "}
@@ -213,9 +213,9 @@ function PartitionByEditor({ value, columns, tableSchema, onChange }: PartitionB
   return (
     <div
       data-testid={PARTITION_BY_EDITOR_TESTID}
-      className="rounded border border-gray-200 bg-gray-50 p-2"
+      className="rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] p-2"
     >
-      <label className="flex items-center gap-1.5 text-xs text-gray-700">
+      <label className="flex items-center gap-1.5 text-xs text-[color:var(--color-ink-2)]">
         <input
           type="checkbox"
           checked={enabled}
@@ -229,7 +229,7 @@ function PartitionByEditor({ value, columns, tableSchema, onChange }: PartitionB
         />
         <span className="font-semibold">Partition output</span>
         {noDates && !enabled && (
-          <span className="text-gray-400">- needs a date column</span>
+          <span className="text-[color:var(--color-ink-3)]">- needs a date column</span>
         )}
       </label>
       {enabled && value && (
@@ -277,13 +277,13 @@ function PartitionByEditor({ value, columns, tableSchema, onChange }: PartitionB
         </div>
       )}
       {missing && (
-        <p className="mt-1 text-[11px] text-red-600">
+        <p className="mt-1 text-[11px] text-[color:var(--color-rose-deep)]">
           ⚠ column <code className="font-mono">{value!.column}</code> is not
           produced by this mapping
         </p>
       )}
       {enabled && value && !missing && !dateColumns.includes(value.column) && (
-        <p className="mt-1 text-[11px] text-red-600">
+        <p className="mt-1 text-[11px] text-[color:var(--color-rose-deep)]">
           ⚠ column <code className="font-mono">{value.column}</code> is not a
           date-typed column; month partitioning requires a date
         </p>
@@ -389,13 +389,13 @@ function ColumnExprEditor({ value, onChange, sourceColumns }: ColumnExprEditorPr
   return (
     <div
       data-testid={MAPPING_COLUMN_EDITOR_TESTID}
-      className={`rounded border p-2 ${error ? "border-red-300 bg-red-50" : "border-gray-200 bg-gray-50"}`}
+      className={`rounded border p-2 ${error ? "border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)]" : "border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)]"}`}
     >
       <div className="flex gap-2">
         <EditorField label="name">
           <input
             aria-label="column name"
-            className={inputClass("font-mono w-24 bg-gray-100 text-gray-600")}
+            className={inputClass("font-mono w-24 bg-[color:var(--color-surface-2)] text-[color:var(--color-ink-2)]")}
             value={value.name}
             readOnly
             title="Column names come from the connected analytic table"
@@ -413,13 +413,13 @@ function ColumnExprEditor({ value, onChange, sourceColumns }: ColumnExprEditorPr
             modalTitle={`Expression: ${value.name}`}
             modalActionLabel="Done"
             inputClassName={inputClass(
-              `font-mono w-full ${error ? "border-red-400" : ""}`,
+              `font-mono w-full ${error ? "border-[color:var(--color-rose-deep)]" : ""}`,
             )}
           />
         </EditorField>
       </div>
       {error && (
-        <p data-testid={AST_JSON_PARSE_ERROR_TESTID} className="mt-1 text-[11px] text-red-600">
+        <p data-testid={AST_JSON_PARSE_ERROR_TESTID} className="mt-1 text-[11px] text-[color:var(--color-rose-deep)]">
           ⚠ {error}
         </p>
       )}

@@ -59,7 +59,7 @@ export function ChipListEditor({
 
   return (
     <div
-      className={`flex flex-wrap items-center gap-1 rounded border border-gray-300 bg-white px-1.5 py-1 ${className}`}
+      className={`flex flex-wrap items-center gap-1 rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-1.5 py-1 ${className}`}
     >
       {value.map((chip, i) => (
         <span
@@ -92,7 +92,7 @@ export function ChipListEditor({
       ))}
       <input
         aria-label={ariaLabel}
-        className="min-w-[80px] flex-1 bg-transparent px-1 py-0.5 font-mono text-[11px] text-gray-800 focus:outline-none"
+        className="min-w-[80px] flex-1 bg-transparent px-1 py-0.5 font-mono text-[11px] text-[color:var(--color-ink)] focus:outline-none"
         value={draft}
         placeholder={value.length === 0 ? placeholder : ""}
         onChange={(e) => {

@@ -137,12 +137,12 @@ export function BarPanel({
   return (
     <div
       data-testid="bar-panel"
-      className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-100 bg-white p-4 shadow-sm"
+      className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm"
     >
-      <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
+      <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
       <div {...chartAreaProps(config)}>
         {labels.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-gray-500">
+          <div className="flex h-full items-center justify-center text-sm text-[color:var(--color-ink-3)]">
             No data
           </div>
         ) : (

@@ -1,35 +1,35 @@
 @import "tailwindcss";
 
 :root {
-  /* Surface */
-  --color-bg: #fbfaf6;
-  --color-surface: #ffffff;
-  --color-surface-2: #f5f2ea;
+  /* Surface: neutral near-blacks shared with the docs site's dark mode */
+  --color-bg: #1b1b1f;
+  --color-surface: #202127;
+  --color-surface-2: #2b2c33;
 
   /* Ink */
-  --color-ink: #1f1d1a;
-  --color-ink-2: #4a4640;
-  --color-ink-3: #807a70;
-  --color-ink-4: #b6afa3;
+  --color-ink: #f2f2f5;
+  --color-ink-2: #c4c5cc;
+  --color-ink-3: #8f9098;
+  --color-ink-4: #64656c;
 
   /* Rules */
-  --color-rule: #e8e2d2;
-  --color-rule-soft: #f0ebdc;
+  --color-rule: #3f4046;
+  --color-rule-soft: #33343a;
 
-  /* Brand */
+  /* Brand: color is emphasis, surfaces stay neutral */
   --color-carrot: #ff6b35;
-  --color-carrot-deep: #c4421a;
-  --color-carrot-soft: #fff0e8;
+  --color-carrot-deep: #ff8455;
+  --color-carrot-soft: rgba(255, 107, 53, 0.16);
   --color-leaf: #4caf50;
-  --color-leaf-deep: #2e7d32;
-  --color-leaf-soft: #ecf6ec;
-  --color-amber-soft: #fff4d6;
-  --color-amber-deep: #8a5a00;
-  --color-rose-soft: #fce8e6;
-  --color-rose-deep: #b4321a;
+  --color-leaf-deep: #7bc97e;
+  --color-leaf-soft: rgba(76, 175, 80, 0.16);
+  --color-amber-soft: rgba(255, 205, 41, 0.14);
+  --color-amber-deep: #ffcd29;
+  --color-rose-soft: rgba(242, 72, 34, 0.14);
+  --color-rose-deep: #ff7b5c;
 
   --font-sans:
-    var(--font-instrument-sans), ui-sans-serif, system-ui, -apple-system,
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono:
     var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, Consolas,
@@ -53,13 +53,10 @@ body {
   color: var(--color-ink);
   background-color: var(--color-bg);
   font-family: var(--font-sans);
+  /* 13px base per the mock; utilities override per element. */
+  font-size: 13px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-::selection {
-  background: var(--color-carrot-soft);
-  color: var(--color-carrot-deep);
 }
 
 .react-flow__node {
@@ -93,4 +90,57 @@ button:disabled,
   [data-panel-span="3"] {
     grid-column: 1 / -1 !important;
   }
+}
+
+/* Shared table anatomy from the mock. */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-ink-3);
+  border-bottom: 1px solid var(--color-rule-soft);
+}
+.data-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--color-rule-soft);
+  color: var(--color-ink-2);
+}
+.data-table td:first-child {
+  color: var(--color-ink);
+}
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.data-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+.data-table tbody tr.detail-row:hover td {
+  background: transparent;
+}
+
+/* Thin dark scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-rule) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-rule);
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-4);
+}
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }

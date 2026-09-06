@@ -135,15 +135,15 @@ export function SymbolMapPanel({
   }, [atlas, points, config.title, config.max_radius]);
 
   return (
-    <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-100 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
+    <div className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
       <div {...chartAreaProps(config)}>
         {!atlas ? (
-          <div className="flex h-full items-center justify-center text-xs text-gray-400">
+          <div className="flex h-full items-center justify-center text-xs text-[color:var(--color-ink-3)]">
             Loading map…
           </div>
         ) : points.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-xs text-gray-400">
+          <div className="flex h-full items-center justify-center text-xs text-[color:var(--color-ink-3)]">
             No points
           </div>
         ) : (

@@ -1,4 +1,4 @@
-import TopNav from "@/components/layout/TopNav";
+import SideNav from "@/components/layout/SideNav";
 
 export default async function PipelineLayout({
   children,
@@ -8,11 +8,12 @@ export default async function PipelineLayout({
   params: Promise<{ pipeline: string }>;
 }) {
   const { pipeline } = await params;
-  const s3ConsoleUrl = process.env.S3_CONSOLE_URL || null;
   return (
-    <>
-      <TopNav pipeline={pipeline} s3ConsoleUrl={s3ConsoleUrl} />
-      {children}
-    </>
+    // Fixed-height shell: the content pane scrolls, not the body.
+    // (sticky is defeated by the body's overflow-x: hidden.)
+    <div className="md:flex md:h-screen md:overflow-hidden">
+      <SideNav pipeline={pipeline} />
+      <div className="min-w-0 flex-1 md:overflow-y-auto">{children}</div>
+    </div>
   );
 }

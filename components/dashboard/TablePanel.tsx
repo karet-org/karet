@@ -28,19 +28,15 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
   return (
     <div
       data-testid="table-panel"
-      className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-100 bg-white p-4 shadow-sm"
+      className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm"
     >
-      <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
+      <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
       <div className="mt-3 overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-600">
+        <table className="data-table min-w-full">
+          <thead>
             <tr>
               {config.columns.map((c) => (
-                <th
-                  key={c}
-                  scope="col"
-                  className="px-3 py-2 text-left font-semibold"
-                >
+                <th key={c} scope="col">
                   {c}
                 </th>
               ))}
@@ -48,11 +44,9 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
           </thead>
           <tbody>
             {pageRows.map((row, i) => (
-              <tr key={start + i} className="border-t border-gray-100">
+              <tr key={start + i}>
                 {config.columns.map((c) => (
-                  <td key={c} className="px-3 py-1.5 text-gray-800">
-                    {formatCell(row[c])}
-                  </td>
+                  <td key={c}>{formatCell(row[c])}</td>
                 ))}
               </tr>
             ))}
@@ -60,7 +54,7 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
               <tr>
                 <td
                   colSpan={config.columns.length}
-                  className="px-3 py-4 text-center text-gray-500"
+                  className="py-4 text-center text-[color:var(--color-ink-3)]"
                 >
                   No rows
                 </td>
@@ -70,7 +64,7 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
         </table>
       </div>
       {pageCount > 1 && (
-        <div className="mt-3 flex items-center justify-between text-xs text-gray-600">
+        <div className="mt-3 flex items-center justify-between text-xs text-[color:var(--color-ink-2)]">
           <span>
             Page {safePage + 1} of {pageCount}
           </span>
@@ -79,7 +73,7 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
               type="button"
               onClick={() => setPage(Math.max(0, safePage - 1))}
               disabled={safePage === 0}
-              className="cursor-pointer rounded border border-gray-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+              className="cursor-pointer rounded border border-[color:var(--color-rule)] px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Prev
             </button>
@@ -87,7 +81,7 @@ export function TablePanel({ config, rows }: PanelProps<TablePanelConfig>) {
               type="button"
               onClick={() => setPage(Math.min(pageCount - 1, safePage + 1))}
               disabled={safePage >= pageCount - 1}
-              className="cursor-pointer rounded border border-gray-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
+              className="cursor-pointer rounded border border-[color:var(--color-rule)] px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next
             </button>

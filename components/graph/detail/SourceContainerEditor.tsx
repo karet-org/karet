@@ -87,18 +87,18 @@ export function SourceContainerEditor({
       </EditorField>
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">Schema</span>
+          <span className="text-xs text-[color:var(--color-ink-3)]">Schema</span>
           <button
             type="button"
             data-testid="source-container-editor-add-column"
             onClick={addColumn}
-            className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[11px] text-gray-700 hover:bg-gray-50"
+            className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-2 py-0.5 text-[11px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
           >
             + Add column
           </button>
         </div>
         {value.schema.length === 0 ? (
-          <p className="text-xs text-gray-400">No columns</p>
+          <p className="text-xs text-[color:var(--color-ink-3)]">No columns</p>
         ) : (
           <ul className="flex flex-col gap-1.5">
             {value.schema.map((col, i) => (

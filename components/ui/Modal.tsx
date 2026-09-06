@@ -28,7 +28,7 @@ export interface ModalProps {
 }
 
 const DEFAULT_CARD =
-  "w-full max-w-md rounded-xl bg-white p-6 text-gray-900 shadow-xl";
+  "w-full max-w-md rounded-xl bg-[color:var(--color-surface)] p-6 text-[color:var(--color-ink)] shadow-xl";
 
 /**
  * Simple modal primitive: dimmed backdrop + centered card. No focus trap

@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { TOP_NAV_HEIGHT_PX } from "@/components/layout/TopNav";
 import { IconPlay } from "@/components/icons";
 import type { JobRecord } from "@/lib/types/jobs";
 
@@ -13,7 +12,6 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [running, setRunning] = useState(false);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [bucketError, setBucketError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -23,7 +21,6 @@ export default function JobsPage() {
   const [total, setTotal] = useState(0);
 
   const loadJobs = useCallback(async () => {
-    setRefreshing(true);
     try {
       const r = await fetch(
         `/api/p/${pipeline}/jobs?page=${page}&pageSize=${pageSize}`,
@@ -42,7 +39,6 @@ export default function JobsPage() {
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : String(e));
     } finally {
-      setRefreshing(false);
       setLoaded(true);
     }
   }, [pipeline, page, pageSize]);
@@ -117,35 +113,45 @@ export default function JobsPage() {
   const statusDot = (status: string) => {
     switch (status) {
       case "completed":
-        return "bg-green-500";
+        return "bg-[color:var(--color-leaf)]";
       case "failed":
-        return "bg-red-500";
+        return "bg-[color:var(--color-rose-deep)]";
       case "abandoned":
         return "bg-amber-500";
       case "running":
         return "bg-yellow-500 animate-pulse";
       case "scheduled":
       case "queued":
-        return "bg-blue-500 animate-pulse";
+        return "bg-[#6cb2ff] animate-pulse";
       default:
-        return "bg-gray-400";
+        return "bg-[color:var(--color-ink-4)]";
     }
   };
 
-  /** One-line live progress, e.g. `ingesting · 3/7 mappings · 12 partitions`. */
+  /** One-line live progress, e.g. `ingesting 3/7 mappings, 12 partitions`. */
   function progressLine(job: Job): string {
     const p = job.progress;
     if (!p) return job.status === "queued" ? "waiting for a worker" : "running…";
     if (p.stage === "downloading") {
       return p.files_total
-        ? `downloading · ${p.files_done ?? 0}/${p.files_total} files`
+        ? `downloading ${p.files_done ?? 0}/${p.files_total} files`
         : "downloading…";
     }
-    const parts = [`ingesting · ${p.mappings_done ?? 0}/${p.mappings_total ?? "?"} mappings`];
+    const parts = [`ingesting ${p.mappings_done ?? 0}/${p.mappings_total ?? "?"} mappings`];
     if (job.partitions_written !== undefined) {
       parts.push(`${job.partitions_written} partition(s)`);
     }
-    return parts.join(" · ");
+    return parts.join(", ");
+  }
+
+  /** Fraction complete for the progress bar; null = indeterminate. */
+  function progressPct(job: Job): number | null {
+    const p = job.progress;
+    if (!p) return null;
+    if (p.stage === "downloading") {
+      return p.files_total ? (0.5 * (p.files_done ?? 0)) / p.files_total : null;
+    }
+    return p.mappings_total ? 0.5 + (0.5 * (p.mappings_done ?? 0)) / p.mappings_total : null;
   }
 
   function scheduledCountdown(nextRunAt: string): string {
@@ -171,180 +177,192 @@ export default function JobsPage() {
 
   return (
     <main
-      className="mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8"
-      style={{ minHeight: `calc(100vh - ${TOP_NAV_HEIGHT_PX}px)` }}
+      className="px-4 py-4 sm:px-6"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Jobs</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Run the pipeline and watch its progress. Each run reads raw CSVs, applies the configured mappings, and writes Parquet output.
+          <h1 className="text-xl font-semibold text-[color:var(--color-ink)]">Jobs</h1>
+          <p className="mt-1 text-[12.5px] text-[color:var(--color-ink-3)]">
+            Runs for this pipeline,{" "}
+            {sseConnected ? "live updates connected" : "reconnecting to live updates"}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <button
-            type="button"
-            onClick={() => loadJobs()}
-            disabled={refreshing}
-            title="Refresh job list"
-            aria-label="Refresh"
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {refreshing ? "Refreshing…" : "↻ Refresh"}
-          </button>
-          <button
-            type="button"
-            onClick={() => triggerJob()}
-            disabled={running}
-            className="flex items-center gap-1.5 rounded bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
-          >
-            {running ? "Running…" : <><IconPlay size={12} /> Run Pipeline</>}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => triggerJob()}
+          disabled={running}
+          className="flex shrink-0 items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+        >
+          {running ? "Running…" : <><IconPlay size={12} /> Run Pipeline</>}
+        </button>
       </div>
 
       <div className="mt-6">
         {bucketError ? (
-          <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div role="alert" className="rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]">
             <strong>S3 bucket not found.</strong> {bucketError}
           </div>
         ) : loadError ? (
-          <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div role="alert" className="rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]">
             <strong>Couldn&apos;t load jobs.</strong> {loadError}
           </div>
         ) : !loaded ? (
-          <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
+          <div className="divide-y divide-[color:var(--color-rule-soft)] overflow-hidden rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]">
             {[0, 1, 2].map((i) => (
               <div key={i} className="flex items-center gap-3 px-3 py-2.5">
-                <span className="h-2 w-2 shrink-0 rounded-full bg-gray-200" />
-                <span className="h-3 w-24 animate-pulse rounded bg-gray-200" />
-                <span className="h-3 flex-1 animate-pulse rounded bg-gray-100" />
+                <span className="h-2 w-2 shrink-0 rounded-full bg-[color:var(--color-rule)]" />
+                <span className="h-3 w-24 animate-pulse rounded bg-[color:var(--color-rule)]" />
+                <span className="h-3 flex-1 animate-pulse rounded bg-[color:var(--color-surface-2)]" />
               </div>
             ))}
           </div>
         ) : jobs.length === 0 ? (
-          <p className="py-8 text-center text-sm text-gray-400">
+          <p className="py-8 text-center text-sm text-[color:var(--color-ink-3)]">
             No jobs yet. Click &quot;Run Pipeline&quot; to start one.
           </p>
         ) : (
-          <div className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200 bg-white">
-            {jobs.map((job) => {
-              const expanded = expandedJobId === job.id;
-              const terminal =
-                job.status !== "running" &&
-                job.status !== "scheduled" &&
-                job.status !== "queued";
-              const stats = [
-                job.files_processed !== undefined ? `${job.files_processed} file(s)` : null,
-                job.partitions_written !== undefined ? `${job.partitions_written} partition(s)` : null,
-                job.completedAt ? formatDuration(job.startedAt, job.completedAt) : null,
-              ].filter(Boolean);
-              return (
-                <div key={job.id}>
-                  <button
-                    type="button"
-                    onClick={() => terminal && setExpandedJobId(expanded ? null : job.id)}
-                    aria-expanded={terminal ? expanded : undefined}
-                    className={`flex w-full items-center gap-3 px-3 py-2 text-left ${
-                      terminal ? "hover:bg-gray-50" : "cursor-default"
-                    }`}
-                  >
-                    <span
-                      className={`h-2 w-2 shrink-0 rounded-full ${statusDot(job.status)}`}
-                      aria-hidden
-                    />
-                    <span className="sr-only">{job.status}</span>
-                    <code className="shrink-0 text-[11px] text-gray-500">{job.id}</code>
-                    {job.trigger === "webhook" && (
-                      <span
-                        className="shrink-0 rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700"
-                        title="Auto-triggered by an upload to S3"
+          <div className="overflow-x-auto">
+            <table className="data-table min-w-full">
+              <thead>
+                <tr>
+                  <th>Job</th>
+                  <th>Status</th>
+                  <th>Trigger</th>
+                  <th>Progress</th>
+                  <th>Started</th>
+                  <th>Duration</th>
+                  <th className="w-8" aria-hidden />
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map((job) => {
+                  const expanded = expandedJobId === job.id;
+                  const terminal =
+                    job.status !== "running" &&
+                    job.status !== "scheduled" &&
+                    job.status !== "queued";
+                  const active = job.status === "queued" || job.status === "running";
+                  return (
+                    <Fragment key={job.id}>
+                      <tr
+                        onClick={() => terminal && setExpandedJobId(expanded ? null : job.id)}
+                        aria-expanded={terminal ? expanded : undefined}
+                        className={terminal ? "cursor-pointer" : ""}
                       >
-                        auto
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1 truncate text-xs text-gray-400">
-                      {job.status === "scheduled" && job.nextRunAt
-                        ? scheduledCountdown(job.nextRunAt)
-                        : job.status === "queued" || job.status === "running"
-                          ? progressLine(job)
-                          : job.status === "failed"
-                            ? <span className="text-red-500">Failed{stats.length > 0 ? ` · ${stats.join(" · ")}` : ""}</span>
-                            : stats.join(" · ")}
-                    </span>
-                    <span className="shrink-0 text-[11px] text-gray-400">
-                      {new Date(job.startedAt).toLocaleString()}
-                    </span>
-                    {terminal && (
-                      <span
-                        className={`shrink-0 text-gray-400 transition-transform ${expanded ? "rotate-90" : ""}`}
-                        aria-hidden
-                      >
-                        ›
-                      </span>
-                    )}
-                  </button>
-                  {expanded && (
-                    <div className="space-y-2 bg-gray-50 px-3 py-2 text-[11px] text-gray-700">
-                      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                        <dt className="text-gray-500">Job ID</dt>
-                        <dd className="font-mono">{job.id}</dd>
-                        <dt className="text-gray-500">Status</dt>
-                        <dd>{job.status}</dd>
-                        <dt className="text-gray-500">Started</dt>
-                        <dd>{new Date(job.startedAt).toLocaleString()}</dd>
-                        {job.completedAt && (
-                          <>
-                            <dt className="text-gray-500">Completed</dt>
-                            <dd>{new Date(job.completedAt).toLocaleString()}</dd>
-                            <dt className="text-gray-500">Duration</dt>
-                            <dd>{formatDuration(job.startedAt, job.completedAt)}</dd>
-                          </>
-                        )}
-                        {job.files_processed !== undefined && (
-                          <>
-                            <dt className="text-gray-500">Files processed</dt>
-                            <dd>{job.files_processed}</dd>
-                          </>
-                        )}
-                        {job.partitions_written !== undefined && (
-                          <>
-                            <dt className="text-gray-500">Partitions written</dt>
-                            <dd>{job.partitions_written}</dd>
-                          </>
-                        )}
-                        {job.errors !== undefined && (
-                          <>
-                            <dt className="text-gray-500">Errors</dt>
-                            <dd>{job.errors.length}</dd>
-                          </>
-                        )}
-                      </dl>
-                      {job.error && (
-                        <div className="rounded border border-red-200 bg-red-50 p-2 text-[11px] text-red-700">
-                          <div className="mb-0.5 font-medium">Error</div>
-                          <p className="whitespace-pre-wrap break-words font-mono">{job.error}</p>
-                        </div>
+                        <td>
+                          <code className="text-[12px]">{job.id}</code>
+                        </td>
+                        <td>
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className={`h-[7px] w-[7px] rounded-full ${statusDot(job.status)}`} aria-hidden />
+                            {job.status}
+                          </span>
+                        </td>
+                        <td>
+                          {job.trigger === "webhook" ? "webhook" : "manual"}
+                        </td>
+                        <td>
+                          {job.status === "scheduled" && job.nextRunAt ? (
+                            scheduledCountdown(job.nextRunAt)
+                          ) : active ? (
+                            <span className="inline-flex items-center gap-2" title={progressLine(job)}>
+                              <span className="h-1 w-[120px] overflow-hidden rounded-full bg-[color:var(--color-surface-2)]">
+                                {progressPct(job) === null ? (
+                                  <span className="block h-full w-1/3 animate-pulse rounded-full bg-[color:var(--color-carrot)]" />
+                                ) : (
+                                  <span
+                                    className="block h-full rounded-full bg-[color:var(--color-carrot)] transition-[width]"
+                                    style={{ width: `${Math.round(progressPct(job)! * 100)}%` }}
+                                  />
+                                )}
+                              </span>
+                              <span className="text-[11px]">{progressLine(job)}</span>
+                            </span>
+                          ) : job.status === "failed" && job.error ? (
+                            <span className="block max-w-[260px] truncate text-[color:var(--color-rose-deep)]" title={job.error}>
+                              {job.error}
+                            </span>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap">
+                          {new Date(job.startedAt).toLocaleString()}
+                        </td>
+                        <td className="whitespace-nowrap">
+                          {job.completedAt ? formatDuration(job.startedAt, job.completedAt) : "-"}
+                        </td>
+                        <td className="text-[color:var(--color-ink-4)]" aria-hidden>
+                          {terminal && (
+                            <span className={`inline-block transition-transform ${expanded ? "rotate-90" : ""}`}>›</span>
+                          )}
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr className="detail-row">
+                          <td colSpan={7}>
+                            <div className="space-y-2 rounded-[10px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-3 text-[11px] text-[color:var(--color-ink-2)]">
+                              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                                <dt className="text-[color:var(--color-ink-3)]">Job ID</dt>
+                                <dd className="font-mono">{job.id}</dd>
+                                <dt className="text-[color:var(--color-ink-3)]">Status</dt>
+                                <dd>{job.status}</dd>
+                                <dt className="text-[color:var(--color-ink-3)]">Started</dt>
+                                <dd>{new Date(job.startedAt).toLocaleString()}</dd>
+                                {job.completedAt && (
+                                  <>
+                                    <dt className="text-[color:var(--color-ink-3)]">Completed</dt>
+                                    <dd>{new Date(job.completedAt).toLocaleString()}</dd>
+                                  </>
+                                )}
+                                {job.files_processed !== undefined && (
+                                  <>
+                                    <dt className="text-[color:var(--color-ink-3)]">Files processed</dt>
+                                    <dd>{job.files_processed}</dd>
+                                  </>
+                                )}
+                                {job.partitions_written !== undefined && (
+                                  <>
+                                    <dt className="text-[color:var(--color-ink-3)]">Partitions written</dt>
+                                    <dd>{job.partitions_written}</dd>
+                                  </>
+                                )}
+                                {job.errors !== undefined && (
+                                  <>
+                                    <dt className="text-[color:var(--color-ink-3)]">Errors</dt>
+                                    <dd>{job.errors.length}</dd>
+                                  </>
+                                )}
+                              </dl>
+                              {job.error && (
+                                <div className="rounded border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] p-2 text-[11px] text-[color:var(--color-rose-deep)]">
+                                  <div className="mb-0.5 font-medium">Error</div>
+                                  <p className="whitespace-pre-wrap break-words font-mono">{job.error}</p>
+                                </div>
+                              )}
+                              {job.errors && job.errors.length > 0 && (
+                                <ul className="max-h-60 space-y-1 overflow-auto rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-2 font-mono text-[11px] text-[color:var(--color-ink-2)]">
+                                  {job.errors.map((e, i) => (
+                                    <li key={i} className="border-l-2 border-[color:var(--color-rose-deep)] pl-2">
+                                      {e}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
                       )}
-                      {job.errors && job.errors.length > 0 && (
-                        <ul className="max-h-60 space-y-1 overflow-auto rounded border border-gray-200 bg-white p-2 font-mono text-[11px] text-gray-700">
-                          {job.errors.map((e, i) => (
-                            <li key={i} className="border-l-2 border-red-300 pl-2">
-                              {e}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 
         {!bucketError && total > 0 && (
-          <div className="mt-4 flex items-center justify-between gap-3 text-xs text-gray-500">
+          <div className="mt-4 flex items-center justify-between gap-3 text-xs text-[color:var(--color-ink-3)]">
             <div className="flex items-center gap-2">
               <label htmlFor="job-page-size">Per page</label>
               <select
@@ -354,7 +372,7 @@ export default function JobsPage() {
                   setPage(1);
                   setPageSize(Number(e.target.value));
                 }}
-                className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700"
+                className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-2 py-1 text-xs text-[color:var(--color-ink-2)]"
               >
                 {[25, 50, 100].map((n) => (
                   <option key={n} value={n}>
@@ -369,7 +387,7 @@ export default function JobsPage() {
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="rounded border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1 text-xs text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-40"
               >
                 ← Prev
               </button>
@@ -380,7 +398,7 @@ export default function JobsPage() {
                 type="button"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
-                className="rounded border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1 text-xs text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-40"
               >
                 Next →
               </button>

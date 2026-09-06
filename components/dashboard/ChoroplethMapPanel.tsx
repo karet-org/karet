@@ -201,11 +201,11 @@ export function ChoroplethMapPanel({
   ]);
 
   return (
-    <div className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-100 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
+    <div className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
       <div {...chartAreaProps(config)}>
         {!atlas ? (
-          <div className="flex h-full items-center justify-center text-xs text-gray-400">
+          <div className="flex h-full items-center justify-center text-xs text-[color:var(--color-ink-3)]">
             Loading map…
           </div>
         ) : (
@@ -213,7 +213,7 @@ export function ChoroplethMapPanel({
         )}
       </div>
       {unresolved > 0 && (
-        <p className="mt-2 text-[11px] text-amber-600">
+        <p className="mt-2 text-[11px] text-[color:var(--color-amber-deep)]">
           {unresolved} row(s) had an unrecognized country value and were skipped
         </p>
       )}
@@ -228,7 +228,7 @@ function interpolateBlue(t: number): string {
 }
 
 function colorFor(value: number, max: number, alpha: number): string {
-  if (value <= 0 || max <= 0) return `rgba(229, 231, 235, ${alpha})`; // gray-200
+  if (value <= 0 || max <= 0) return `rgba(64, 65, 72, ${alpha})`; // gray-200
   const t = Math.min(1, Math.sqrt(value / max));
   // Interpolate from blue-100 (#dbeafe) to blue-900 (#1e3a8a)
   const stops: [number, number, number][] = [

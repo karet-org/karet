@@ -49,17 +49,17 @@ export function SummaryPanel({ config, rows }: PanelProps<SummaryPanelConfig>) {
   return (
     <div
       data-testid="summary-panel"
-      className="flex flex-1 flex-col min-w-0 rounded-lg border border-orange-100 bg-white p-4 shadow-sm"
+      className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm"
     >
-      <h3 className="text-sm font-semibold text-emerald-600">{config.title}</h3>
+      <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <div className="rounded bg-gray-50 p-2">
-          <div className="text-xs text-gray-500">Rows</div>
+        <div className="rounded bg-[color:var(--color-surface-2)] p-2">
+          <div className="text-xs text-[color:var(--color-ink-3)]">Rows</div>
           <div className="text-lg font-semibold">{formatValue(rows.length)}</div>
         </div>
         {stats.map((s) => (
-          <div key={s.col} className="rounded bg-gray-50 p-2">
-            <div className="text-xs text-gray-500">
+          <div key={s.col} className="rounded bg-[color:var(--color-surface-2)] p-2">
+            <div className="text-xs text-[color:var(--color-ink-3)]">
               {s.label} of {s.col}
             </div>
             <div className="text-lg font-semibold">{s.value}</div>

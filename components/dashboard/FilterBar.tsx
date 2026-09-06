@@ -78,7 +78,7 @@ export function FilterBar({
   return (
     <div
       data-testid="filter-bar"
-      className="flex flex-wrap items-end gap-3 rounded-lg border border-orange-100 bg-white p-3 shadow-sm"
+      className="flex flex-wrap items-end gap-3 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-3 shadow-sm"
     >
       {filters.map((f) => {
         if (f.kind === "dropdown") {
@@ -87,11 +87,11 @@ export function FilterBar({
           return (
             <label
               key={`d-${f.column}`}
-              className="flex flex-col text-xs text-gray-700"
+              className="flex flex-col text-xs text-[color:var(--color-ink-2)]"
             >
               <span className="mb-1 font-semibold">{f.label}</span>
               <select
-                className="cursor-pointer rounded border border-orange-200 px-2 py-1 text-sm focus:border-orange-400 focus:outline-none"
+                className="cursor-pointer rounded border border-[color:var(--color-carrot)] px-2 py-1 text-sm focus:border-orange-400 focus:outline-none"
                 value={value}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -119,7 +119,7 @@ export function FilterBar({
         return (
           <div
             key={`r-${f.column}`}
-            className="flex flex-col text-xs text-gray-700"
+            className="flex flex-col text-xs text-[color:var(--color-ink-2)]"
           >
             <span className="mb-1 font-semibold">{f.label}</span>
             <div className="flex gap-2">
@@ -127,7 +127,7 @@ export function FilterBar({
                 type="date"
                 aria-label={`${f.label} start`}
                 value={range.start ?? ""}
-                className="rounded border border-orange-200 px-2 py-1 text-sm focus:border-orange-400 focus:outline-none"
+                className="rounded border border-[color:var(--color-carrot)] px-2 py-1 text-sm focus:border-orange-400 focus:outline-none"
                 onChange={(e) => {
                   const v = e.target.value;
                   onChange({
@@ -143,7 +143,7 @@ export function FilterBar({
                 type="date"
                 aria-label={`${f.label} end`}
                 value={range.end ?? ""}
-                className="rounded border border-orange-200 px-2 py-1 text-sm focus:border-orange-400 focus:outline-none"
+                className="rounded border border-[color:var(--color-carrot)] px-2 py-1 text-sm focus:border-orange-400 focus:outline-none"
                 onChange={(e) => {
                   const v = e.target.value;
                   onChange({
@@ -161,14 +161,14 @@ export function FilterBar({
       })}
       {chartFilter && (
         <div className="ml-auto flex items-center gap-2">
-          <span className="rounded-full bg-orange-100 px-3 py-1 text-xs text-orange-700">
+          <span className="rounded-full bg-[color:var(--color-carrot-soft)] px-3 py-1 text-xs text-[color:var(--color-carrot)]">
             {chartFilter.column}: {chartFilter.value}
           </span>
           {onClearChartFilter && (
             <button
               type="button"
               onClick={onClearChartFilter}
-              className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
+              className="inline-flex items-center gap-1 text-xs text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink-2)]"
               aria-label="Clear chart filter"
             >
               <CloseIcon size={12} />

@@ -101,15 +101,15 @@ export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps)
     <aside
       data-testid="node-detail-panel"
       aria-label="Node detail panel"
-      className="fixed right-0 top-0 z-20 flex h-screen w-full flex-col border-l border-gray-200 bg-white shadow-lg sm:w-[420px]"
+      className="fixed right-0 top-0 z-20 flex h-screen w-full flex-col border-l border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] shadow-lg sm:w-[420px]"
     >
-      <header className="flex items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
+      <header className="flex items-center justify-between gap-2 border-b border-[color:var(--color-rule-soft)] px-4 py-3">
         <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-[color:var(--color-ink-3)]">
             {headerLabel(node)}
           </div>
           <h2
-            className="truncate text-sm font-semibold text-gray-800"
+            className="truncate text-sm font-semibold text-[color:var(--color-ink)]"
             title={node.id}
           >
             {node.data.entity.name || node.id}
