@@ -266,6 +266,153 @@ export async function getDashboard(
   }
 }
 
+// --- v2 (YAML) dashboard storage. v1 JSON functions below are removed at
+// the top of the v2 stack. ---
+
+import { validateDashboardV2 } from "@/lib/types/dashboard-v2";
+import type { DashboardConfigV2 } from "@/lib/types/dashboard-v2";
+
+function yamlKey(config: S3Config, id: string, draft: boolean): string {
+  return draft
+    ? `${config.dashboardsPrefix}drafts/${id}.yaml`
+    : `${config.dashboardsPrefix}${id}.yaml`;
+}
+
+export interface DashboardV2WithBody {
+  body: string;
+  /** Parsed config, or null when the stored body doesn't validate. */
+  config: DashboardConfigV2 | null;
+}
+
+/** Reads a v2 dashboard body (published or draft). Returns null if missing. */
+export async function getDashboardV2(
+  client: S3Client,
+  config: S3Config,
+  id: string,
+  opts: { draft?: boolean } = {},
+): Promise<DashboardV2WithBody | null> {
+  try {
+    const response = await client.send(
+      new GetObjectCommand({
+        Bucket: config.pipelinesBucket,
+        Key: yamlKey(config, id, !!opts.draft),
+      }),
+    );
+    const body = await streamToString(response.Body);
+    const result = validateDashboardV2(body);
+    return { body, config: result.ok ? result.config : null };
+  } catch (err) {
+    if (isNotFound(err)) return null;
+    throw err;
+  }
+}
+
+export async function putDashboardV2(
+  client: S3Client,
+  config: S3Config,
+  id: string,
+  body: string,
+  opts: { draft: boolean },
+): Promise<void> {
+  await client.send(
+    new PutObjectCommand({
+      Bucket: config.pipelinesBucket,
+      Key: yamlKey(config, id, opts.draft),
+      Body: body,
+      ContentType: "application/yaml",
+    }),
+  );
+}
+
+/** Published v2 dashboard ids. */
+export async function listDashboardsV2(
+  client: S3Client,
+  config: S3Config,
+): Promise<string[]> {
+  const allKeys = await listAllObjectKeys(client, config.pipelinesBucket, config.dashboardsPrefix);
+  const ids: string[] = [];
+  for (const key of allKeys) {
+    if (!key.endsWith(".yaml")) continue;
+    const rel = key.slice(config.dashboardsPrefix.length);
+    if (rel.includes("/")) continue;
+    ids.push(rel.slice(0, -".yaml".length));
+  }
+  return ids;
+}
+
+/** Draft v2 dashboard ids. */
+export async function listDraftDashboardsV2(
+  client: S3Client,
+  config: S3Config,
+): Promise<string[]> {
+  const prefix = `${config.dashboardsPrefix}drafts/`;
+  const allKeys = await listAllObjectKeys(client, config.pipelinesBucket, prefix);
+  return allKeys
+    .filter((k) => k.endsWith(".yaml") && !k.slice(prefix.length).includes("/"))
+    .map((k) => k.slice(prefix.length, -".yaml".length));
+}
+
+/** Listing with display names from the parsed config. */
+export async function listDashboardsWithNamesV2(
+  client: S3Client,
+  config: S3Config,
+): Promise<DashboardListing[]> {
+  const ids = await listDashboardsV2(client, config);
+  const listings = await Promise.all(
+    ids.map(async (id): Promise<DashboardListing> => {
+      try {
+        const dash = await getDashboardV2(client, config, id);
+        const name = dash?.config?.name?.trim();
+        return { id, name: name && name.length > 0 ? name : id };
+      } catch {
+        return { id, name: id };
+      }
+    }),
+  );
+  listings.sort((a, b) => a.name.localeCompare(b.name));
+  return listings;
+}
+
+/** Deletes a v2 dashboard (draft and published objects). */
+export async function deleteDashboardV2(
+  client: S3Client,
+  config: S3Config,
+  id: string,
+): Promise<void> {
+  for (const draft of [true, false]) {
+    try {
+      await client.send(
+        new DeleteObjectCommand({
+          Bucket: config.pipelinesBucket,
+          Key: yamlKey(config, id, draft),
+        }),
+      );
+    } catch (err) {
+      if (!isNotFound(err)) throw err;
+    }
+  }
+}
+
+/** Copies a validated draft body to the published key, removes the draft. */
+export async function publishDashboardV2(
+  client: S3Client,
+  config: S3Config,
+  id: string,
+  body: string,
+): Promise<void> {
+  await putDashboardV2(client, config, id, body, { draft: false });
+  try {
+    await client.send(
+      new DeleteObjectCommand({
+        Bucket: config.pipelinesBucket,
+        Key: yamlKey(config, id, true),
+      }),
+    );
+  } catch (err) {
+    if (!isNotFound(err)) throw err;
+  }
+}
+
 /** Drafts live under `dashboards/drafts/`, invisible to listDashboards. */
 function draftKey(config: S3Config, id: string): string {
   return `${config.dashboardsPrefix}drafts/${id}.json`;
