@@ -144,3 +144,22 @@ button:disabled,
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Loading shimmer for panel skeletons. */
+.skeleton {
+  background: linear-gradient(
+    100deg,
+    var(--color-surface-2) 40%,
+    var(--color-rule-soft) 50%,
+    var(--color-surface-2) 60%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer {
+  from { background-position: 120% 0; }
+  to { background-position: -80% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}

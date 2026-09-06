@@ -33,7 +33,7 @@ function PanelSkeleton({ panel }: { panel: PanelV2 }) {
         <div className="text-[10px] font-semibold uppercase tracking-wider text-[color:var(--color-ink-3)]">
           {panel.title}
         </div>
-        <div className="mt-1.5 h-7 w-24 animate-pulse rounded bg-[color:var(--color-surface-2)]" />
+        <div className="skeleton mt-1.5 h-7 w-24 rounded" />
       </div>
     );
   }
@@ -43,27 +43,27 @@ function PanelSkeleton({ panel }: { panel: PanelV2 }) {
       <div className={panelCardClass()} aria-busy>
         {title}
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="h-[52px] animate-pulse rounded bg-[color:var(--color-surface-2)]" />
-          <div className="h-[52px] animate-pulse rounded bg-[color:var(--color-surface-2)]" />
+          <div className="skeleton h-[52px] rounded" />
+          <div className="skeleton h-[52px] rounded" />
         </div>
       </div>
     );
   }
 
   if (panel.kind === "table") {
-    const rows = panel.page_size ?? 10;
+    const rows = Math.min(panel.page_size ?? 10, 15);
+    // Mirrors .data-table metrics: 35px header, 41px rows (11px cell
+    // padding + 13px type + border), 36px pagination bar.
     return (
       <div className={panelCardClass()} aria-busy>
         {title}
-        <div className="mt-3 flex-1 space-y-[9px] pt-2">
-          {Array.from({ length: Math.min(rows, 15) + 1 }, (_, i) => (
-            <div
-              key={i}
-              className="h-[26px] animate-pulse rounded bg-[color:var(--color-surface-2)]"
-              style={{ opacity: i === 0 ? 0.5 : 1 }}
-            />
+        <div className="mt-3 flex-1">
+          <div className="skeleton mb-[3px] h-[32px] rounded opacity-60" />
+          {Array.from({ length: rows }, (_, i) => (
+            <div key={i} className="skeleton mb-[3px] h-[38px] rounded" />
           ))}
         </div>
+        <div className="skeleton mt-3 h-[26px] w-full rounded opacity-60" />
       </div>
     );
   }
@@ -74,7 +74,7 @@ function PanelSkeleton({ panel }: { panel: PanelV2 }) {
     return (
       <div className={panelCardClass()} aria-busy>
         {title}
-        <div className="mt-3 animate-pulse rounded bg-[color:var(--color-surface-2)]" style={{ height: h }} />
+        <div className="skeleton mt-3 rounded" style={{ height: h }} />
       </div>
     );
   }
@@ -85,7 +85,7 @@ function PanelSkeleton({ panel }: { panel: PanelV2 }) {
     <div className={panelCardClass()} aria-busy>
       {title}
       <div {...area}>
-        <div className="h-full w-full animate-pulse rounded bg-[color:var(--color-surface-2)]" />
+        <div className="skeleton h-full w-full rounded" />
       </div>
     </div>
   );
