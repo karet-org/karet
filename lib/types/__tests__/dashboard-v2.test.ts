@@ -81,7 +81,7 @@ panels:
     }
   });
 
-  it("rejects undeclared $params, allows declared ones", () => {
+  it("allows params with no filter declaration (bind NULL or emit-driven)", () => {
     const r = validateDashboardV2(`
 version: 2
 id: x
@@ -89,11 +89,10 @@ name: X
 panels:
   - kind: kpi
     title: T
-    query: SELECT sum(a) AS v FROM t WHERE b = $mystery
+    query: SELECT sum(a) AS v FROM t WHERE b = coalesce($free, b)
     value: v
 `);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errors.join()).toMatch(/\$mystery/);
+    expect(r.ok).toBe(true);
   });
 
   it("dropdown filters require options_sql; duplicate params rejected", () => {
@@ -161,16 +160,23 @@ panels:
     expect(r.ok).toBe(true);
   });
 
-  it("rejects emit on unsupported kinds and non-dropdown params", () => {
+  it("allows emit params without any filter", () => {
+    const r = validateDashboardV2(
+      base + "  - kind: bar\n    title: B\n    query: SELECT 1 AS a, 2 AS b\n    x: a\n    y: b\n    emit: { param: standalone }\n",
+    );
+    expect(r.ok).toBe(true);
+  });
+
+  it("rejects emit on unsupported kinds and bad names", () => {
     const r = validateDashboardV2(
       base +
         "  - kind: kpi\n    title: T\n    query: SELECT 1 AS a\n    value: a\n    emit: { param: account }\n" +
-        "  - kind: bar\n    title: B\n    query: SELECT 1 AS a, 2 AS b\n    x: a\n    y: b\n    emit: { param: period }\n",
+        "  - kind: bar\n    title: B\n    query: SELECT 1 AS a, 2 AS b\n    x: a\n    y: b\n    emit: { param: Bad Name }\n",
     );
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.errors.join()).toMatch(/does not support emit/);
-      expect(r.errors.join()).toMatch(/must name a dropdown filter/);
+      expect(r.errors.join()).toMatch(/lowercase identifier/);
     }
   });
 });

@@ -38,22 +38,30 @@ describe("bindNulls", () => {
 });
 
 describe("coerceParams", () => {
-  it("types dropdown and date_range params, null for empty/missing", () => {
+  it("types filter and emit params, null for empty/missing, drops unknown", () => {
     expect(
       coerceParams(
-        [
-          { name: "account", kind: "dropdown", options_sql: "SELECT 1" },
-          { name: "period", kind: "date_range" },
-        ],
-        { account: "chequing", period_from: "", junk: "x" },
+        {
+          filters: [
+            { name: "account", kind: "dropdown", options_sql: "SELECT 1" },
+            { name: "period", kind: "date_range" },
+          ],
+          panels: [
+            { kind: "doughnut", title: "t", query: "q", label: "a", value: "b", emit: { param: "category" } },
+          ],
+        },
+        { account: "chequing", period_from: "", category: "BILLS", junk: "x" },
       ),
-    ).toEqual({ account: "chequing", period_from: null, period_to: null });
+    ).toEqual({ account: "chequing", period_from: null, period_to: null, category: "BILLS" });
   });
 
   it("ignores non-object input", () => {
-    expect(coerceParams([{ name: "a", kind: "dropdown", options_sql: "s" }], "x")).toEqual({
-      a: null,
-    });
+    expect(
+      coerceParams(
+        { filters: [{ name: "a", kind: "dropdown", options_sql: "s" }], panels: [] },
+        "x",
+      ),
+    ).toEqual({ a: null });
   });
 });
 

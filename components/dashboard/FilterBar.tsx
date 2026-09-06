@@ -11,10 +11,13 @@ interface FilterBarProps {
   options: Record<string, { options: string[] }>;
   params: Params;
   onChange: (next: Params) => void;
+  /** Params set only by chart emits; shown as dismissible pills when active. */
+  emitParams?: string[];
 }
 
-export function FilterBar({ filters, options, params, onChange }: FilterBarProps) {
-  if (filters.length === 0) return null;
+export function FilterBar({ filters, options, params, onChange, emitParams = [] }: FilterBarProps) {
+  const activePills = emitParams.filter((p) => params[p] != null);
+  if (filters.length === 0 && activePills.length === 0) return null;
 
   const set = (name: string, value: string | null) =>
     onChange({ ...params, [name]: value === "" ? null : value });
@@ -61,6 +64,21 @@ export function FilterBar({ filters, options, params, onChange }: FilterBarProps
           </label>
         ),
       )}
+      {activePills.map((p) => (
+        <button
+          key={p}
+          type="button"
+          onClick={() => set(p, null)}
+          title={`Clear ${p}`}
+          data-testid={`emit-pill-${p}`}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--color-carrot-soft)] px-3 py-[7px] text-xs font-medium leading-4 text-[color:var(--color-carrot-deep)]"
+        >
+          {p}: {params[p]}
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path d="M4 4l8 8M12 4l-8 8" />
+          </svg>
+        </button>
+      ))}
       {anySet && (
         <button
           type="button"

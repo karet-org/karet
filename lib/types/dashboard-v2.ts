@@ -152,8 +152,7 @@ export function validateDashboardV2Detailed(source: string): V2DetailedResult {
     err('"name" must be a non-empty string', ["name"]);
   }
 
-  const declared = new Set<string>();
-  const dropdownNames = new Set<string>();
+  const seenParams = new Set<string>();
   if (cfg.filters === undefined) {
     cfg.filters = [];
   } else if (!Array.isArray(cfg.filters)) {
@@ -169,15 +168,12 @@ export function validateDashboardV2Detailed(source: string): V2DetailedResult {
         err(`filters[${i}].kind must be dropdown or date_range`, ["filters", i, "kind"]);
         return;
       }
-      if (filter.kind === "dropdown") {
-        if (typeof filter.options_sql !== "string") {
-          err(`filters[${i}] (dropdown) requires options_sql`, ["filters", i]);
-        }
-        dropdownNames.add(filter.name);
+      if (filter.kind === "dropdown" && typeof filter.options_sql !== "string") {
+        err(`filters[${i}] (dropdown) requires options_sql`, ["filters", i]);
       }
       for (const p of filterParams(filter as unknown as DashboardFilterV2)) {
-        if (declared.has(p)) err(`filter parameter $${p} declared twice`, ["filters", i, "name"]);
-        declared.add(p);
+        if (seenParams.has(p)) err(`filter parameter $${p} declared twice`, ["filters", i, "name"]);
+        seenParams.add(p);
       }
     });
   }
@@ -205,19 +201,12 @@ export function validateDashboardV2Detailed(source: string): V2DetailedResult {
           err(`panels[${i}] (${kind}) requires the "${b}" binding`, ["panels", i]);
         }
       }
-      if (hasQuery) {
-        for (const param of extractParams(panel.query as string)) {
-          if (!declared.has(param)) {
-            err(`panels[${i}] references $${param}, which no filter declares`, ["panels", i, "query"]);
-          }
-        }
-      }
       const emit = panel.emit as Record<string, unknown> | undefined;
       if (emit !== undefined) {
         if (kind !== "bar" && kind !== "doughnut") {
           err(`panels[${i}] (${kind}) does not support emit`, ["panels", i, "emit"]);
-        } else if (typeof emit.param !== "string" || !dropdownNames.has(emit.param)) {
-          err(`panels[${i}].emit.param must name a dropdown filter`, ["panels", i, "emit"]);
+        } else if (typeof emit.param !== "string" || !PARAM_NAME_RE.test(emit.param)) {
+          err(`panels[${i}].emit.param must be a lowercase identifier`, ["panels", i, "emit"]);
         }
       }
     });

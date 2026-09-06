@@ -58,19 +58,28 @@ export function bindParams(
   return { sql: bound, values };
 }
 
-/** Coerce unknown client input into typed params for the declared filters. */
+/** Coerce unknown client input into typed params: filter params plus emit params. */
 export function coerceParams(
-  filters: DashboardFilterV2[],
+  dashboard: Pick<DashboardConfigV2, "filters" | "panels">,
   raw: unknown,
 ): Params {
   const input = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
-  const params: Params = {};
-  for (const f of filters) {
-    const names = f.kind === "date_range" ? [`${f.name}_from`, `${f.name}_to`] : [f.name];
-    for (const n of names) {
-      const v = input[n];
-      params[n] = typeof v === "string" && v !== "" ? v : null;
+  const names = new Set<string>();
+  for (const f of dashboard.filters) {
+    if (f.kind === "date_range") {
+      names.add(`${f.name}_from`);
+      names.add(`${f.name}_to`);
+    } else {
+      names.add(f.name);
     }
+  }
+  for (const p of dashboard.panels) {
+    if ("emit" in p && p.emit) names.add(p.emit.param);
+  }
+  const params: Params = {};
+  for (const n of names) {
+    const v = input[n];
+    params[n] = typeof v === "string" && v !== "" ? v : null;
   }
   return params;
 }
