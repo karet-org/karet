@@ -1,52 +1,30 @@
 "use client";
 
-// Doughnut panel: groups rows by `group_by`, aggregates `value` with `agg`,
-// renders a Chart.js Doughnut.
+// Doughnut panel: label/value bound columns.
 
-import {
-  ArcElement,
-  Chart as ChartJS,
-  Legend,
-  Tooltip,
-} from "chart.js";
+import { ArcElement, Chart as ChartJS, Legend, Tooltip } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
-import type { Panel } from "@/lib/types/dashboard";
-import { CHART_ACCENT, CHART_PALETTE, CHART_SURFACE } from "@/lib/dashboard/palette";
-import { groupAndAggregate } from "./aggregate";
-import { chartAreaProps, type PanelProps, type CrossFilterProps } from "./types";
+import type { PanelV2 } from "@/lib/types/dashboard-v2";
+import { CHART_PALETTE, CHART_SURFACE } from "@/lib/dashboard/palette";
+import { toNum } from "@/lib/dashboard/format";
+import { chartAreaProps, panelCardClass, type PanelProps } from "./types";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-type DoughnutPanelConfig = Extract<Panel, { kind: "doughnut" }>;
+type DoughnutConfig = Extract<PanelV2, { kind: "doughnut" }>;
 
-export function DoughnutPanel({
-  config,
-  rows,
-  onFilter,
-  activeFilter,
-}: PanelProps<DoughnutPanelConfig> & CrossFilterProps) {
-  const totals = groupAndAggregate(rows, config.group_by, config.value, config.agg);
-  const labels = Array.from(totals.keys());
-  const values = Array.from(totals.values());
+export function DoughnutPanel({ config, data }: PanelProps<DoughnutConfig>) {
+  const labels = data.rows.map((r) => String(r[config.label] ?? ""));
+  const values = data.rows.map((r) => toNum(r[config.value]) ?? 0);
 
-  const isFiltered = activeFilter && activeFilter.column === config.group_by;
-
-  const data = {
+  const chartData = {
     labels,
     datasets: [
       {
         data: values,
-        backgroundColor: labels.map((label, i) => {
-          const base = CHART_PALETTE[i % CHART_PALETTE.length];
-          if (isFiltered && label !== activeFilter.value) return base + "33";
-          return base;
-        }),
-        borderWidth: labels.map((label) =>
-          isFiltered && label === activeFilter.value ? 3 : 1,
-        ),
-        borderColor: labels.map((label) =>
-          isFiltered && label === activeFilter.value ? CHART_ACCENT : CHART_SURFACE,
-        ),
+        backgroundColor: labels.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]),
+        borderColor: CHART_SURFACE,
+        borderWidth: 2,
       },
     ],
   };
@@ -54,33 +32,13 @@ export function DoughnutPanel({
   const options = {
     responsive: true,
     maintainAspectRatio: false,
-    onClick: (_event: unknown, elements: { index: number }[]) => {
-      if (elements.length > 0 && onFilter) {
-        const label = labels[elements[0].index];
-        if (label) onFilter(config.group_by, label);
-      }
-    },
-    onHover: (event: { native: Event | null }, elements: unknown[]) => {
-      const target = event.native?.target as HTMLElement | null;
-      if (target) target.style.cursor = elements.length > 0 ? "pointer" : "default";
-    },
     plugins: {
-      legend: {
-        position: "bottom" as const,
-        labels: {
-          boxWidth: 12,
-          padding: 8,
-          font: { size: 11 },
-        },
-      },
+      legend: { position: "bottom" as const, labels: { boxWidth: 12, font: { size: 10 } } },
     },
   };
 
   return (
-    <div
-      data-testid="doughnut-panel"
-      className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm"
-    >
+    <div data-testid="doughnut-panel" className={panelCardClass()}>
       <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
       <div {...chartAreaProps(config)}>
         {labels.length === 0 ? (
@@ -88,7 +46,7 @@ export function DoughnutPanel({
             No data
           </div>
         ) : (
-          <Doughnut data={data} options={options} />
+          <Doughnut data={chartData} options={options} />
         )}
       </div>
     </div>

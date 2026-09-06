@@ -6,7 +6,6 @@ import fc from "fast-check";
 import {
   arbAnalyticTableSchema,
   arbAstNode,
-  arbDashboardConfig,
   arbPipelineConfig,
 } from "../testgen";
 import type { AstNode } from "../types/config";
@@ -112,24 +111,6 @@ describe("fast-check generators smoke", () => {
     );
   });
 
-  it("arbDashboardConfig produces dashboards with at least one panel", () => {
-    fc.assert(
-      fc.property(arbDashboardConfig, (dash) => {
-        expect(dash.panels.length).toBeGreaterThanOrEqual(1);
-        for (const p of dash.panels) {
-          expect([
-            "kpi",
-            "summary",
-            "doughnut",
-            "line",
-            "bar",
-            "table",
-          ]).toContain(p.kind);
-        }
-      }),
-      { numRuns: 25 },
-    );
-  });
 
   it("arbAnalyticTableSchema produces non-empty column lists", () => {
     fc.assert(

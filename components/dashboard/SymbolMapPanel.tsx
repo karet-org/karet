@@ -18,10 +18,9 @@ import {
   ProjectionScale,
   SizeScale,
 } from "chartjs-chart-geo";
-import type { Panel } from "@/lib/types/dashboard";
+import type { PanelV2 } from "@/lib/types/dashboard-v2";
 import { useWorldAtlas } from "@/lib/dashboard/worldAtlas";
 import { formatValue, toNum } from "@/lib/dashboard/format";
-import { aggregateValues } from "./aggregate";
 import { chartAreaProps, type PanelProps } from "./types";
 
 ChartJS.register(
@@ -33,21 +32,18 @@ ChartJS.register(
   Legend,
 );
 
-type SymbolMapPanelConfig = Extract<Panel, { kind: "symbol_map" }>;
+type SymbolMapPanelConfig = Extract<PanelV2, { kind: "symbol_map" }>;
 
 const DEFAULT_MAX_RADIUS = 18;
 
-export function SymbolMapPanel({
-  config,
-  rows,
-}: PanelProps<SymbolMapPanelConfig>) {
+export function SymbolMapPanel({ config, data }: PanelProps<SymbolMapPanelConfig>) {
   const atlas = useWorldAtlas();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<ChartJS<"bubbleMap"> | null>(null);
 
   const points = useMemo(() => {
     const buckets = new Map<string, { lat: number; lon: number; values: number[] }>();
-    for (const row of rows) {
+    for (const row of data.rows) {
       const lat = toNum(row[config.lat]);
       const lon = toNum(row[config.lon]);
       if (lat === null || lon === null) continue;
@@ -58,22 +54,17 @@ export function SymbolMapPanel({
         bucket = { lat, lon, values: [] };
         buckets.set(key, bucket);
       }
-      if (config.value) {
-        const v = toNum(row[config.value]);
-        bucket.values.push(v ?? 0);
-      } else {
-        bucket.values.push(1);
-      }
+      bucket.values.push(toNum(row[config.value]) ?? 0);
     }
     const out = Array.from(buckets.values()).map((b) => ({
       longitude: b.lon,
       latitude: b.lat,
-      value: aggregateValues(b.values, config.agg),
+      value: b.values.reduce((a, v) => a + v, 0),
     }));
     // Larger bubbles drawn last so small ones aren't obscured.
     out.sort((a, b) => a.value - b.value);
     return out;
-  }, [rows, config.lat, config.lon, config.value, config.agg]);
+  }, [data.rows, config.lat, config.lon, config.value]);
 
   useEffect(() => {
     if (!atlas || !canvasRef.current) return;

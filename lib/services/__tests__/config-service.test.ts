@@ -21,11 +21,11 @@ import {
 import type { S3Config } from "@/lib/config/s3-client";
 import {
   deleteQuery,
-  getDashboard,
+  getDashboardV2,
   getPipelineConfig,
   getQuery,
-  listDashboards,
-  listDashboardsWithNames,
+  listDashboardsV2,
+  listDashboardsWithNamesV2,
   listParquetKeys,
   listQueries,
   PreconditionFailedError,
@@ -36,7 +36,6 @@ import {
   TargetExistsError,
 } from "../config-service";
 import type { PipelineConfig } from "@/lib/types/config";
-import type { DashboardConfig } from "@/lib/types/dashboard";
 
 // ---------------------------------------------------------------------------
 // In-memory S3 stub
@@ -345,89 +344,59 @@ describe("config-service", () => {
     });
   });
 
-  describe("listDashboards", () => {
-    it("filters to .json and strips the extension", async () => {
+  describe("listDashboardsV2", () => {
+    it("lists yaml stems, skipping nested keys and other extensions", async () => {
       const client = buildStubClient({
-        "dashboards/overview.json": { body: "{}", etag: "a" },
-        "dashboards/spending.json": { body: "{}", etag: "b" },
-        "dashboards/README.md": { body: "hi", etag: "c" },
-        "dashboards/nested/hidden.json": { body: "{}", etag: "d" },
+        "dashboards/overview.yaml": { body: "version: 2", etag: "a" },
+        "dashboards/spending.yaml": { body: "version: 2", etag: "b" },
+        "dashboards/old.json": { body: "{}", etag: "c" },
+        "dashboards/drafts/wip.yaml": { body: "version: 2", etag: "d" },
       });
-
-      const names = await listDashboards(client, DEFAULT_CONFIG);
+      const names = await listDashboardsV2(client, DEFAULT_CONFIG);
       expect(names.sort()).toEqual(["overview", "spending"]);
     });
 
-    it("returns an empty list when no dashboards are present", async () => {
+    it("returns [] when none exist", async () => {
       const client = buildStubClient();
-      const names = await listDashboards(client, DEFAULT_CONFIG);
+      const names = await listDashboardsV2(client, DEFAULT_CONFIG);
       expect(names).toEqual([]);
     });
   });
 
-  describe("listDashboardsWithNames", () => {
-    it("pairs each id with its display name, sorted by name", async () => {
-      const client = buildStubClient({
-        "dashboards/net_income.json": {
-          body: JSON.stringify({ id: "net_income", name: "Net Income" }),
-          etag: "a",
-        },
-        "dashboards/cash_flow.json": {
-          body: JSON.stringify({ id: "cash_flow", name: "Cash Flow" }),
-          etag: "b",
-        },
-      });
+  describe("getDashboardV2 / listDashboardsWithNamesV2", () => {
+    const VALID = [
+      "version: 2",
+      "id: spending",
+      "name: Spending",
+      "panels:",
+      "  - kind: summary",
+      "    title: S",
+      "    query: SELECT 1",
+    ].join("\n");
 
-      const listings = await listDashboardsWithNames(client, DEFAULT_CONFIG);
-      expect(listings).toEqual([
-        { id: "cash_flow", name: "Cash Flow" },
-        { id: "net_income", name: "Net Income" },
-      ]);
+    it("parses a valid config and surfaces its name", async () => {
+      const client = buildStubClient({
+        "dashboards/spending.yaml": { body: VALID, etag: "a" },
+      });
+      const result = await getDashboardV2(client, DEFAULT_CONFIG, "spending");
+      expect(result?.config?.name).toBe("Spending");
+      const listings = await listDashboardsWithNamesV2(client, DEFAULT_CONFIG);
+      expect(listings).toEqual([{ id: "spending", name: "Spending" }]);
     });
 
-    it("falls back to the id when name is missing or blank", async () => {
+    it("returns null config for an invalid body, id as display name", async () => {
       const client = buildStubClient({
-        "dashboards/no_name.json": { body: JSON.stringify({ id: "no_name" }), etag: "a" },
-        "dashboards/blank.json": {
-          body: JSON.stringify({ id: "blank", name: "   " }),
-          etag: "b",
-        },
+        "dashboards/broken.yaml": { body: "version: 1", etag: "a" },
       });
-
-      const listings = await listDashboardsWithNames(client, DEFAULT_CONFIG);
-      expect(listings).toEqual([
-        { id: "blank", name: "blank" },
-        { id: "no_name", name: "no_name" },
-      ]);
-    });
-  });
-
-  describe("getDashboard", () => {
-    const dashboard: DashboardConfig = {
-      id: "spending_overview",
-      name: "Spending Overview",
-      analytic_table_id: "transactions",
-      filters: [],
-      panels: [
-        { kind: "summary", title: "Summary", columns: ["amount"] },
-      ],
-    };
-
-    it("returns the parsed dashboard config when present", async () => {
-      const client = buildStubClient({
-        "dashboards/spending.json": {
-          body: JSON.stringify(dashboard),
-          etag: "a",
-        },
-      });
-      const result = await getDashboard(client, DEFAULT_CONFIG, "spending");
-      expect(result).toEqual(dashboard);
+      const result = await getDashboardV2(client, DEFAULT_CONFIG, "broken");
+      expect(result?.config).toBeNull();
+      const listings = await listDashboardsWithNamesV2(client, DEFAULT_CONFIG);
+      expect(listings).toEqual([{ id: "broken", name: "broken" }]);
     });
 
-    it("returns null for a missing dashboard", async () => {
+    it("returns null when missing", async () => {
       const client = buildStubClient();
-      const result = await getDashboard(client, DEFAULT_CONFIG, "missing");
-      expect(result).toBeNull();
+      expect(await getDashboardV2(client, DEFAULT_CONFIG, "missing")).toBeNull();
     });
   });
 

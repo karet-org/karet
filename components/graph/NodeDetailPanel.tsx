@@ -105,7 +105,7 @@ export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps)
     >
       <header className="flex items-center justify-between gap-2 border-b border-[color:var(--color-rule-soft)] px-4 py-3">
         <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-[color:var(--color-ink-3)]">
+          <div className="text-[11px] font-medium text-[color:var(--color-ink-3)]">
             {headerLabel(node)}
           </div>
           <h2

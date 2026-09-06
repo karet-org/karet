@@ -4,7 +4,6 @@
 // content) that get written under `pipelines/<slug>/` in S3.
 
 import type { AstNode, PipelineConfig } from "@/lib/types/config";
-import type { DashboardConfig } from "@/lib/types/dashboard";
 
 export type TemplateId = "blank" | "spending";
 
@@ -163,35 +162,116 @@ const spendingPipeline: PipelineConfig = {
   ],
 };
 
-const spendingDashboard: DashboardConfig = {
-  id: "spending_overview",
-  name: "Spending Overview",
-  analytic_table_id: "transactions",
-  filters: [
-    { kind: "dropdown", column: "account", label: "Account" },
-    { kind: "date_range", column: "date", label: "Date range" },
-  ],
-  // Drop bank-internal rows from the spending view. A separate
-  // dashboard without this clause can cover income / cash-flow.
-  where: [
-    { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "TRANSFER" } },
-    { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INVESTMENT" } },
-    { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INCOME" } },
-  ],
-  panels: [
-    { kind: "kpi", title: "Total Spending", column: "amount", agg: "sum", format: "currency", currency: "CAD", icon: "dollar" },
-    { kind: "kpi", title: "Transactions", column: "amount", agg: "count", format: "number", icon: "chart" },
-    { kind: "kpi", title: "Top Category", column: "category", agg: "mode", value_column: "amount", format: "currency", currency: "CAD", icon: "shapes" },
-    { kind: "doughnut", title: "By Category", group_by: "category", value: "amount", agg: "sum", grid: { aspect: "square", maxHeight: "20rem" } },
-    { kind: "bar", title: "Monthly Spending", group_by: "date", value: "amount", agg: "sum", x_bin: "month", grid: { gridColumn: "span 2" } },
-    { kind: "bar", title: "Top 10 Merchants", group_by: "merchant", value: "amount", agg: "sum", limit: 10, grid: { gridColumn: "1 / -1" } },
-    { kind: "table", title: "Transactions", columns: ["date", "description", "merchant", "amount", "account", "category"], page_size: 10, grid: { gridColumn: "1 / -1" } },
-  ],
-  layout: {
-    gridTemplateColumns: "repeat(auto-fit, minmax(max(18rem, calc((100% - 2rem) / 3)), 1fr))",
-    gap: "1rem",
-  },
-} as DashboardConfig;
+const spendingDashboardYaml = `version: 2
+id: spending_overview
+name: Spending Overview
+
+filters:
+  - name: account
+    kind: dropdown
+    label: Account
+    options_sql: SELECT DISTINCT account FROM transactions ORDER BY 1
+  - name: period
+    kind: date_range
+    label: Date range
+
+panels:
+  - kind: kpi
+    title: Total Spending
+    query: |
+      SELECT sum(amount) AS total FROM transactions
+      WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+    value: total
+    format: currency
+    currency: CAD
+    icon: dollar
+
+  - kind: kpi
+    title: Transactions
+    query: |
+      SELECT count(*) AS n FROM transactions
+      WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+    value: n
+    icon: chart
+
+  - kind: kpi
+    title: Top Category
+    query: |
+      SELECT category || ' (' || round(sum(amount))::VARCHAR || ')' AS top
+      FROM transactions
+      WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+      GROUP BY category ORDER BY sum(amount) DESC LIMIT 1
+    value: top
+    format: raw
+    icon: shapes
+
+  - kind: doughnut
+    title: By Category
+    query: |
+      SELECT category, sum(amount) AS total FROM transactions
+      WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+      GROUP BY 1 ORDER BY 2 DESC
+    label: category
+    value: total
+    grid: { aspect: square, maxHeight: 20rem }
+
+  - kind: bar
+    title: Monthly Spending
+    query: |
+      SELECT strftime(date, '%Y-%m') AS month, sum(amount) AS total
+      FROM transactions
+      WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+      GROUP BY 1 ORDER BY 1
+    x: month
+    y: total
+    grid: { span: 2 }
+
+  - kind: bar
+    title: Top 10 Merchants
+    query: |
+      SELECT merchant, sum(amount) AS total FROM transactions
+      WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+      GROUP BY 1 ORDER BY 2 DESC LIMIT 10
+    x: merchant
+    y: total
+    horizontal: true
+    grid: { span: full }
+
+  - kind: table
+    title: Transactions
+    query: |
+      SELECT date, description, merchant, amount, account, category
+      FROM transactions
+      WHERE category NOT IN ('TRANSFER', 'INVESTMENT', 'INCOME')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+      ORDER BY date DESC
+    page_size: 10
+    grid: { span: full }
+
+layout:
+  columns: 3
+  gap: 1rem
+`;
 
 // Two months of seed transactions covering every category and most
 // of the merchant patterns. Description values are exact substring
@@ -232,154 +312,183 @@ const SPENDING_SEED_CSV = `date,description,amount,account
 2026-05-29,PAYROLL DEPOSIT,-3500.00,visa-1234
 `;
 
-const spendingCashFlow: DashboardConfig = {
-  id: "cash_flow",
-  name: "Cash Flow",
-  analytic_table_id: "transactions",
-  filters: [
-    { kind: "dropdown", column: "account", label: "Account" },
-    { kind: "date_range", column: "date", label: "Date range" },
-  ],
-  panels: [
-    {
-      kind: "sankey",
-      title: "Cash Flow",
-      flows: [
-        // Income rows carry negative amounts; abs_sum so the ribbon width is the magnitude.
-        {
-          from: "description",
-          to: "account",
-          value: "amount",
-          agg: "abs_sum",
-          where: [
-            { kind: "eq", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INCOME" } },
-          ],
-        },
-        // Spending by category; exclude income, transfers, and investment.
-        {
-          from: "account",
-          to: "category",
-          value: "amount",
-          agg: "abs_sum",
-          where: [
-            { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INCOME" } },
-            { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "TRANSFER" } },
-            { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INVESTMENT" } },
-          ],
-        },
-      ],
-      grid: { gridColumn: "1 / -1", maxHeight: "40rem" },
-    },
-    {
-      kind: "table",
-      title: "Transactions",
-      columns: ["date", "description", "amount", "account", "category"],
-      page_size: 10,
-      grid: { gridColumn: "1 / -1" },
-    },
-  ],
-  layout: {
-    gridTemplateColumns: "repeat(auto-fit, minmax(max(18rem, calc((100% - 2rem) / 3)), 1fr))",
-    gap: "1rem",
-  },
-};
+const cashFlowYaml = `version: 2
+id: cash_flow
+name: Cash Flow
 
-// `-amount`: net per row, since income is negative and spending positive.
-const NEG_AMOUNT: AstNode = {
-  kind: "mul",
-  left: { kind: "col", name: "amount" },
-  right: { kind: "num", value: -1 },
-};
+filters:
+  - name: account
+    kind: dropdown
+    label: Account
+    options_sql: SELECT DISTINCT account FROM transactions ORDER BY 1
+  - name: period
+    kind: date_range
+    label: Date range
 
-// `if(amount < 0, -amount, 0)`: the income (inflow) portion of a row.
-const INFLOW: AstNode = {
-  kind: "if",
-  cond: { kind: "lt", left: { kind: "col", name: "amount" }, right: { kind: "num", value: 0 } },
-  then: NEG_AMOUNT,
-  else: { kind: "num", value: 0 },
-};
+panels:
+  - kind: sankey
+    title: Cash Flow
+    query: |
+      SELECT description AS src, account AS dst, sum(abs(amount)) AS total
+      FROM transactions
+      WHERE category = 'INCOME' AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+      GROUP BY 1, 2
+      UNION ALL
+      SELECT account AS src, category AS dst, sum(abs(amount)) AS total
+      FROM transactions
+      WHERE category NOT IN ('INCOME', 'TRANSFER', 'INVESTMENT') AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+      GROUP BY 1, 2
+    source: src
+    target: dst
+    value: total
+    grid: { span: full, maxHeight: 40rem }
 
-// `if(amount > 0, amount, 0)`: the spending (outflow) portion of a row.
-const OUTFLOW: AstNode = {
-  kind: "if",
-  cond: { kind: "gt", left: { kind: "col", name: "amount" }, right: { kind: "num", value: 0 } },
-  then: { kind: "col", name: "amount" },
-  else: { kind: "num", value: 0 },
-};
+  - kind: table
+    title: Transactions
+    query: |
+      SELECT date, description, amount, account, category FROM transactions
+      WHERE account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+      ORDER BY date DESC
+    page_size: 10
+    grid: { span: full }
 
-const spendingNetIncome: DashboardConfig = {
-  id: "net_income",
-  name: "Net Income",
-  analytic_table_id: "transactions",
-  filters: [
-    { kind: "dropdown", column: "account", label: "Account" },
-    { kind: "date_range", column: "date", label: "Date range" },
-  ],
-  // Exclude transfers and investment contributions; neither is income or spending.
-  where: [
-    { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "TRANSFER" } },
-    { kind: "ne", left: { kind: "col", name: "category" }, right: { kind: "str", value: "INVESTMENT" } },
-  ],
-  panels: [
-    { kind: "kpi", title: "Net Savings", column: NEG_AMOUNT, agg: "sum", format: "currency", currency: "CAD", icon: "dollar", grid: { gridColumn: "span 2" } },
-    { kind: "kpi", title: "Total Income", column: INFLOW, agg: "sum", format: "currency", currency: "CAD", icon: "dollar", grid: { gridColumn: "span 2" } },
-    { kind: "kpi", title: "Total Expenses", column: OUTFLOW, agg: "sum", format: "currency", currency: "CAD", icon: "dollar", grid: { gridColumn: "span 2" } },
-    // Primary trend: net contribution to savings each month.
-    {
-      kind: "line",
-      title: "Net by Month",
-      x: "date",
-      x_bin: "month",
-      y: NEG_AMOUNT,
-      agg: "sum",
-      grid: { gridColumn: "span 3", maxHeight: "20rem" },
-    },
-    // Cumulative net; use the date-range filter to set where it starts.
-    {
-      kind: "line",
-      title: "Cumulative Net Income",
-      x: "date",
-      x_bin: "month",
-      y: NEG_AMOUNT,
-      agg: "sum",
-      cumulative: true,
-      grid: { gridColumn: "span 3", maxHeight: "20rem" },
-    },
-    // No grouped/series bars in the platform, so income is a monthly bar
-    // panel. Expense breakdowns live on the Spending Overview dashboard.
-    {
-      kind: "bar",
-      title: "Income by Month",
-      group_by: "date",
-      value: INFLOW,
-      agg: "sum",
-      x_bin: "month",
-      grid: { gridColumn: "span 3" },
-    },
-    {
-      kind: "bar",
-      title: "Top Income Sources",
-      group_by: "description",
-      value: INFLOW,
-      agg: "sum",
-      limit: 10,
-      grid: { gridColumn: "span 3" },
-    },
-    {
-      kind: "table",
-      title: "Monthly Detail",
-      columns: ["date", "description", "amount", "account", "category"],
-      page_size: 10,
-      grid: { gridColumn: "1 / -1" },
-    },
-  ],
-  // 6-column grid: KPIs span 2 (3 across the top), charts span 3 (2 per row,
-  // half-width with no empty trailing column), table spans the full width.
-  layout: {
-    gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-    gap: "1rem",
-  },
-};
+layout:
+  columns: 1
+  gap: 1rem
+`;
+
+const netIncomeYaml = `version: 2
+id: net_income
+name: Net Income
+
+filters:
+  - name: account
+    kind: dropdown
+    label: Account
+    options_sql: SELECT DISTINCT account FROM transactions ORDER BY 1
+  - name: period
+    kind: date_range
+    label: Date range
+
+panels:
+  - kind: kpi
+    title: Net Savings
+    query: |
+      SELECT sum(-amount) AS net FROM transactions WHERE category NOT IN ('TRANSFER', 'INVESTMENT')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+    value: net
+    format: currency
+    currency: CAD
+    icon: dollar
+    grid: { span: 2 }
+
+  - kind: kpi
+    title: Total Income
+    query: |
+      SELECT sum(if(amount < 0, -amount, 0)) AS total FROM transactions WHERE category NOT IN ('TRANSFER', 'INVESTMENT')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+    value: total
+    format: currency
+    currency: CAD
+    icon: dollar
+    grid: { span: 2 }
+
+  - kind: kpi
+    title: Total Expenses
+    query: |
+      SELECT sum(if(amount > 0, amount, 0)) AS total FROM transactions WHERE category NOT IN ('TRANSFER', 'INVESTMENT')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+    value: total
+    format: currency
+    currency: CAD
+    icon: dollar
+    grid: { span: 2 }
+
+  - kind: line
+    title: Net by Month
+    query: |
+      SELECT strftime(date, '%Y-%m') AS month, sum(-amount) AS net
+      FROM transactions WHERE category NOT IN ('TRANSFER', 'INVESTMENT')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+      GROUP BY 1 ORDER BY 1
+    x: month
+    y: net
+    grid: { span: 3, maxHeight: 20rem }
+
+  - kind: line
+    title: Cumulative Net Income
+    query: |
+      SELECT month, sum(net) OVER (ORDER BY month) AS cumulative
+      FROM (
+        SELECT strftime(date, '%Y-%m') AS month, sum(-amount) AS net
+        FROM transactions WHERE category NOT IN ('TRANSFER', 'INVESTMENT')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+        GROUP BY 1
+      ) ORDER BY month
+    x: month
+    y: cumulative
+    grid: { span: 3, maxHeight: 20rem }
+
+  - kind: bar
+    title: Income by Month
+    query: |
+      SELECT strftime(date, '%Y-%m') AS month,
+             sum(if(amount < 0, -amount, 0)) AS income
+      FROM transactions WHERE category NOT IN ('TRANSFER', 'INVESTMENT')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+      GROUP BY 1 ORDER BY 1
+    x: month
+    y: income
+    grid: { span: 3 }
+
+  - kind: bar
+    title: Top Income Sources
+    query: |
+      SELECT description, sum(-amount) AS income FROM transactions
+      WHERE amount < 0 AND category NOT IN ('TRANSFER', 'INVESTMENT')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+      GROUP BY 1 ORDER BY 2 DESC LIMIT 10
+    x: description
+    y: income
+    horizontal: true
+    grid: { span: 3 }
+
+  - kind: table
+    title: Monthly Detail
+    query: |
+      SELECT date, description, amount, account, category FROM transactions
+      WHERE category NOT IN ('TRANSFER', 'INVESTMENT')
+        AND account = coalesce($account, account)
+        AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
+      ORDER BY date DESC
+    page_size: 10
+    grid: { span: full }
+
+layout:
+  columns: 6
+  gap: 1rem
+`;
 
 export const TEMPLATES: Record<TemplateId, Template> = {
   blank: {
@@ -394,12 +503,12 @@ export const TEMPLATES: Record<TemplateId, Template> = {
     description: "Personal spending pipeline with merchant + category lookups, transactions table, and overview dashboard.",
     files: {
       "pipeline.json": spendingPipeline,
-      "dashboards/spending_overview.json": spendingDashboard,
-      "dashboards/cash_flow.json": spendingCashFlow,
-      "dashboards/net_income.json": spendingNetIncome,
     },
     rawFiles: {
       "transactions/seed.csv": SPENDING_SEED_CSV,
+      "dashboards/spending_overview.yaml": spendingDashboardYaml,
+      "dashboards/cash_flow.yaml": cashFlowYaml,
+      "dashboards/net_income.yaml": netIncomeYaml,
     },
   },
 };

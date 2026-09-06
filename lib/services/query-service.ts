@@ -6,16 +6,10 @@
 // queries run against query-ready Parquet only.
 
 import type { PipelineConfig } from "@/lib/types/config";
-import { executeUserQuery, warehouseSource, type QueryRelation } from "@/lib/services/duckdb";
+import { describeUserQuery, executeUserQuery, warehouseSource, type QueryRelation } from "@/lib/services/duckdb";
 
-/** Display name to a SQL-safe identifier used as a relation name in queries. */
-export function nameToSlug(name: string): string {
-  const cleaned = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return cleaned || "_x";
-}
+export { nameToSlug } from "@/lib/config/name-to-slug";
+import { nameToSlug } from "@/lib/config/name-to-slug";
 
 /** Every analytic table exposed as a warehouse relation the query can name. */
 function warehouseRelations(
@@ -37,7 +31,16 @@ export function runPipelineQuery(
   pipeline: string,
   config: PipelineConfig,
   sql: string,
-  options: { validateOnly?: boolean } = {},
+  options: { validateOnly?: boolean; values?: (string | null)[] } = {},
 ): ReturnType<typeof executeUserQuery> {
   return executeUserQuery(warehouseRelations(pipeline, config), sql, options);
+}
+
+/** Column names a query would produce against this pipeline's warehouse. */
+export function describePipelineQuery(
+  pipeline: string,
+  config: PipelineConfig,
+  sql: string,
+) {
+  return describeUserQuery(warehouseRelations(pipeline, config), sql);
 }

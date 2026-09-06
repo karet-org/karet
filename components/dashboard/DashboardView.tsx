@@ -1,161 +1,115 @@
 "use client";
 
-// DashboardView renders a full dashboard: FilterBar + each Panel in
-// order. Panels referencing a column missing from the table render as
-// ErrorPanel; the rest of the dashboard continues to render.
-//
-// Pure in its inputs (config, rows, schema), the property tests rely
-// on that.
+// Dashboard v2 renderer: fetches the batch /data endpoint on mount and
+// on (debounced) filter changes; each panel binds its own result.
 
-import { useMemo, useState } from "react";
-import type { ColumnSchema } from "@/lib/types/config";
-import type { DashboardConfig, Panel } from "@/lib/types/dashboard";
-import { applyWhere } from "@/lib/dashboard/evalWhere";
-import {
-  applyFilters,
-  emptyFilterState,
-  type FilterState,
-} from "./FilterBar";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { DashboardConfigV2, PanelV2 } from "@/lib/types/dashboard-v2";
+import type { DashboardData, Params } from "@/lib/services/dashboard-data";
+import { filterParams } from "@/lib/types/dashboard-v2";
 import FilterBar from "./FilterBar";
 import PanelRenderer from "./PanelRenderer";
-import { binDate } from "./aggregate";
-import type { ChartFilter, ChartFilterBin, Row } from "./types";
 
-export interface DashboardViewProps {
-  config: DashboardConfig;
-  rows: Row[];
-  schema: ColumnSchema[];
+const DEBOUNCE_MS = 250;
+
+function emptyParams(config: DashboardConfigV2): Params {
+  const params: Params = {};
+  for (const f of config.filters) for (const p of filterParams(f)) params[p] = null;
+  return params;
 }
 
-/**
- * `true` iff `panel` emits the shape of `filter`. The emitter is exempt
- * from its own filter so e.g. a clicked doughnut doesn't collapse to
- * one slice; non-emitting panels still get filtered.
- */
-function panelEmitsFilter(panel: Panel, filter: ChartFilter): boolean {
-  switch (panel.kind) {
-    case "doughnut":
-      return panel.group_by === filter.column && filter.bin === undefined;
-    case "bar":
-      return panel.group_by === filter.column && panel.x_bin === filter.bin;
-    case "choropleth_map":
-      return panel.country === filter.column && filter.bin === undefined;
-    case "sankey":
-      return (
-        filter.bin === undefined &&
-        panel.flows.some(
-          (f) => f.from === filter.column || f.to === filter.column,
-        )
-      );
-    default:
-      return false;
-  }
+function spanStyle(panel: PanelV2, columns: number): React.CSSProperties {
+  const span = panel.grid?.span;
+  if (span === "full") return { gridColumn: "1 / -1" };
+  if (typeof span === "number") return { gridColumn: `span ${Math.min(span, columns)}` };
+  return {};
 }
 
-export function DashboardView({ config, rows, schema }: DashboardViewProps) {
-  const [filterState, setFilterState] = useState<FilterState>(emptyFilterState);
-  const [chartFilter, setChartFilter] = useState<ChartFilter | null>(null);
+export function DashboardView({
+  pipeline,
+  id,
+  config,
+  draft = false,
+}: {
+  pipeline: string;
+  id: string;
+  config: DashboardConfigV2;
+  draft?: boolean;
+}) {
+  const [params, setParams] = useState<Params>(() => emptyParams(config));
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seq = useRef(0);
 
-  // The dashboard-level `where` is applied first; FilterBar dropdowns
-  // also derive their options from this set so excluded values aren't
-  // selectable.
-  const whereFiltered = useMemo(
-    () => applyWhere(rows, config.where),
-    [rows, config.where],
-  );
-
-  const baseFilteredRows = useMemo(
-    () => applyFilters(whereFiltered, filterState),
-    [whereFiltered, filterState],
-  );
-
-  const filteredRows = useMemo(() => {
-    if (!chartFilter) return baseFilteredRows;
-    if (chartFilter.bin) {
-      return baseFilteredRows.filter(
-        (r) => binDate(r[chartFilter.column], chartFilter.bin) === chartFilter.value,
-      );
-    }
-    return baseFilteredRows.filter(
-      (r) => String(r[chartFilter.column] ?? "") === chartFilter.value,
-    );
-  }, [baseFilteredRows, chartFilter]);
-
-  const handleChartFilter = (column: string, value: string, bin?: ChartFilterBin) => {
-    setChartFilter((prev) =>
-      prev && prev.column === column && prev.value === value && prev.bin === bin
-        ? null
-        : { column, value, bin },
-    );
-  };
-
-  const layout = config.layout;
-  const gridStyle: React.CSSProperties = layout?.gridTemplateColumns
-    ? {
-        display: "grid",
-        gridTemplateColumns: layout.gridTemplateColumns,
-        ...(layout.gridTemplateRows ? { gridTemplateRows: layout.gridTemplateRows } : {}),
-        gap: layout.gap ?? "1rem",
+  useEffect(() => {
+    const mySeq = ++seq.current;
+    const run = async () => {
+      try {
+        const res = await fetch(
+          `/api/p/${pipeline}/dashboards/${id}/data${draft ? "?draft=1" : ""}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ params }),
+          },
+        );
+        const body = await res.json();
+        if (seq.current !== mySeq) return;
+        if (!res.ok) {
+          setError(body.message ?? body.error ?? `Data fetch failed (${res.status})`);
+          return;
+        }
+        setError(null);
+        setData(body as DashboardData);
+      } catch (e) {
+        if (seq.current === mySeq) setError(e instanceof Error ? e.message : String(e));
       }
-    : {};
-  // Fallback to Tailwind column classes when no explicit gridTemplateColumns.
-  const columns = layout?.columns ?? 2;
-  const gridClass = layout?.gridTemplateColumns
-    ? ""
-    : columns === 1
-      ? "grid grid-cols-1 gap-4"
-      : columns === 3
-        ? "grid grid-cols-1 md:grid-cols-3 gap-4"
-        : columns === 4
-          ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
-          : "grid grid-cols-1 md:grid-cols-2 gap-4";
+    };
+    // First load fires immediately; param changes debounce.
+    if (data === null) void run();
+    else {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => void run(), DEBOUNCE_MS);
+    }
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pipeline, id, draft, params]);
+
+  const columns = config.layout?.columns ?? 3;
+  const gridStyle = useMemo<React.CSSProperties>(
+    () => ({
+      display: "grid",
+      gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+      gap: config.layout?.gap ?? "1rem",
+    }),
+    [columns, config.layout?.gap],
+  );
 
   return (
     <div data-testid="dashboard-view" className="space-y-4">
       <FilterBar
         filters={config.filters}
-        rows={whereFiltered}
-        state={filterState}
-        onChange={setFilterState}
-        chartFilter={chartFilter}
-        onClearChartFilter={() => setChartFilter(null)}
+        options={data?.filters ?? {}}
+        params={params}
+        onChange={setParams}
       />
-      <div className={gridClass} style={gridStyle} data-testid="panel-grid">
-        {config.panels.map((panel, i) => {
-          const panelStyle: React.CSSProperties = {};
-          if (panel.grid?.gridColumn) panelStyle.gridColumn = panel.grid.gridColumn;
-          if (panel.grid?.gridRow) panelStyle.gridRow = panel.grid.gridRow;
-          // `data-panel-span` enables the @container query in
-          // globals.css to collapse `span N` to full-width when the
-          // grid only has one explicit column.
-          const spanMatch =
-            typeof panel.grid?.gridColumn === "string"
-              ? panel.grid.gridColumn.match(/^span\s+(\d+)$/i)
-              : null;
-          const panelSpan = spanMatch ? Number(spanMatch[1]) : undefined;
-          const isFilterSource =
-            chartFilter !== null && panelEmitsFilter(panel, chartFilter);
-          const rowsForPanel = isFilterSource ? baseFilteredRows : filteredRows;
-          return (
-            <div
-              key={i}
-              style={panelStyle}
-              className="flex min-w-0"
-              data-testid="panel-slot"
-              data-panel-index={i}
-              data-panel-title={panel.title}
-              data-panel-span={panelSpan}
-            >
-              <PanelRenderer
-                config={panel}
-                rows={rowsForPanel}
-                schema={schema}
-                onFilter={handleChartFilter}
-                activeFilter={chartFilter}
-              />
-            </div>
-          );
-        })}
+      {error && (
+        <div
+          role="alert"
+          className="rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]"
+        >
+          {error}
+        </div>
+      )}
+      <div style={gridStyle}>
+        {config.panels.map((panel, i) => (
+          <div key={i} className="flex min-w-0" style={spanStyle(panel, columns)}>
+            <PanelRenderer panel={panel} result={data?.panels[i]} />
+          </div>
+        ))}
       </div>
     </div>
   );

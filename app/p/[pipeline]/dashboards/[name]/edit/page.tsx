@@ -6,10 +6,13 @@
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import JsonEditor from "@/components/dashboard/JsonEditor";
+import YamlEditor, { type EditorDiagnostic } from "@/components/dashboard/YamlEditor";
+import { cachedJson } from "@/lib/client/fetch-cache";
+import { nameToSlug } from "@/lib/config/name-to-slug";
 import Modal from "@/components/ui/Modal";
 import { TOPBAR_ACTIONS_ID } from "@/components/dashboard/DashboardTopBar";
-import { validateDashboardConfig } from "@/lib/services/dashboard-validation";
+import { validateDashboardV2Detailed } from "@/lib/types/dashboard-v2";
+import { notifyDashboardsChanged } from "@/lib/client/dashboards-index";
 
 export default function DashboardEditPage({
   params,
@@ -44,12 +47,7 @@ export default function DashboardEditPage({
         const body = await res.text();
         if (cancelled) return;
         setIsDraft(res.headers.get("X-Karet-Draft") === "1");
-        // Start the editor formatted.
-        try {
-          setSource(JSON.stringify(JSON.parse(body), null, 2));
-        } catch {
-          setSource(body);
-        }
+        setSource(body);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }
@@ -59,17 +57,86 @@ export default function DashboardEditPage({
     };
   }, [pipeline, name]);
 
-  const validation = useMemo(() => {
-    if (source === null) return null;
-    try {
-      return validateDashboardConfig(JSON.parse(source));
-    } catch (e) {
-      return {
-        ok: false as const,
-        errors: [e instanceof Error ? e.message : "Invalid JSON"],
-      };
+  const structural = useMemo(
+    () => (source === null ? null : validateDashboardV2Detailed(source)),
+    [source],
+  );
+
+  // Warehouse schema for query completions (table slug -> columns).
+  const [sqlSchema, setSqlSchema] = useState<Record<string, string[]>>({});
+  useEffect(() => {
+    let cancelled = false;
+    cachedJson<{ tables?: { name: string; schema: { name: string }[] }[] }>(
+      `/api/p/${pipeline}/tables`,
+      60_000,
+    )
+      .then((body) => {
+        if (cancelled || !body.tables) return;
+        const schema: Record<string, string[]> = {};
+        for (const t of body.tables) schema[nameToSlug(t.name)] = t.schema.map((c) => c.name);
+        setSqlSchema(schema);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pipeline]);
+
+  // Server-side SQL + binding validation, debounced, once structure
+  // passes. `checking` keeps Publish/Save disabled until the verdict.
+  const [sqlErrors, setSqlErrors] = useState<string[] | null>(null);
+  const [checking, setChecking] = useState(false);
+  useEffect(() => {
+    if (source === null || !structural?.ok) {
+      setSqlErrors(null);
+      setChecking(false);
+      return;
     }
-  }, [source]);
+    setChecking(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/p/${pipeline}/dashboards/${name}/validate`, {
+          method: "POST",
+          body: source,
+        });
+        const gate = (await res.json()) as { ok?: boolean; errors?: string[] };
+        setSqlErrors(gate.ok ? [] : (gate.errors ?? ["Validation failed"]));
+      } catch {
+        setSqlErrors(["Could not reach the validator"]);
+      } finally {
+        setChecking(false);
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [source, structural, pipeline, name]);
+
+  const validation = useMemo(() => {
+    if (structural === null) return null;
+    if (!structural.ok)
+      return { ok: false as const, errors: structural.errors.map((e) => e.message) };
+    if (checking || sqlErrors === null) return { ok: false as const, errors: [], pending: true };
+    if (sqlErrors.length > 0) return { ok: false as const, errors: sqlErrors };
+    return { ok: true as const, panelCount: structural.panelCount };
+  }, [structural, checking, sqlErrors]);
+
+  // Inline diagnostics: structural errors carry paths; server SQL errors
+  // map to their panel or filter by index.
+  const diagnostics = useMemo<EditorDiagnostic[]>(() => {
+    if (structural === null) return [];
+    if (!structural.ok) {
+      return structural.errors.map((e) => ({ message: e.message, path: e.path }));
+    }
+    return (sqlErrors ?? []).map((message) => {
+      const panel = message.match(/^panels\[(\d+)\]/);
+      if (panel) {
+        const i = Number(panel[1]);
+        return { message, path: message.includes(" SQL:") ? ["panels", i, "query"] : ["panels", i] };
+      }
+      const filter = message.match(/^filters\[(\d+)\]/);
+      if (filter) return { message, path: ["filters", Number(filter[1]), "options_sql"] };
+      return { message, path: null };
+    });
+  }, [structural, sqlErrors]);
 
   const save = useCallback(
     async (publish: boolean) => {
@@ -97,6 +164,7 @@ export default function DashboardEditPage({
                   : (body.message ?? `Publish failed (${pub.status})`),
               );
             }
+            notifyDashboardsChanged(pipeline);
             router.push(`${base}/${name}`);
             router.refresh();
             return;
@@ -116,6 +184,7 @@ export default function DashboardEditPage({
             );
           }
           setNotice("Saved");
+          notifyDashboardsChanged(pipeline);
           router.refresh();
         }
       } catch (e) {
@@ -135,6 +204,7 @@ export default function DashboardEditPage({
         method: "DELETE",
       });
       if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+      notifyDashboardsChanged(pipeline);
       router.push(`/p/${pipeline}/graph`);
       router.refresh();
     } catch (e) {
@@ -198,12 +268,23 @@ export default function DashboardEditPage({
       ) : (
         <div className="flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-6">
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]">
-            <JsonEditor value={source} onChange={setSource} ariaLabel="Dashboard config JSON" />
+            <YamlEditor
+              value={source}
+              onChange={setSource}
+              diagnostics={diagnostics}
+              sqlSchema={sqlSchema}
+              ariaLabel="Dashboard config YAML"
+            />
             <footer
               className="flex items-center gap-2 border-t border-[color:var(--color-rule-soft)] px-3.5 py-2 text-[11.5px]"
               data-testid="dashboard-validation"
             >
-            {validation?.ok ? (
+            {validation && "pending" in validation ? (
+              <span className="inline-flex items-center gap-1.5 text-[color:var(--color-ink-3)]">
+                <span className="skeleton h-3 w-3 rounded-full" aria-hidden />
+                Checking SQL against the warehouse…
+              </span>
+            ) : validation?.ok ? (
               <span className="inline-flex items-center gap-1.5 text-[color:var(--color-leaf-deep)]">
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
                   <path d="m3 8.5 3.5 3.5L13 5" />
@@ -215,7 +296,7 @@ export default function DashboardEditPage({
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0" aria-hidden>
                   <path d="M4 4l8 8M12 4l-8 8" />
                 </svg>
-                <span className="truncate">{validation?.errors[0]}</span>
+                <span className="truncate">{validation?.errors[0] ?? ""}</span>
                 {validation && validation.errors.length > 1 && (
                   <span className="shrink-0 text-[color:var(--color-ink-3)]">
                     +{validation.errors.length - 1} more
@@ -239,7 +320,7 @@ export default function DashboardEditPage({
           <p className="mt-1 text-sm text-[color:var(--color-ink-3)]">
             Removes{" "}
             <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono text-[12px]">
-              {name}.json
+              {name}.yaml
             </code>{" "}
             {isDraft ? "(draft)" : "and its draft, if any,"} from S3. Cannot be undone.
           </p>

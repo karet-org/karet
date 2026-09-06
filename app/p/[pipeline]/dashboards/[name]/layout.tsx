@@ -1,8 +1,4 @@
-import { createS3Client, loadS3Config, pipelineS3Config } from "@/lib/config/s3-client";
-import {
-  getDashboard,
-  getDraftDashboard,
-} from "@/lib/services/config-service";
+import { fetchDashboardV2 } from "@/lib/services/dashboard-fetch";
 import DashboardTopBar from "@/components/dashboard/DashboardTopBar";
 
 export default async function DashboardLayout({
@@ -13,25 +9,18 @@ export default async function DashboardLayout({
   params: Promise<{ pipeline: string; name: string }>;
 }) {
   const { pipeline, name } = await params;
-  const cfg = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(cfg);
 
   // Title: published name, else draft name, else the id.
   let title = name;
   let isDraft = false;
-  const published = await getDashboard(client, cfg, name).catch(() => null);
+  const published = await fetchDashboardV2(pipeline, name, false).catch(() => null);
   if (published) {
-    title = published.name?.trim() || name;
+    title = published.config?.name?.trim() || name;
   } else {
-    const draft = await getDraftDashboard(client, cfg, name).catch(() => null);
+    const draft = await fetchDashboardV2(pipeline, name, true).catch(() => null);
     if (draft !== null) {
       isDraft = true;
-      try {
-        const parsed = JSON.parse(draft) as { name?: string };
-        title = parsed.name?.trim() || name;
-      } catch {
-        // Unparseable draft keeps the id as its title.
-      }
+      title = draft.config?.name?.trim() || name;
     }
   }
 

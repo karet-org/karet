@@ -93,10 +93,11 @@ function toJson(value: unknown): unknown {
 /** Run a read-only query and return the rows as JSON-safe plain objects. */
 async function query<T extends Record<string, unknown> = Record<string, unknown>>(
   sql: string,
+  values: (string | null)[] = [],
 ): Promise<T[]> {
   const database = await getDb();
   return new Promise((resolve, reject) => {
-    database.all(sql, (err: Error | null, rows: duckdb.TableData) => {
+    database.all(sql, ...values, (err: Error | null, rows: duckdb.TableData) => {
       if (err) return reject(err);
       const safe = (rows ?? []).map((row) => {
         const out: Record<string, unknown> = {};
@@ -183,9 +184,14 @@ export interface QueryRelation {
 export async function executeUserQuery(
   relations: QueryRelation[],
   sql: string,
-  options: { validateOnly?: boolean } = {},
+  options: { validateOnly?: boolean; values?: (string | null)[] } = {},
 ): Promise<{ columns: string[]; rows: Record<string, unknown>[] } | { error: string }> {
-  const readOnlyError = await checkReadOnly(sql);
+  // The read-only check runs on a NULL-substituted variant: `?`
+  // placeholders are literal positions, so substitution can't change
+  // the statement's shape, and json_serialize_sql needs bindable SQL.
+  const readOnlyError = await checkReadOnly(
+    options.values?.length ? sql.replace(/\?/g, "NULL") : sql,
+  );
   if (readOnlyError) return { error: readOnlyError };
 
   // Inline only the relations the query names. Matching on a word boundary is
@@ -207,9 +213,35 @@ export async function executeUserQuery(
       : sql;
 
   try {
-    const rows = await query<Record<string, unknown>>(wrapped);
+    const rows = await query<Record<string, unknown>>(wrapped, options.values ?? []);
     const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
     return { columns, rows };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Column names a SELECT would produce, without reading data. The inner
+ * SQL must already be parameter-free (validation binds NULLs). DESCRIBE
+ * itself is not a SELECT, so the read-only gate runs on the inner query.
+ */
+export async function describeUserQuery(
+  relations: QueryRelation[],
+  sql: string,
+): Promise<{ columns: string[] } | { error: string }> {
+  const readOnlyError = await checkReadOnly(sql);
+  if (readOnlyError) return { error: readOnlyError };
+  const referenced = relations.filter((r) =>
+    new RegExp(`\\b${r.slug}\\b`, "i").test(sql),
+  );
+  const ctes = referenced.map((r) => `"${r.slug}" AS (SELECT * FROM ${r.source})`);
+  const prefix = ctes.length > 0 ? `WITH ${ctes.join(", ")} ` : "";
+  try {
+    const rows = await query<{ column_name: string }>(
+      `DESCRIBE ${prefix}SELECT * FROM (${sql})`,
+    );
+    return { columns: rows.map((r) => String(r.column_name)) };
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }

@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import {
-  getDraftDashboard,
-  publishDashboard,
-} from "@/lib/services/config-service";
-import { validateDashboardConfig } from "@/lib/services/dashboard-validation";
+import { getDashboardV2, publishDashboardV2 } from "@/lib/services/config-service";
+import { fullDashboardGate } from "@/lib/services/dashboard-data";
 
-/** Publishes a draft after it parses, validates, and matches the URL id. */
+/** Publishes a draft after the full gate (structure, SQL, bindings). */
 export async function POST(
   _request: Request,
   context: { params: Promise<{ pipeline: string; name: string }> },
@@ -16,33 +13,18 @@ export async function POST(
   const client = createS3Client(config);
 
   return wrapS3Error(async () => {
-    const body = await getDraftDashboard(client, config, name);
-    if (body === null) {
+    const draft = await getDashboardV2(client, config, name, { draft: true });
+    if (draft === null) {
       return NextResponse.json({ error: "draft_not_found", name }, { status: 404 });
     }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(body);
-    } catch {
+    const gate = await fullDashboardGate(client, config, pipeline, name, draft.body);
+    if (!gate.ok) {
       return NextResponse.json(
-        { error: "invalid_config", errors: ["Draft is not valid JSON"] },
+        { error: "invalid_config", errors: gate.errors },
         { status: 422 },
       );
     }
-    const result = validateDashboardConfig(parsed);
-    if (!result.ok) {
-      return NextResponse.json(
-        { error: "invalid_config", errors: result.errors },
-        { status: 422 },
-      );
-    }
-    if (result.config.id !== name) {
-      return NextResponse.json(
-        { error: "id_mismatch", message: `Config id "${result.config.id}" must match "${name}"` },
-        { status: 422 },
-      );
-    }
-    await publishDashboard(client, config, name, body);
+    await publishDashboardV2(client, config, name, draft.body);
     return NextResponse.json({ ok: true, id: name });
   }, `POST /api/p/${pipeline}/dashboards/${name}/publish`);
 }

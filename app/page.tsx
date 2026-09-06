@@ -14,14 +14,13 @@ import { GetObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import type { JobRecord } from "@/lib/types/jobs";
 import ImportButton from "@/components/layout/ImportButton";
 import CreatePipelineButton from "@/components/layout/CreatePipelineButton";
-import LandingRail from "@/components/layout/LandingRail";
+import LandingRail, { MobileRailToggle } from "@/components/layout/LandingRail";
 import { SearchProvider } from "@/components/layout/LandingSearch";
 import PipelineGrid, { type PipelineCardData } from "@/components/layout/PipelineGrid";
 import type { ThumbGraph, ThumbNode } from "@/components/layout/DagThumbnail";
 import { buildGraph, NODE_TYPE } from "@/lib/graph/build";
 import { getUiSettings } from "@/lib/services/ui-settings";
 import { formatRelative } from "@/lib/format/relative-time";
-import { KaretLogo } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -209,9 +208,11 @@ export default async function Home() {
       <main className="min-w-0 flex-1">
         <div className="sticky top-0 z-20 flex h-[52px] items-center justify-between border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
-            <span className="md:hidden">
-              <KaretLogo size={24} />
-            </span>
+            <MobileRailToggle
+              displayName={settings.displayName}
+              workspaceName={settings.workspaceName}
+              starred={starred}
+            />
             <h1 className="text-[15px] font-semibold text-[color:var(--color-ink)]">
               Pipelines
             </h1>

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import {
-  listDashboardsWithNames,
-  listDraftDashboards,
-  getDraftDashboard,
-  putDashboard,
+  getDashboardV2,
+  listDashboardsWithNamesV2,
+  listDraftDashboardsV2,
+  putDashboardV2,
 } from "@/lib/services/config-service";
+import { templateV2 } from "@/lib/types/dashboard-v2";
 
 const ID_RE = /^[a-z0-9][a-z0-9-_]*$/;
 
@@ -19,12 +20,11 @@ export async function GET(
 
   return wrapS3Error(async () => {
     const [listings, draftIds] = await Promise.all([
-      listDashboardsWithNames(client, config),
-      listDraftDashboards(client, config),
+      listDashboardsWithNamesV2(client, config),
+      listDraftDashboardsV2(client, config),
     ]);
     const published = new Set(listings.map((l) => l.id));
     const drafts = draftIds.filter((id) => !published.has(id));
-    // `dashboards` (ids) kept for backward compatibility.
     return NextResponse.json({
       dashboards: listings.map((l) => l.id),
       listings,
@@ -33,7 +33,7 @@ export async function GET(
   }, `GET /api/p/${pipeline}/dashboards`);
 }
 
-/** Creates a new draft dashboard from a starter template. */
+/** Creates a new draft dashboard from the v2 YAML template. */
 export async function POST(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
@@ -49,19 +49,10 @@ export async function POST(
   }
 
   return wrapS3Error(async () => {
-    if ((await getDraftDashboard(client, config, id)) !== null) {
+    if ((await getDashboardV2(client, config, id, { draft: true })) !== null) {
       return NextResponse.json({ error: "draft_exists", id }, { status: 409 });
     }
-    const template = {
-      id,
-      name: "Untitled dashboard",
-      analytic_table_id: "",
-      filters: [],
-      panels: [],
-    };
-    await putDashboard(client, config, id, JSON.stringify(template, null, 2), {
-      draft: true,
-    });
+    await putDashboardV2(client, config, id, templateV2(id), { draft: true });
     return NextResponse.json({ ok: true, id }, { status: 201 });
   }, `POST /api/p/${pipeline}/dashboards`);
 }
