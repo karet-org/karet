@@ -27,7 +27,7 @@ import {
   type CompletionResult,
 } from "@codemirror/autocomplete";
 import { indentUnit, syntaxHighlighting } from "@codemirror/language";
-import { linter, lintGutter, type Diagnostic } from "@codemirror/lint";
+import { linter, type Diagnostic } from "@codemirror/lint";
 import { editorHighlight, editorTheme } from "./theme";
 
 export interface CodeEditorProps {
@@ -37,7 +37,7 @@ export interface CodeEditorProps {
   extensions?: Extension[];
   /** Completion override; kept fresh via ref, safe to close over props. */
   completionSource?: (context: CompletionContext) => CompletionResult | null;
-  /** Lint source; kept fresh via ref. Presence enables the lint gutter. */
+  /** Lint source; kept fresh via ref. */
   lintSource?: (view: EditorView) => Diagnostic[];
   /** Re-runs the linter when this value changes identity. */
   lintDependency?: unknown;
@@ -109,10 +109,9 @@ export default function CodeEditor({
       built.push(autocompletion({ override: [(ctx) => completeRef.current?.(ctx) ?? null] }));
     }
     if (lintSource) {
-      built.push(
-        linter((view) => lintRef.current?.(view) ?? [], { delay: 300 }),
-        lintGutter(),
-      );
+      // No lint gutter: it reserves a column even when empty, and the
+      // wavy underline + hover tooltip already carry the diagnostics.
+      built.push(linter((view) => lintRef.current?.(view) ?? [], { delay: 300 }));
     }
     built.push(
       editorTheme,
