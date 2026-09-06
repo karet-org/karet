@@ -4,6 +4,7 @@
 // a pipeline prefix trigger a debounced run via the store webhook.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Modal from "@/components/ui/Modal";
 
 interface LakeFile {
   key: string;
@@ -55,6 +56,11 @@ export default function LakeBrowser() {
   const [uploading, setUploading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async (p: string) => {
@@ -101,6 +107,46 @@ export default function LakeBrowser() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function doRename() {
+    if (!renameTarget) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const res = await fetch("/api/lake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: renameTarget, to: renameValue.trim() }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message ?? body.error ?? `Rename failed (${res.status})`);
+      setRenameTarget(null);
+      await load(prefix);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doDelete() {
+    if (!deleteTarget) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/lake?key=${encodeURIComponent(deleteTarget)}`, {
+        method: "DELETE",
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message ?? body.error ?? `Delete failed (${res.status})`);
+      setDeleteTarget(null);
+      await load(prefix);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -191,6 +237,7 @@ export default function LakeBrowser() {
                 <th className="w-[45%]">Name</th>
                 <th>Size</th>
                 <th>Modified</th>
+                <th className="w-24" aria-hidden />
               </tr>
             </thead>
             <tbody>
@@ -210,6 +257,7 @@ export default function LakeBrowser() {
                     </td>
                     <td>-</td>
                     <td>-</td>
+                    <td />
                   </tr>
                 );
               })}
@@ -217,7 +265,7 @@ export default function LakeBrowser() {
                 const name = f.key.slice(prefix.length);
                 const csv = name.toLowerCase().endsWith(".csv");
                 return (
-                  <tr key={f.key}>
+                  <tr key={f.key} className="group/row">
                     <td>
                       <span className="inline-flex items-center gap-2">
                         {csv ? <CsvIcon /> : <FileIcon />}
@@ -231,6 +279,50 @@ export default function LakeBrowser() {
                     </td>
                     <td>{formatSize(f.size)}</td>
                     <td>{formatDate(f.lastModified)}</td>
+                    <td>
+                      <span className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover/row:opacity-100">
+                        <a
+                          href={`/api/lake/object?key=${encodeURIComponent(f.key)}`}
+                          download
+                          title="Download"
+                          aria-label={`Download ${name}`}
+                          className="grid h-6 w-6 place-items-center rounded text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                            <path d="M8 3v8m0 0-3-3m3 3 3-3M2.5 13.5h11" />
+                          </svg>
+                        </a>
+                        <button
+                          type="button"
+                          title="Rename"
+                          aria-label={`Rename ${name}`}
+                          onClick={() => {
+                            setActionError(null);
+                            setRenameValue(f.key);
+                            setRenameTarget(f.key);
+                          }}
+                          className="grid h-6 w-6 place-items-center rounded text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                            <path d="M11.1 2.4a1.4 1.4 0 0 1 2 2L5.5 12l-2.8.8.8-2.8 7.6-7.6Z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete"
+                          aria-label={`Delete ${name}`}
+                          onClick={() => {
+                            setActionError(null);
+                            setDeleteTarget(f.key);
+                          }}
+                          className="grid h-6 w-6 place-items-center rounded text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-rose-soft)] hover:text-[color:var(--color-rose-deep)]"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                            <path d="M2.5 4.5h11M6.5 4.5v-2h3v2M4 4.5l.7 9a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9l.7-9M6.5 7.5v4M9.5 7.5v4" />
+                          </svg>
+                        </button>
+                      </span>
+                    </td>
                   </tr>
                 );
               })}
@@ -243,6 +335,84 @@ export default function LakeBrowser() {
           </p>
         )}
       </div>
+
+      {renameTarget && (
+        <Modal open onClose={() => !busy && setRenameTarget(null)}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void doRename();
+            }}
+          >
+            <h2 className="text-lg font-semibold">Rename file</h2>
+            <p className="mt-1 text-xs text-[color:var(--color-ink-3)]">
+              Edits the full S3 key. Moving a CSV under a different pipeline
+              prefix changes which pipeline it feeds.
+            </p>
+            <input
+              autoFocus
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              data-testid="lake-rename-input"
+              className="mt-4 w-full rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-2 font-mono text-sm focus:border-[color:var(--color-carrot)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
+            />
+            {actionError && (
+              <p role="alert" className="mt-3 text-sm text-[color:var(--color-rose-deep)]">{actionError}</p>
+            )}
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRenameTarget(null)}
+                disabled={busy}
+                className="rounded-md px-4 py-2 text-sm text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={busy || !renameValue.trim() || renameValue.trim() === renameTarget}
+                className="rounded-md bg-[color:var(--color-carrot)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+              >
+                {busy ? "Renaming…" : "Rename"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {deleteTarget && (
+        <Modal open onClose={() => !busy && setDeleteTarget(null)}>
+          <h2 className="text-lg font-semibold text-[color:var(--color-rose-deep)]">Delete file</h2>
+          <p className="mt-1 text-sm text-[color:var(--color-ink-3)]">
+            Permanently removes{" "}
+            <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono text-[12px]">{deleteTarget}</code>{" "}
+            from the lake. Cannot be undone.
+          </p>
+          {actionError && (
+            <p role="alert" className="mt-3 text-sm text-[color:var(--color-rose-deep)]">{actionError}</p>
+          )}
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
+              disabled={busy}
+              className="rounded-md px-4 py-2 text-sm text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void doDelete()}
+              disabled={busy}
+              data-testid="lake-delete-confirm"
+              className="rounded-md bg-[color:var(--color-rose-deep)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {busy ? "Deleting…" : "Delete file"}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

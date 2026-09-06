@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
@@ -73,4 +75,41 @@ export async function PUT(request: Request) {
     );
     return NextResponse.json({ ok: true, key });
   }, "PUT /api/lake");
+}
+
+export async function DELETE(request: Request) {
+  const cfg = loadS3Config();
+  const client = createS3Client(cfg);
+  const key = new URL(request.url).searchParams.get("key") ?? "";
+  if (!KEY_RE.test(key) || key.includes("..") || key.endsWith("/")) {
+    return NextResponse.json({ error: "invalid_key" }, { status: 422 });
+  }
+  return wrapS3Error(async () => {
+    await client.send(new DeleteObjectCommand({ Bucket: cfg.lakeBucket, Key: key }));
+    return NextResponse.json({ ok: true });
+  }, "DELETE /api/lake");
+}
+
+/** Renames an object: copy to the new key, delete the old one. */
+export async function POST(request: Request) {
+  const cfg = loadS3Config();
+  const client = createS3Client(cfg);
+  const body = (await request.json().catch(() => ({}))) as { from?: string; to?: string };
+  const { from, to } = body;
+  const bad = (k?: string) => !k || !KEY_RE.test(k) || k.includes("..") || k.endsWith("/");
+  if (bad(from) || bad(to)) {
+    return NextResponse.json({ error: "invalid_key" }, { status: 422 });
+  }
+  if (from === to) return NextResponse.json({ ok: true });
+  return wrapS3Error(async () => {
+    await client.send(
+      new CopyObjectCommand({
+        Bucket: cfg.lakeBucket,
+        CopySource: `${cfg.lakeBucket}/${encodeURIComponent(from!).replace(/%2F/g, "/")}`,
+        Key: to!,
+      }),
+    );
+    await client.send(new DeleteObjectCommand({ Bucket: cfg.lakeBucket, Key: from! }));
+    return NextResponse.json({ ok: true, key: to });
+  }, "POST /api/lake (rename)");
 }
