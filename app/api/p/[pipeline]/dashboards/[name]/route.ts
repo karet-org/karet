@@ -34,11 +34,7 @@ export async function GET(
   }, `GET /api/p/${pipeline}/dashboards/${name}`);
 }
 
-/**
- * Saves a dashboard body. `?draft=1` writes to the drafts prefix with no
- * validation gate (drafts may be mid-edit); otherwise the body must
- * validate and replaces the published config directly.
- */
+/** Saves a dashboard body. `?draft=1` skips validation (mid-edit). */
 export async function PUT(
   request: Request,
   context: { params: Promise<{ pipeline: string; name: string }> },

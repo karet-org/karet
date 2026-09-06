@@ -1,14 +1,8 @@
 "use client";
 
-// Left sidebar shown on every pipeline page, replacing the old TopNav.
-//
-// Desktop (md+): a fixed 220px rail. Mobile: a 48px top bar whose
-// hamburger opens the same rail as an off-canvas drawer.
-//
-// Contents: back link, pipeline switcher, primary tabs (Graph, Jobs,
-// Data), the live dashboards list, pipeline actions (Export, Rename,
-// S3 console, Delete), and the user menu. Rename and Delete keep their
-// confirmation modals from the TopNav implementation.
+// Pipeline sidebar: 220px rail on desktop, drawer behind a 48px bar on
+// mobile. Switcher, tabs, dashboards, Export, and Settings (Rename and
+// Delete live in its popover).
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -25,21 +19,11 @@ import { sanitizeSlug } from "@/lib/config/slug";
 import Modal from "@/components/ui/Modal";
 import { cachedJson } from "@/lib/client/fetch-cache";
 
-/** Height of the mobile top bar; pipeline pages offset content by this below md. */
+/** Mobile top bar height; pages offset content by this below md. */
 export const MOBILE_NAV_HEIGHT_PX = 48;
 
 import { pipelineHue } from "@/lib/config/pipeline-hue";
-
-function relTime(iso?: string): string {
-  const ts = iso ? Date.parse(iso) : NaN;
-  if (Number.isNaN(ts)) return "recently";
-  const m = Math.max(1, Math.round((Date.now() - ts) / 60000));
-  if (m < 60) return `${m} min ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h} hr ago`;
-  const d = Math.round(h / 24);
-  return `${d} day${d === 1 ? "" : "s"} ago`;
-}
+import { formatRelative } from "@/lib/format/relative-time";
 
 export default function SideNav({ pipeline }: { pipeline: string }) {
   const pathname = usePathname() ?? "/";
@@ -94,7 +78,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
     };
   }, [pipeline]);
 
-  // Latest terminal run for the identity subline ("Healthy, ran 5 min ago").
+  // Latest terminal run for the identity subline.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -110,7 +94,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
           setStatusLine("Never run");
           return;
         }
-        const ago = relTime(terminal.startedAt);
+        const ago = formatRelative(terminal.startedAt).toLowerCase();
         setStatusLine(
           terminal.status === "completed" ? `Healthy, ran ${ago}` : `Last run failed ${ago}`,
         );
@@ -333,8 +317,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
         })}
       </div>
 
-      {/* Footer per the mock: Export and Settings. Rename and Delete
-          live in the Settings popover. */}
+      {/* Footer: Export and Settings (Rename/Delete in the popover). */}
       <div ref={settingsRef} className="relative mt-auto flex flex-col gap-0.5 border-t border-[color:var(--color-rule-soft)] pt-2">
         {settingsOpen && (
           <div
@@ -447,7 +430,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
       {/* Desktop rail */}
       <nav
         data-testid="side-nav"
-        className="sticky top-0 hidden h-screen w-[220px] shrink-0 border-r border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] md:block"
+        className="hidden h-full w-[220px] shrink-0 border-r border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] md:block"
       >
         {rail}
       </nav>

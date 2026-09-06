@@ -1,8 +1,7 @@
 "use client";
 
-// Bottom-of-rail user row with a popover menu (Settings, Sign out).
-// Shared by the landing rail and the pipeline sidebar. Pass displayName
-// when the server already knows it; null fetches it from /api/settings.
+// Rail user row with a popover menu. displayName null fetches it from
+// /api/settings.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";

@@ -1,7 +1,6 @@
 "use client";
 
-// Landing search state, shared between the rail's input and the card
-// grid's filter without routing round-trips.
+// Landing search state shared between the rail input and the grid.
 
 import { createContext, useContext, useState } from "react";
 import { IconLookup } from "@/components/icons";

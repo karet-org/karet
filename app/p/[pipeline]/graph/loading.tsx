@@ -4,7 +4,7 @@
 export default function GraphLoading() {
   return (
     <main
-      className="flex h-[calc(100vh-48px)] items-center justify-center md:h-screen"
+      className="flex h-[calc(100vh-48px)] items-center justify-center md:h-full"
     >
       <div role="status" className="text-sm text-[color:var(--color-ink-3)]">
         Loading graph…

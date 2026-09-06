@@ -38,7 +38,7 @@ export default function DataPage() {
   const [result, setResult] = useState<Record<string, unknown>[] | null>(null);
   const [resultCols, setResultCols] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [tablesOpen, setTablesOpen] = useState(true);
+  const [tablesOpen, setTablesOpen] = useState(false);
   const [bucketError, setBucketError] = useState<string | null>(null);
 
   // Sidebar fetch state, tracked per source so a failure shows an error
@@ -226,13 +226,15 @@ export default function DataPage() {
 
 
   return (
-    <div className="flex flex-col md:h-screen md:flex-row">
+    <div className="flex flex-col md:h-full md:flex-row">
       <main className="flex min-w-0 flex-1 flex-col gap-3 px-4 py-4 sm:px-6 md:min-h-0 md:overflow-hidden">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold text-[color:var(--color-ink)]">Data</h1>
-          <p className="hidden text-[12.5px] text-[color:var(--color-ink-3)] sm:block">
-            Query analytic tables with DuckDB SQL
-          </p>
+        <div className="flex items-start gap-3">
+          <div>
+            <h1 className="text-xl font-semibold text-[color:var(--color-ink)]">Data</h1>
+            <p className="mt-1 text-[12.5px] text-[color:var(--color-ink-3)]">
+              Query analytic tables with DuckDB SQL
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => setTablesOpen((v) => !v)}
@@ -258,8 +260,7 @@ export default function DataPage() {
           </div>
         )}
 
-        {/* Results frame: fills the space above the editor, fixed size
-            regardless of row count. */}
+        {/* Results frame: fixed size regardless of row count. */}
         <div
           className="flex min-h-[280px] flex-1 flex-col overflow-hidden rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] md:min-h-0"
           data-testid="query-results-frame"

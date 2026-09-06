@@ -266,11 +266,7 @@ export async function getDashboard(
   }
 }
 
-/**
- * Draft dashboards live under `dashboards/drafts/`. `listDashboards`
- * skips nested keys, so drafts never appear in the published list and
- * the graph and nav only ever see published configs.
- */
+/** Drafts live under `dashboards/drafts/`, invisible to listDashboards. */
 function draftKey(config: S3Config, id: string): string {
   return `${config.dashboardsPrefix}drafts/${id}.json`;
 }
@@ -343,10 +339,7 @@ export async function deleteDashboard(
   }
 }
 
-/**
- * Publishes a draft: copies its body to the published key and removes
- * the draft object. The caller validates before invoking this.
- */
+/** Copies a validated draft body to the published key, removes the draft. */
 export async function publishDashboard(
   client: S3Client,
   config: S3Config,

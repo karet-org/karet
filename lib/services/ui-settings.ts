@@ -1,7 +1,5 @@
-// Workspace-level UI settings, stored as one JSON object in the
-// pipelines bucket (outside any pipeline prefix). Single-admin app, so
-// there is exactly one settings document; names are cosmetic and starred
-// is a set of pipeline slugs.
+// Workspace UI settings: one JSON document in the pipelines bucket.
+// Names are cosmetic; starred is a set of pipeline slugs.
 
 import {
   GetObjectCommand,
@@ -31,10 +29,7 @@ function settingsKey(config: S3Config): string {
   return `${config.pipelinesPrefix}ui-settings.json`;
 }
 
-/**
- * Coerce unknown JSON into a valid UiSettings, dropping anything that
- * doesn't fit. Exported for tests.
- */
+/** Coerce unknown JSON into a valid UiSettings. Exported for tests. */
 export function sanitizeSettings(raw: unknown): UiSettings {
   const obj = (raw ?? {}) as Record<string, unknown>;
   const name = (v: unknown) =>

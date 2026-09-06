@@ -1,8 +1,7 @@
 "use client";
 
-// Card grid for the landing page. Sorting is client-side; starring
-// round-trips through /api/settings and refreshes the server-rendered
-// rail so the starred list stays in sync.
+// Landing card grid: client-side sort/filter; stars persist via
+// /api/settings and refresh the rail.
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -115,8 +114,7 @@ export default function PipelineGrid({
       >
         {sorted.map((p) => {
           const isStarred = starred.has(p.slug);
-          const empty =
-            p.graph.sources + p.graph.mappings + p.graph.tables === 0;
+          const empty = p.graph.nodes.length === 0;
           return (
             <div
               key={p.slug}

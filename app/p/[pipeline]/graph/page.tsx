@@ -311,7 +311,7 @@ export default function PipelineGraphPage() {
     setValidationErrors([]);
   }, [clearDirty]);
 
-  // Canvas toolbar run: fire a job and jump to the Jobs page to watch it.
+  // Toolbar run: fire a job, jump to Jobs.
   const runningRef = useRef(false);
   const handleRun = useCallback(async () => {
     if (runningRef.current) return;
@@ -428,7 +428,7 @@ export default function PipelineGraphPage() {
 
   if (status === "loading") {
     return (
-      <main className="flex h-[calc(100vh-48px)] items-center justify-center md:h-screen">
+      <main className="flex h-[calc(100vh-48px)] items-center justify-center md:h-full">
         <div role="status" className="text-sm text-[color:var(--color-ink-3)]" data-testid="graph-loading">Loading pipeline…</div>
       </main>
     );
@@ -436,7 +436,7 @@ export default function PipelineGraphPage() {
 
   if (status === "error") {
     return (
-      <main className="flex h-[calc(100vh-48px)] items-center justify-center md:h-screen">
+      <main className="flex h-[calc(100vh-48px)] items-center justify-center md:h-full">
         <div role="alert" className="rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]" data-testid="graph-error">{errorMsg}</div>
       </main>
     );
@@ -451,7 +451,7 @@ export default function PipelineGraphPage() {
   const initial = initialGraphRef.current ?? { nodes: [], edges: [] };
 
   return (
-    <main className="flex h-[calc(100vh-48px)] w-full md:h-screen" data-testid="graph-page">
+    <main className="flex h-[calc(100vh-48px)] w-full md:h-full" data-testid="graph-page">
       <div className={canvasClass}>
         <GraphCanvas
           ref={canvasRef}
@@ -479,7 +479,8 @@ export default function PipelineGraphPage() {
           onDisconnectEdge={handleDisconnectEdge}
         />
         {isDirty && (
-          <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 flex-col items-center gap-2">
+          // Top-center: keeps the bottom toolbar usable while dirty.
+          <div className="absolute left-1/2 top-4 z-20 flex -translate-x-1/2 flex-col items-center gap-2">
             {validationErrors.length > 0 && (
               <div className="w-max max-w-lg rounded-lg border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-2 shadow-lg">
                 <div className="text-xs font-semibold text-[color:var(--color-rose-deep)]">Validation failed:</div>

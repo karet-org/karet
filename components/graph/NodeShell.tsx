@@ -1,6 +1,5 @@
-// Shared frame for graph nodes, following the mock: a header row with a
-// kind-colored icon, the entity name in bold, and a kind tag pill on the
-// right; muted detail rows in the body.
+// Shared node frame: kind-colored icon, bold name, kind tag pill,
+// muted body rows.
 
 const KIND_COLOR: Record<string, string> = {
   source: "var(--color-amber-deep)",

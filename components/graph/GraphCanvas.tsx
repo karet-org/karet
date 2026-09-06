@@ -303,8 +303,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
     [onAddNode, contextMenu],
   );
 
-  // Toolbar adds drop the node near the viewport center, with a small
-  // jitter so repeated adds don't stack exactly.
+  // Drop near the viewport center with jitter so adds don't stack.
   const handleToolbarAdd = useCallback(
     (kind: NodeKind) => {
       const bounds = wrapperRef.current?.getBoundingClientRect();

@@ -1,7 +1,5 @@
-// Structural validation for dashboard configs, used by the editor's
-// live feedback and as the publish gate. Rendering still fails soft
-// per-panel; this catches the mistakes that would produce a broken or
-// empty dashboard before it reaches the published prefix.
+// Structural validation for dashboard configs: the editor's live
+// feedback and the publish gate.
 
 import type { DashboardConfig } from "@/lib/types/dashboard";
 

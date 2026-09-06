@@ -4,6 +4,7 @@
 // and the user menu (Settings, Sign out) anchored at the bottom.
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { IconGrid, IconStar, KaretLogo } from "@/components/icons";
 import RailUserMenu from "@/components/layout/RailUserMenu";
 import { SearchInput } from "@/components/layout/LandingSearch";
@@ -17,6 +18,13 @@ export default function LandingRail({
   workspaceName: string;
   starred: string[];
 }) {
+  const pathname = usePathname() ?? "/";
+  const item = (active: boolean) =>
+    `flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] ${
+      active
+        ? "bg-[color:var(--color-carrot-soft)] font-medium text-[color:var(--color-ink)]"
+        : "text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
+    }`;
   return (
     <nav className="hidden w-[240px] shrink-0 flex-col border-r border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-2.5 md:flex">
       <Link href="/" className="flex items-center gap-2.5 px-2 pb-3 pt-1.5">
@@ -35,12 +43,18 @@ export default function LandingRail({
 
       <SearchInput />
 
-      <Link
-        href="/"
-        className="flex items-center gap-2.5 rounded-lg bg-[color:var(--color-carrot-soft)] px-2.5 py-[7px] text-[13px] font-medium text-[color:var(--color-ink)]"
-      >
-        <IconGrid size={15} className="text-[color:var(--color-carrot)]" />
+      <Link href="/" className={item(pathname === "/" || pathname === "/settings")}>
+        <IconGrid
+          size={15}
+          className={pathname !== "/lake" ? "text-[color:var(--color-carrot)]" : "text-[color:var(--color-ink-3)]"}
+        />
         Pipelines
+      </Link>
+      <Link href="/lake" className={item(pathname === "/lake")} data-testid="rail-lake">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={pathname === "/lake" ? "text-[color:var(--color-carrot)]" : "text-[color:var(--color-ink-3)]"} aria-hidden>
+          <path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h3l1.5 2h4.5A1.5 1.5 0 0 1 14 7.5v4A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5v-6Z" />
+        </svg>
+        Data lake
       </Link>
 
       {starred.length > 0 && (

@@ -6,11 +6,7 @@ import {
 } from "@/lib/services/config-service";
 import { validateDashboardConfig } from "@/lib/services/dashboard-validation";
 
-/**
- * Publishes a draft dashboard. The gate: the draft must parse and pass
- * structural validation, and its id must match the URL. Invalid configs
- * cannot be published.
- */
+/** Publishes a draft after it parses, validates, and matches the URL id. */
 export async function POST(
   _request: Request,
   context: { params: Promise<{ pipeline: string; name: string }> },

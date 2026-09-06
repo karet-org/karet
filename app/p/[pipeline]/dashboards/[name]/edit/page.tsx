@@ -1,14 +1,14 @@
 "use client";
 
-// Dashboard config editor. Drafts live here until saved, validated, and
-// published; published dashboards can be edited and re-saved (validated
-// on save). Invalid configs cannot be published.
+// Dashboard config editor. Drafts publish through a validation gate;
+// published configs validate on save.
 
 import { use, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import JsonEditor from "@/components/dashboard/JsonEditor";
 import Modal from "@/components/ui/Modal";
+import { TOPBAR_ACTIONS_ID } from "@/components/dashboard/DashboardTopBar";
 import { validateDashboardConfig } from "@/lib/services/dashboard-validation";
 
 export default function DashboardEditPage({
@@ -26,6 +26,11 @@ export default function DashboardEditPage({
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setActionsSlot(document.getElementById(TOPBAR_ACTIONS_ID));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +44,7 @@ export default function DashboardEditPage({
         const body = await res.text();
         if (cancelled) return;
         setIsDraft(res.headers.get("X-Karet-Draft") === "1");
-        // Pretty-print whatever came back so the editor starts formatted.
+        // Start the editor formatted.
         try {
           setSource(JSON.stringify(JSON.parse(body), null, 2));
         } catch {
@@ -140,66 +145,47 @@ export default function DashboardEditPage({
   }
 
   return (
-    <main className="flex h-[calc(100vh-48px)] flex-col md:h-screen" data-testid="dashboard-edit-page">
-      <header className="flex flex-wrap items-center gap-2.5 border-b border-[color:var(--color-rule-soft)] px-4 py-2.5 sm:px-6">
-        <h1 className="text-[15px] font-semibold text-[color:var(--color-ink)]">{name}</h1>
-        {isDraft && (
-          <span className="rounded-md bg-[color:var(--color-amber-soft)] px-2 py-[2px] text-[10px] font-semibold tracking-wide text-[color:var(--color-amber-deep)]">
-            DRAFT
-          </span>
-        )}
-        <span className="hidden text-[11.5px] text-[color:var(--color-ink-3)] sm:block">
-          dashboards/{isDraft ? "drafts/" : ""}
-          {name}.json
-        </span>
-        <div className="ml-auto flex items-center gap-2">
-          {!isDraft && (
-            <Link
-              href={`${base}/${name}`}
-              className="rounded-md border border-[color:var(--color-rule)] px-3.5 py-1.5 text-[12.5px] font-medium text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
-            >
-              Preview
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={() => save(false)}
-            disabled={busy || source === null || (!isDraft && !validation?.ok)}
-            data-testid="dashboard-save"
-            className={`rounded-md px-3.5 py-1.5 text-[12.5px] font-medium disabled:opacity-50 ${
-              isDraft
-                ? "border border-[color:var(--color-rule)] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
-                : "bg-[color:var(--color-carrot)] text-white hover:bg-[color:var(--color-carrot-deep)]"
-            }`}
-          >
-            {busy ? "Working…" : isDraft ? "Save draft" : "Save"}
-          </button>
-          {isDraft && (
+    <main className="flex h-[calc(100vh-94px)] flex-col md:h-[calc(100vh-46px)]" data-testid="dashboard-edit-page">
+      {actionsSlot &&
+        createPortal(
+          <>
             <button
               type="button"
-              onClick={() => save(true)}
-              disabled={busy || !validation?.ok}
-              data-testid="dashboard-publish"
-              title={validation?.ok ? undefined : "Fix the config before publishing"}
-              className="rounded-md bg-[color:var(--color-carrot)] px-3.5 py-1.5 text-[12.5px] font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-45"
+              onClick={() => save(false)}
+              disabled={busy || source === null || (!isDraft && !validation?.ok)}
+              data-testid="dashboard-save"
+              className={`rounded-md px-3.5 py-1.5 text-[12px] font-medium disabled:opacity-50 ${
+                isDraft
+                  ? "border border-[color:var(--color-rule)] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
+                  : "bg-[color:var(--color-carrot)] text-white hover:bg-[color:var(--color-carrot-deep)]"
+              }`}
             >
-              Publish
+              {busy ? "Working…" : isDraft ? "Save draft" : "Save"}
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setDeleteOpen(true)}
-            disabled={busy}
-            aria-label="Delete dashboard"
-            data-testid="dashboard-delete"
-            className="rounded-md border border-[color:var(--color-rule)] px-2.5 py-1.5 text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)] disabled:opacity-50"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-              <path d="M2.5 4.5h11M6.5 4.5v-2h3v2M4 4.5l.7 9a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9l.7-9M6.5 7.5v4M9.5 7.5v4" />
-            </svg>
-          </button>
-        </div>
-      </header>
+            {isDraft && (
+              <button
+                type="button"
+                onClick={() => save(true)}
+                disabled={busy || !validation?.ok}
+                data-testid="dashboard-publish"
+                title={validation?.ok ? undefined : "Fix the config before publishing"}
+                className="rounded-md bg-[color:var(--color-carrot)] px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-45"
+              >
+                Publish
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(true)}
+              disabled={busy}
+              data-testid="dashboard-delete"
+              className="rounded-md border border-[color:var(--color-rule)] px-3.5 py-1.5 text-[12px] font-medium text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)] disabled:opacity-50"
+            >
+              Delete
+            </button>
+          </>,
+          actionsSlot,
+        )}
 
       {error && (
         <p role="alert" className="border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-rose-soft)] px-4 py-2 text-[12.5px] text-[color:var(--color-rose-deep)] sm:px-6">
@@ -210,12 +196,13 @@ export default function DashboardEditPage({
       {source === null ? (
         <p className="px-6 py-8 text-sm text-[color:var(--color-ink-3)]">Loading…</p>
       ) : (
-        <>
-          <JsonEditor value={source} onChange={setSource} ariaLabel="Dashboard config JSON" />
-          <footer
-            className="flex items-center gap-2 border-t border-[color:var(--color-rule-soft)] px-4 py-2 text-[11.5px] sm:px-6"
-            data-testid="dashboard-validation"
-          >
+        <div className="flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-6">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]">
+            <JsonEditor value={source} onChange={setSource} ariaLabel="Dashboard config JSON" />
+            <footer
+              className="flex items-center gap-2 border-t border-[color:var(--color-rule-soft)] px-3.5 py-2 text-[11.5px]"
+              data-testid="dashboard-validation"
+            >
             {validation?.ok ? (
               <span className="inline-flex items-center gap-1.5 text-[color:var(--color-leaf-deep)]">
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
@@ -239,8 +226,9 @@ export default function DashboardEditPage({
             {notice && (
               <span className="ml-auto text-[color:var(--color-leaf-deep)]">{notice}</span>
             )}
-          </footer>
-        </>
+            </footer>
+          </div>
+        </div>
       )}
 
       {deleteOpen && (

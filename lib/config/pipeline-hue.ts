@@ -1,5 +1,4 @@
-// Deterministic per-pipeline accent color: hash the slug into a small
-// brand-adjacent hue set so a pipeline keeps its color everywhere.
+// Deterministic per-pipeline accent hue, hashed from the slug.
 
 const HUES = [16, 42, 122, 200, 268, 330];
 

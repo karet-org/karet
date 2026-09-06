@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   createS3Client,
   isNoSuchBucket,
@@ -18,8 +17,10 @@ import CreatePipelineButton from "@/components/layout/CreatePipelineButton";
 import LandingRail from "@/components/layout/LandingRail";
 import { SearchProvider } from "@/components/layout/LandingSearch";
 import PipelineGrid, { type PipelineCardData } from "@/components/layout/PipelineGrid";
-import type { ThumbGraph } from "@/components/layout/DagThumbnail";
+import type { ThumbGraph, ThumbNode } from "@/components/layout/DagThumbnail";
+import { buildGraph, NODE_TYPE } from "@/lib/graph/build";
 import { getUiSettings } from "@/lib/services/ui-settings";
+import { formatRelative } from "@/lib/format/relative-time";
 import { KaretLogo } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
@@ -95,24 +96,33 @@ async function loadSummary(
         : "healthy";
 
   const c = configResult?.config;
-  const idx = <T extends { id: string }>(xs: T[]) =>
-    new Map(xs.map((x, i) => [x.id, i]));
-  const srcIdx = idx(c?.source_containers ?? []);
-  const mapIdx = idx(c?.mappings ?? []);
-  const tblIdx = idx(c?.analytic_tables ?? []);
-  const graph: ThumbGraph = {
-    sources: srcIdx.size,
-    mappings: mapIdx.size,
-    tables: tblIdx.size,
-    sourceEdges: (c?.mappings ?? []).flatMap((m, mi) => {
-      const si = srcIdx.get(m.source_container_id);
-      return si === undefined ? [] : [[si, mi] as [number, number]];
-    }),
-    tableEdges: (c?.mappings ?? []).flatMap((m, mi) => {
-      const ti = tblIdx.get(m.analytic_table_id);
-      return ti === undefined ? [] : [[mi, ti] as [number, number]];
-    }),
-  };
+  const graph: ThumbGraph = { nodes: [], edges: [] };
+  if (c) {
+    const KIND: Record<string, ThumbNode["kind"]> = {
+      [NODE_TYPE.sourceContainer]: "source",
+      [NODE_TYPE.lookupMapping]: "lookup",
+      [NODE_TYPE.mapping]: "mapping",
+      [NODE_TYPE.analyticTable]: "table",
+    };
+    const built = buildGraph(c);
+    const index = new Map(built.nodes.map((n, i) => [n.id, i]));
+    // Saved layout positions when stored, else a columnar flow.
+    const laidOut = built.nodes.filter((n) => c.layout?.[n.id]).length;
+    const useLayout = laidOut >= built.nodes.length / 2;
+    const COL: Record<ThumbNode["kind"], number> = { source: 0, lookup: 0, mapping: 1, table: 2 };
+    const rowCounters = [0, 0, 0];
+    graph.nodes = built.nodes.map((n) => {
+      const kind = KIND[n.type ?? ""] ?? "mapping";
+      if (useLayout) return { x: n.position.x, y: n.position.y, kind };
+      const col = COL[kind];
+      return { x: col * 100, y: rowCounters[col]++ * 40, kind };
+    });
+    graph.edges = built.edges.flatMap((e) => {
+      const a = index.get(e.source);
+      const b = index.get(e.target);
+      return a === undefined || b === undefined ? [] : [[a, b] as [number, number]];
+    });
+  }
 
   return {
     slug,
@@ -162,23 +172,7 @@ function formatName(slug: string): string {
   return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatRelative(iso: string | null): string {
-  if (!iso) return "Never";
-  const ts = Date.parse(iso);
-  if (Number.isNaN(ts)) return "Never";
-  const seconds = Math.max(1, Math.round((Date.now() - ts) / 1000));
-  if (seconds < 60) return "Just now";
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} hr ago`;
-  const days = Math.round(hours / 24);
-  if (days < 30) return `${days} day${days === 1 ? "" : "s"} ago`;
-  const months = Math.round(days / 30);
-  if (months < 12) return `${months} mo ago`;
-  const years = Math.round(months / 12);
-  return `${years} yr ago`;
-}
+
 
 export default async function Home() {
   const [{ pipelines, bucketError, loadError }, settings] = await Promise.all([

@@ -1,7 +1,6 @@
 "use client";
 
-// Workspace settings. Names are cosmetic (shown in the rail); auth stays
-// password-only with no user table. Stored via /api/settings in S3.
+// Workspace settings form; persists via /api/settings.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";

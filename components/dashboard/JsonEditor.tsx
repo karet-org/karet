@@ -1,8 +1,7 @@
 "use client";
 
-// JSON editor with syntax highlighting: a transparent-text textarea over
-// a highlighted <pre>, scroll-synced. Editing stays native; the overlay
-// only renders color.
+// JSON editor: transparent textarea over a highlighted, scroll-synced
+// <pre>.
 
 import { useEffect, useRef } from "react";
 

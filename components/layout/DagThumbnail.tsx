@@ -1,86 +1,85 @@
-// Mini-DAG rendered from a pipeline's real structure: sources on the
-// left, mappings in the middle, tables on the right, wires from the
-// mapping edges. Pure SVG, server-renderable, no interactivity.
+// Mini-DAG from the pipeline's real graph (same builder as the canvas),
+// at saved layout positions when present, else a columnar flow.
+
+export interface ThumbNode {
+  x: number;
+  y: number;
+  kind: "source" | "lookup" | "mapping" | "table";
+}
 
 export interface ThumbGraph {
-  sources: number;
-  mappings: number;
-  tables: number;
-  /** [sourceIndex, mappingIndex] pairs. */
-  sourceEdges: [number, number][];
-  /** [mappingIndex, tableIndex] pairs. */
-  tableEdges: [number, number][];
+  nodes: ThumbNode[];
+  /** Index pairs into nodes. */
+  edges: [number, number][];
 }
 
 const W = 280;
 const H = 150;
-const NODE_W = 52;
-const NODE_H = 16;
-const COLS = [30, 114, 198];
-const MAX_PER_COL = 5;
+const NODE_W = 46;
+const NODE_H = 14;
+const PAD = 26;
 
-function rowYs(count: number): number[] {
-  const n = Math.min(count, MAX_PER_COL);
-  const gap = Math.min(30, (H - 24) / Math.max(n, 1));
-  const top = (H - (n - 1) * gap) / 2 - NODE_H / 2;
-  return Array.from({ length: n }, (_, i) => top + i * gap);
-}
+const STROKE: Record<ThumbNode["kind"], string> = {
+  source: "var(--color-amber-deep)",
+  lookup: "#6cb2ff",
+  mapping: "var(--color-carrot)",
+  table: "var(--color-leaf)",
+};
 
 export default function DagThumbnail({ graph }: { graph: ThumbGraph }) {
-  const cols = [rowYs(graph.sources), rowYs(graph.mappings), rowYs(graph.tables)];
-  // Fit the viewBox to the content so sparse graphs don't render as a
-  // tiny strip in the middle of the card.
-  const usedCols = cols.map((ys, c) => ({ ys, c })).filter(({ ys }) => ys.length > 0);
-  const allYs = usedCols.flatMap(({ ys }) => ys);
-  const minX = usedCols.length ? COLS[usedCols[0].c] : 0;
-  const maxX = usedCols.length ? COLS[usedCols[usedCols.length - 1].c] + NODE_W : W;
-  const minY = allYs.length ? Math.min(...allYs) : 0;
-  const maxY = allYs.length ? Math.max(...allYs) + NODE_H : H;
-  const padX = 18;
-  const contentH = Math.max(maxY - minY, 64);
-  const padY = (contentH - (maxY - minY)) / 2 + 16;
-  const viewBox = `${minX - padX} ${minY - padY} ${maxX - minX + padX * 2} ${maxY - minY + padY * 2}`;
-  const wire = (c: number, a: number, b: number) => {
-    const ya = cols[c][Math.min(a, MAX_PER_COL - 1)];
-    const yb = cols[c + 1][Math.min(b, MAX_PER_COL - 1)];
-    if (ya === undefined || yb === undefined) return null;
-    const x1 = COLS[c] + NODE_W;
-    const x2 = COLS[c + 1];
-    const mx = (x1 + x2) / 2;
-    return `M ${x1} ${ya + NODE_H / 2} C ${mx} ${ya + NODE_H / 2}, ${mx} ${yb + NODE_H / 2}, ${x2} ${yb + NODE_H / 2}`;
-  };
-  const strokes = ["var(--color-amber-deep)", "var(--color-ink-4)", "var(--color-leaf)"];
+  if (graph.nodes.length === 0) return <EmptyThumb />;
+  const xs = graph.nodes.map((n) => n.x);
+  const ys = graph.nodes.map((n) => n.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const spanX = Math.max(maxX - minX, 1);
+  const spanY = Math.max(maxY - minY, 1);
+  const px = (x: number) => PAD + ((x - minX) / spanX) * (W - PAD * 2);
+  const py = (y: number) =>
+    spanY === 1 ? H / 2 : PAD + ((y - minY) / spanY) * (H - PAD * 2);
+
+  const pts = graph.nodes.map((n) => ({ cx: px(n.x), cy: py(n.y), kind: n.kind }));
+
   return (
     <svg
-      viewBox={viewBox}
+      viewBox={`0 0 ${W} ${H}`}
       className="h-full w-full"
       aria-hidden
       data-testid="dag-thumbnail"
     >
-      {graph.sourceEdges.map(([a, b], i) => {
-        const d = wire(0, a, b);
-        return d && <path key={`s${i}`} d={d} fill="none" stroke="#4d4e55" strokeWidth="1.2" />;
-      })}
-      {graph.tableEdges.map(([a, b], i) => {
-        const d = wire(1, a, b);
-        return d && <path key={`t${i}`} d={d} fill="none" stroke="#4d4e55" strokeWidth="1.2" />;
-      })}
-      {cols.map((ys, c) =>
-        ys.map((y, i) => (
-          <rect
-            key={`${c}-${i}`}
-            x={COLS[c]}
-            y={y}
-            width={NODE_W}
-            height={NODE_H}
-            rx="4"
-            fill="#26272d"
-            stroke={strokes[c]}
-            strokeOpacity={c === 1 ? 1 : 0.75}
-            strokeWidth="1"
+      {graph.edges.map(([a, b], i) => {
+        const p1 = pts[a];
+        const p2 = pts[b];
+        if (!p1 || !p2) return null;
+        const x1 = p1.cx + NODE_W / 2;
+        const x2 = p2.cx - NODE_W / 2;
+        const mx = (x1 + x2) / 2;
+        return (
+          <path
+            key={i}
+            d={`M ${x1} ${p1.cy} C ${mx} ${p1.cy}, ${mx} ${p2.cy}, ${x2} ${p2.cy}`}
+            fill="none"
+            stroke="#4d4e55"
+            strokeWidth="1.2"
           />
-        )),
-      )}
+        );
+      })}
+      {pts.map((p, i) => (
+        <rect
+          key={i}
+          x={p.cx - NODE_W / 2}
+          y={p.cy - NODE_H / 2}
+          width={NODE_W}
+          height={NODE_H}
+          rx="4"
+          fill="#26272d"
+          stroke={STROKE[p.kind]}
+          strokeOpacity="0.85"
+          strokeWidth="1"
+        />
+      ))}
     </svg>
   );
 }

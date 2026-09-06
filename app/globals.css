@@ -53,16 +53,10 @@ body {
   color: var(--color-ink);
   background-color: var(--color-bg);
   font-family: var(--font-sans);
-  /* The design language is dense, 13px base like the mock. Explicit
-     text-[..] utilities override this per element. */
+  /* 13px base per the mock; utilities override per element. */
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-::selection {
-  background: var(--color-carrot-soft);
-  color: var(--color-carrot-deep);
 }
 
 .react-flow__node {
@@ -98,12 +92,11 @@ button:disabled,
   }
 }
 
-/* Shared table anatomy, matching the mock: muted 11px headers, roomy
-   cells, first column in full ink, whisper-level row hover. */
+/* Shared table anatomy from the mock. */
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13px;
 }
 .data-table th {
   padding: 8px 12px;
@@ -127,9 +120,11 @@ button:disabled,
 .data-table tbody tr:hover td {
   background: rgba(255, 255, 255, 0.02);
 }
+.data-table tbody tr.detail-row:hover td {
+  background: transparent;
+}
 
-/* Themed scrollbars: thin and dark so scroll containers don't ship a
-   glaring light track on the dark surfaces. */
+/* Thin dark scrollbars. */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-rule) transparent;

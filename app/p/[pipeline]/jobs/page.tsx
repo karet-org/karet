@@ -177,7 +177,7 @@ export default function JobsPage() {
 
   return (
     <main
-      className="mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8"
+      className="px-4 py-4 sm:px-6"
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -229,8 +229,8 @@ export default function JobsPage() {
                   <th>Status</th>
                   <th>Trigger</th>
                   <th>Progress</th>
-                  <th className="text-right">Started</th>
-                  <th className="text-right">Duration</th>
+                  <th>Started</th>
+                  <th>Duration</th>
                   <th className="w-8" aria-hidden />
                 </tr>
               </thead>
@@ -250,7 +250,7 @@ export default function JobsPage() {
                         className={terminal ? "cursor-pointer" : ""}
                       >
                         <td>
-                          <code className="text-[11px]">{job.id}</code>
+                          <code className="text-[12px]">{job.id}</code>
                         </td>
                         <td>
                           <span className="inline-flex items-center gap-1.5">
@@ -286,10 +286,10 @@ export default function JobsPage() {
                             "-"
                           )}
                         </td>
-                        <td className="whitespace-nowrap text-right text-[11.5px]">
+                        <td className="whitespace-nowrap">
                           {new Date(job.startedAt).toLocaleString()}
                         </td>
-                        <td className="whitespace-nowrap text-right text-[11.5px]">
+                        <td className="whitespace-nowrap">
                           {job.completedAt ? formatDuration(job.startedAt, job.completedAt) : "-"}
                         </td>
                         <td className="text-[color:var(--color-ink-4)]" aria-hidden>
@@ -299,9 +299,9 @@ export default function JobsPage() {
                         </td>
                       </tr>
                       {expanded && (
-                        <tr>
-                          <td colSpan={7} className="bg-[color:var(--color-surface-2)]">
-                            <div className="space-y-2 text-[11px] text-[color:var(--color-ink-2)]">
+                        <tr className="detail-row">
+                          <td colSpan={7}>
+                            <div className="space-y-2 rounded-[10px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-3 text-[11px] text-[color:var(--color-ink-2)]">
                               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                                 <dt className="text-[color:var(--color-ink-3)]">Job ID</dt>
                                 <dd className="font-mono">{job.id}</dd>
