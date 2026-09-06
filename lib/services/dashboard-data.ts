@@ -13,7 +13,7 @@ import { extractParams } from "@/lib/types/dashboard-v2";
 import type { SavedQuery } from "@/lib/types/query";
 import { runPipelineQuery } from "@/lib/services/query-service";
 
-export const PANEL_ROW_CAP = 10_000;
+const PANEL_ROW_CAP = 10_000;
 const OPTIONS_ROW_CAP = 500;
 const CONCURRENCY = 4;
 
@@ -35,11 +35,7 @@ export interface DashboardData {
   filters: Record<string, { options: string[] }>;
 }
 
-/**
- * Rewrite `$name` references (outside string literals) to positional `?`
- * placeholders and collect the value list, in order of appearance. The
- * driver binds the values, so no user input is ever interpolated.
- */
+/** Rewrite $name refs to positional placeholders; the driver binds values. */
 export function bindParams(
   sql: string,
   params: Params,
@@ -112,11 +108,7 @@ export function panelBindings(panel: PanelV2): string[] {
   }
 }
 
-/**
- * SQL-level validation for the publish gate: every panel query plans
- * against the warehouse (DESCRIBE, no data read) and every binding
- * names a column the query returns.
- */
+/** Every query must plan (DESCRIBE) and every binding must name a returned column. */
 export async function validateDashboardSql(
   pipeline: string,
   pipelineConfig: PipelineConfig,
@@ -154,11 +146,7 @@ export async function validateDashboardSql(
   return errors;
 }
 
-/**
- * The full validation gate shared by publish, published saves, and the
- * editor's validate endpoint: YAML + structure, then SQL planning and
- * binding checks against the warehouse.
- */
+/** Full gate: structure, then SQL planning and binding checks. */
 export async function fullDashboardGate(
   client: import("@aws-sdk/client-s3").S3Client,
   s3cfg: import("@/lib/config/s3-client").S3Config,

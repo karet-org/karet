@@ -1,8 +1,6 @@
 "use client";
 
-// Shared, change-aware dashboards index. Components subscribe via the
-// hook; mutations (create, publish, delete) call notifyDashboardsChanged
-// to invalidate the cache and refresh every subscriber without a reload.
+// Change-aware dashboards index: mutations notify, subscribers refetch.
 
 import { useEffect, useState } from "react";
 import { cachedJson, invalidateCached } from "@/lib/client/fetch-cache";

@@ -1,8 +1,6 @@
 "use client";
 
-// CodeMirror-based SQL editor with schema-aware autocomplete. The
-// schema (table -> columns) comes from data the page already has; run
-// is bound to Ctrl/Cmd+Enter.
+// CodeMirror SQL editor: schema-aware autocomplete, Ctrl+Enter runs.
 
 import { useEffect, useRef } from "react";
 import { EditorState, Compartment, Prec } from "@codemirror/state";

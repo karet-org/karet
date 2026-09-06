@@ -1,8 +1,7 @@
 "use client";
 
-// CodeMirror YAML editor for dashboard configs: line numbers, syntax
-// highlighting, two-space tab handling, schema-aware autocomplete, and
-// parent-supplied diagnostics rendered as inline lint.
+// CodeMirror YAML editor: line numbers, highlighting, completion, and
+// parent-supplied diagnostics as inline lint.
 
 import { useEffect, useRef } from "react";
 import { EditorState } from "@codemirror/state";
@@ -69,14 +68,12 @@ export default function YamlEditor({
       const source = context.state.doc.toString();
       const line = context.state.doc.lineAt(context.pos);
 
-      // The in-progress line is usually invalid YAML; resolve the path
-      // against the doc with it blanked, anchored at the previous line.
+      // Resolve the path with the in-progress line blanked.
       const cleaned =
         source.slice(0, line.from) + " ".repeat(line.length) + source.slice(line.to);
       const anchor = Math.max(line.from - 1, 0);
       let { path, kind } = pathInfoAtOffset(cleaned, anchor);
-      // A scalar anchor (the previous line's value) means we're a
-      // sibling key in its parent map.
+      // A scalar anchor means a sibling key in its parent map.
       if (kind === "scalar" && path.length > 0) path = path.slice(0, -1);
       // The live path (unblanked) wins inside multiline scalars.
       const livePath = pathAtOffset(source, context.pos);
@@ -108,8 +105,8 @@ export default function YamlEditor({
       if (!valueMatch && !keyMatch && !context.explicit) return null;
 
       const options = valueMatch
-        ? completionsAt(source, path, false, valueMatch[1], schemaRef.current)
-        : completionsAt(source, path, true, null, schemaRef.current);
+        ? completionsAt(source, path, false, valueMatch[1])
+        : completionsAt(source, path, true, null);
       if (options.length === 0) return null;
 
       const word = context.matchBefore(/[\w-]*/);

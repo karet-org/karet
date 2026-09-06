@@ -27,7 +27,7 @@ import type { PanelV2 } from "@/lib/types/dashboard-v2";
 import { resolveCountry } from "@/lib/dashboard/iso3166";
 import { useWorldAtlas } from "@/lib/dashboard/worldAtlas";
 import { formatValue, toNum } from "@/lib/dashboard/format";
-import { chartAreaProps, panelCardClass, type PanelProps } from "./types";
+import { chartAreaProps, type PanelProps } from "./types";
 
 ChartJS.register(
   ChoroplethController,
@@ -46,15 +46,9 @@ export function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPan
   const atlas = useWorldAtlas();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<ChartJS<"choropleth"> | null>(null);
-  // Keep the latest row-string-by-numeric map so chart click handlers (which
-  // close over the chart instance) can call back with the *original* user
-  // input, not the normalized numeric code.
-  const originalCountryByNumeric = useRef<Map<string, string>>(new Map());
-
   const { chartData, unresolved } = useMemo(() => {
     if (!atlas) return { chartData: null, unresolved: 0 };
     const buckets = new Map<string, number[]>();
-    const originals = new Map<string, string>();
     let unresolved = 0;
     for (const row of data.rows) {
       const raw = row[config.region];
@@ -67,15 +61,9 @@ export function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPan
       const bucket = buckets.get(key) ?? [];
       bucket.push(toNum(row[config.value]) ?? 0);
       buckets.set(key, bucket);
-      // Remember the first raw form we saw so cross-filter clicks pass
-      // back something the dashboard's filter can match against.
-      if (!originals.has(key) && raw != null) {
-        originals.set(key, String(raw));
-      }
     }
     const aggregated = new Map<string, number>();
     for (const [k, vs] of buckets) aggregated.set(k, vs.reduce((a, b) => a + b, 0));
-    originalCountryByNumeric.current = originals;
     // Build one data point per atlas feature. Features without data get
     // value 0 so the color scale still paints them in a "zero" shade.
     const points = atlas.features.map((f) => {

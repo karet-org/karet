@@ -59,7 +59,6 @@ const PADDING = 8;
 // breathing room that keeps the outermost nodes off the panel edge.
 const LABEL_PAD_LEFT = 80;
 const LABEL_PAD_RIGHT = 80;
-const DIM_OPACITY = 0.2;
 
 function colorFor(key: string): string {
   let h = 0;
@@ -200,12 +199,6 @@ function SankeySvg({
   const linkPath = sankeyLinkHorizontal<NodeDatum, LinkDatum>();
   const midX = width / 2;
 
-  const isFiltered = false;
-
-  const activeIdx = -1;
-  const litNodes = new Set<number>();
-  const litLinks = new Set<number>();
-
   return (
     <svg
       width={width}
@@ -239,14 +232,12 @@ function SankeySvg({
           if (!d) return null;
           const src = l.source as D3Node<NodeDatum, LinkDatum>;
           const tgt = l.target as D3Node<NodeDatum, LinkDatum>;
-          const lit = !isFiltered || litLinks.has(i);
           return (
             <path
               key={`link-${i}`}
               d={d}
               stroke={`url(#sankey-grad-${i})`}
               strokeWidth={Math.max(1, l.width ?? 1)}
-              opacity={lit ? 1 : DIM_OPACITY}
               onMouseMove={(e) =>
                 onHover({
                   kind: "link",
@@ -269,8 +260,6 @@ function SankeySvg({
           const y0 = n.y0 ?? 0;
           const y1 = n.y1 ?? 0;
           const labelOnRight = (x0 + x1) / 2 < midX;
-          const lit = !isFiltered || litNodes.has(i);
-          const isActive = i === activeIdx;
           return (
             <g key={`node-${i}`}>
               <rect
@@ -279,9 +268,8 @@ function SankeySvg({
                 width={Math.max(0, x1 - x0)}
                 height={Math.max(0, y1 - y0)}
                 fill={colorFor(n.name)}
-                stroke={isActive ? "transparent" : "rgba(0,0,0,0.2)"}
+                stroke="rgba(0,0,0,0.2)"
                 strokeWidth={1}
-                opacity={lit ? 1 : DIM_OPACITY}
                 onMouseMove={(e) =>
                   onHover({
                     kind: "node",
@@ -299,7 +287,6 @@ function SankeySvg({
                 textAnchor={labelOnRight ? "start" : "end"}
                 fontSize={11}
                 fill="var(--color-ink-2)"
-                opacity={lit ? 1 : DIM_OPACITY}
                 style={{ pointerEvents: "none" }}
               >
                 {n.name}

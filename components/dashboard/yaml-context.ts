@@ -1,6 +1,5 @@
-// Context helpers for dashboard YAML editing: resolve the YAML path at
-// an offset, map validation paths back to offsets, and produce
-// schema-driven completions for the path context. Pure functions.
+// Pure helpers for YAML editing: path at offset, path to offset, and
+// schema-driven completions.
 
 import { parseDocument, isMap, isSeq, isPair, isScalar, type Node } from "yaml";
 import { PANEL_KINDS_V2, filterParams, type DashboardFilterV2 } from "@/lib/types/dashboard-v2";
@@ -143,16 +142,12 @@ function panelKind(source: string, index: number): string | null {
   }
 }
 
-/**
- * Completions for the context at `path`. `keyContext` means the cursor
- * is naming a key; otherwise it's a value position for `valueKey`.
- */
+/** Completions at `path`: keys when keyContext, else values for valueKey. */
 export function completionsAt(
   source: string,
   path: YamlPath,
   keyContext: boolean,
   valueKey: string | null,
-  sqlSchema: Record<string, string[]>,
 ): CompletionOption[] {
   // Value positions: enums and kind lists.
   if (!keyContext && valueKey) {

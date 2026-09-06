@@ -46,28 +46,28 @@ describe("offsetForPath", () => {
 
 describe("completionsAt", () => {
   it("offers top-level keys at the root", () => {
-    const labels = completionsAt(DOC, [], true, null, {}).map((c) => c.label);
+    const labels = completionsAt(DOC, [], true, null).map((c) => c.label);
     expect(labels).toContain("panels");
     expect(labels).toContain("filters");
   });
 
   it("offers kind-specific bindings inside a panel", () => {
-    const labels = completionsAt(DOC, ["panels", 0], true, null, {}).map((c) => c.label);
+    const labels = completionsAt(DOC, ["panels", 0], true, null).map((c) => c.label);
     expect(labels).toContain("x");
     expect(labels).toContain("series");
     expect(labels).not.toContain("source");
   });
 
   it("offers panel kinds and filter kinds as values", () => {
-    expect(completionsAt(DOC, ["panels", 0], false, "kind", {}).map((c) => c.label)).toContain("sankey");
-    expect(completionsAt(DOC, ["filters", 0], false, "kind", {}).map((c) => c.label)).toEqual([
+    expect(completionsAt(DOC, ["panels", 0], false, "kind").map((c) => c.label)).toContain("sankey");
+    expect(completionsAt(DOC, ["filters", 0], false, "kind").map((c) => c.label)).toEqual([
       "dropdown",
       "date_range",
     ]);
   });
 
   it("offers enum values", () => {
-    expect(completionsAt(DOC, ["panels", 0], false, "icon", {}).map((c) => c.label)).toContain("dollar");
+    expect(completionsAt(DOC, ["panels", 0], false, "icon").map((c) => c.label)).toContain("dollar");
   });
 });
 
