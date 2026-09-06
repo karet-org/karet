@@ -3,23 +3,54 @@
 // Persistent top bar for the dashboard routes (rendered by the shared
 // layout). Pages portal their actions into the slot span.
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { parse } from "yaml";
+import { cachedJson, cachedText } from "@/lib/client/fetch-cache";
 
 export const TOPBAR_ACTIONS_ID = "dashboard-topbar-actions";
 
 export default function DashboardTopBar({
   pipeline,
   id,
-  name,
-  isDraft,
 }: {
   pipeline: string;
   id: string;
-  name: string;
-  isDraft: boolean;
 }) {
   const pathname = usePathname() ?? "";
+  const [name, setName] = useState(id);
+  const [isDraft, setIsDraft] = useState(false);
+
+  // Identity from the shared caches: the drafts list marks draft state,
+  // the config body carries the display name. Both dedupe with the
+  // sidebar's and the page's own fetches.
+  useEffect(() => {
+    let cancelled = false;
+    setName(id);
+    setIsDraft(false);
+    cachedJson<{ drafts?: string[] }>(`/api/p/${pipeline}/dashboards`)
+      .then((body) => {
+        if (!cancelled && body.drafts?.includes(id)) setIsDraft(true);
+      })
+      .catch(() => {});
+    cachedText(`/api/p/${pipeline}/dashboards/${id}?draft=1`)
+      .then((body) => {
+        if (cancelled) return;
+        try {
+          const parsed = parse(body) as { name?: string };
+          if (typeof parsed?.name === "string" && parsed.name.trim()) {
+            setName(parsed.name.trim());
+          }
+        } catch {
+          // Keep the id as the title.
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pipeline, id]);
   const editing = pathname.endsWith("/edit");
   const base = `/p/${pipeline}/dashboards/${id}`;
 
