@@ -265,7 +265,7 @@ export default function DataPage() {
 
         {/* Results frame: fixed size regardless of row count. */}
         <div
-          className="flex min-h-[280px] flex-1 flex-col overflow-hidden rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] md:min-h-0"
+          className="flex max-h-[60vh] min-h-[280px] flex-1 flex-col overflow-hidden rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] md:max-h-none md:min-h-0"
           data-testid="query-results-frame"
         >
           <div className="flex items-center gap-2.5 border-b border-[color:var(--color-rule-soft)] px-3.5 py-2">
