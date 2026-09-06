@@ -13,7 +13,7 @@ import type { AstNode, Mapping, MappingColumn } from "@/lib/types/config";
 import { astExpression } from "../astSummary";
 import { parseExpression } from "@/lib/graph/expressionParser";
 import { useGraphStore } from "@/lib/graph/store";
-import { ExpandableTextField } from "@/components/ui/ExpandableTextField";
+import { ExpressionField } from "./ExpressionField";
 import { InspRow, kvInputClass, Section } from "./inspector";
 import { inputClass } from "./editorPrimitives";
 import { validateMapping } from "./validation";
@@ -44,6 +44,8 @@ export function MappingEditor({ value, onChange }: MappingEditorProps) {
     if (!value.source_container_id) return undefined;
     return s.config?.source_containers.find((c) => c.id === value.source_container_id) ?? null;
   });
+  const lookups = useGraphStore((s) => s.config?.lookup_mappings);
+  const lookupIds = useMemo(() => (lookups ?? []).map((l) => l.id), [lookups]);
   const sourceColumns = useMemo<string[] | null | undefined>(() => {
     if (source === undefined) return undefined;
     if (source === null) return null;
@@ -112,6 +114,7 @@ export function MappingEditor({ value, onChange }: MappingEditorProps) {
                     value={col}
                     onChange={(next) => setColumn(i, next)}
                     sourceColumns={sourceColumns}
+                    lookupIds={lookupIds}
                   />
                 ))}
               </div>
@@ -176,9 +179,10 @@ interface ColumnExprRowProps {
   value: MappingColumn;
   onChange: (next: MappingColumn) => void;
   sourceColumns: string[] | null | undefined;
+  lookupIds: string[];
 }
 
-function ColumnExprRow({ value, onChange, sourceColumns }: ColumnExprRowProps) {
+function ColumnExprRow({ value, onChange, sourceColumns, lookupIds }: ColumnExprRowProps) {
   // Placeholder columns from schema adds carry a bare null expression.
   const unmapped = value.expr.kind === "null";
   const [open, setOpen] = useState(unmapped);
@@ -225,16 +229,15 @@ function ColumnExprRow({ value, onChange, sourceColumns }: ColumnExprRowProps) {
       </button>
       {open && (
         <div className="px-1.5 pb-2.5 pt-1">
-          <ExpandableTextField
+          <ExpressionField
             ariaLabel="expression"
             value={exprText}
             onChange={setExprText}
-            onBlur={handleBlur}
-            onModalAction={handleBlur}
-            spellCheck={false}
+            onCommit={handleBlur}
             error={error}
             modalTitle={`Expression: ${value.name}`}
-            modalActionLabel="Done"
+            sourceColumns={sourceColumns}
+            lookupIds={lookupIds}
             inputClassName={inputClass(
               `font-mono w-full ${error ? "border-[color:var(--color-rose-deep)]" : ""}`,
             )}
