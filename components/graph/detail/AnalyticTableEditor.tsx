@@ -180,7 +180,12 @@ export function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProp
                   label="Add key"
                   emptyNote="No eligible columns left"
                   options={value.schema
-                    .filter((c) => c.type !== "float64" && !partitionKeys.includes(c.name))
+                    .filter(
+                      (c) =>
+                        c.type !== "float64" &&
+                        c.type !== "number" &&
+                        !partitionKeys.includes(c.name),
+                    )
                     .map((c) => ({ name: c.name, note: c.type }))}
                   onPick={(name) => setKeys([...partitionKeys, name])}
                 />
