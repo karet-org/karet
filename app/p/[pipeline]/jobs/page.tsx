@@ -277,7 +277,17 @@ export default function JobsPage() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="data-table min-w-full">
+            {/* Fixed layout: live content can't reflow the columns. */}
+            <table className="data-table w-full table-fixed">
+              <colgroup>
+                <col className="w-[215px]" />
+                <col className="w-[110px]" />
+                <col className="w-[80px]" />
+                <col />
+                <col className="w-[175px]" />
+                <col className="w-[90px]" />
+                <col className="w-8" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Job</th>
@@ -286,7 +296,7 @@ export default function JobsPage() {
                   <th>Progress</th>
                   <th>Started</th>
                   <th>Duration</th>
-                  <th className="w-8" aria-hidden />
+                  <th aria-hidden />
                 </tr>
               </thead>
               <tbody>
@@ -305,7 +315,7 @@ export default function JobsPage() {
                         className={terminal ? "cursor-pointer" : ""}
                       >
                         <td>
-                          <code className="text-[12px]">{job.id}</code>
+                          <code className="block truncate text-[12px]" title={job.id}>{job.id}</code>
                         </td>
                         <td>
                           <span className="inline-flex items-center gap-1.5">
@@ -320,8 +330,8 @@ export default function JobsPage() {
                           {job.status === "scheduled" && job.nextRunAt ? (
                             scheduledCountdown(job.nextRunAt)
                           ) : active ? (
-                            <span className="inline-flex items-center gap-2" title={progressLine(job)}>
-                              <span className="h-1 w-[120px] overflow-hidden rounded-full bg-[color:var(--color-surface-2)]">
+                            <span className="block" title={progressLine(job)}>
+                              <span className="block h-1 max-w-[220px] overflow-hidden rounded-full bg-[color:var(--color-surface-2)]">
                                 {progressPct(job) === null ? (
                                   <span className="block h-full w-1/3 animate-pulse rounded-full bg-[color:var(--color-carrot)]" />
                                 ) : (
@@ -331,20 +341,16 @@ export default function JobsPage() {
                                   />
                                 )}
                               </span>
-                              <span className="text-[11px]">{progressLine(job)}</span>
-                            </span>
-                          ) : job.status === "failed" && job.error ? (
-                            <span className="block max-w-[260px] truncate text-[color:var(--color-rose-deep)]" title={job.error}>
-                              {job.error}
+                              <span className="mt-1 block truncate text-[11px]">{progressLine(job)}</span>
                             </span>
                           ) : (
                             "-"
                           )}
                         </td>
-                        <td className="whitespace-nowrap">
+                        <td className="whitespace-nowrap tabular-nums">
                           {new Date(job.startedAt).toLocaleString()}
                         </td>
-                        <td className="whitespace-nowrap">
+                        <td className="whitespace-nowrap tabular-nums">
                           {job.completedAt ? formatDuration(job.startedAt, job.completedAt) : "-"}
                         </td>
                         <td className="text-[color:var(--color-ink-4)]" aria-hidden>
@@ -389,21 +395,26 @@ export default function JobsPage() {
                                   </>
                                 )}
                               </dl>
-                              {job.error && (
+                              {job.errors && job.errors.length > 0 ? (
+                                // The summary bakes in errors[0]; show one or the other.
+                                <div className="rounded border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] p-2 text-[11px] text-[color:var(--color-rose-deep)]">
+                                  <div className="mb-0.5 font-medium">
+                                    {job.errors.length === 1 ? "Error" : `Errors (${job.errors.length})`}
+                                  </div>
+                                  <ul className="max-h-60 space-y-1 overflow-auto font-mono">
+                                    {job.errors.map((e, i) => (
+                                      <li key={i} className="whitespace-pre-wrap break-words">
+                                        {e}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : job.error ? (
                                 <div className="rounded border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] p-2 text-[11px] text-[color:var(--color-rose-deep)]">
                                   <div className="mb-0.5 font-medium">Error</div>
                                   <p className="whitespace-pre-wrap break-words font-mono">{job.error}</p>
                                 </div>
-                              )}
-                              {job.errors && job.errors.length > 0 && (
-                                <ul className="max-h-60 space-y-1 overflow-auto rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-2 font-mono text-[11px] text-[color:var(--color-ink-2)]">
-                                  {job.errors.map((e, i) => (
-                                    <li key={i} className="border-l-2 border-[color:var(--color-rose-deep)] pl-2">
-                                      {e}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
+                              ) : null}
                             </div>
                           </td>
                         </tr>
