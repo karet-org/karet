@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import JSZip from "jszip";
 import { bucketForRelPath, createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import { newPipelineId } from "@/lib/config/pipeline-id";
+import { newId } from "@/lib/config/id";
 import {
   isSafeEntryPath,
   MAX_ENTRIES,
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const slug = newPipelineId();
+  const slug = newId("p");
 
   const prefix = `${base.pipelinesPrefix}${slug}/`;
 

@@ -6,13 +6,19 @@ import {
   type S3Client,
 } from "@aws-sdk/client-s3";
 
-/** Every object key under `prefix`, walking continuation tokens so the list is complete. */
-export async function listAllObjectKeys(
+export interface ListedObject {
+  key: string;
+  /** ISO write time from the listing. */
+  lastModified?: string;
+}
+
+/** Every object under `prefix`, walking continuation tokens so the list is complete. */
+export async function listAllObjects(
   client: S3Client,
   bucket: string,
   prefix: string,
-): Promise<string[]> {
-  const keys: string[] = [];
+): Promise<ListedObject[]> {
+  const objects: ListedObject[] = [];
   let token: string | undefined;
   do {
     const res: ListObjectsV2CommandOutput = await client.send(
@@ -23,11 +29,22 @@ export async function listAllObjectKeys(
       }),
     );
     for (const obj of res.Contents ?? []) {
-      if (obj.Key) keys.push(obj.Key);
+      if (obj.Key) {
+        objects.push({ key: obj.Key, lastModified: obj.LastModified?.toISOString() });
+      }
     }
     token = res.NextContinuationToken;
   } while (token);
-  return keys;
+  return objects;
+}
+
+/** Every object key under `prefix`. */
+export async function listAllObjectKeys(
+  client: S3Client,
+  bucket: string,
+  prefix: string,
+): Promise<string[]> {
+  return (await listAllObjects(client, bucket, prefix)).map((o) => o.key);
 }
 
 /** Drain an `AsyncIterable<Uint8Array>` (the SDK v3 `Body` shape on Node) into a Buffer. */

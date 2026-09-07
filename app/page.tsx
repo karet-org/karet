@@ -9,7 +9,7 @@ import {
   getPipelineConfig,
   listPipelines,
 } from "@/lib/services/config-service";
-import { listAllObjectKeys, readBodyToBuffer } from "@/lib/services/s3-helpers";
+import { listAllObjects, readBodyToBuffer, type ListedObject } from "@/lib/services/s3-helpers";
 import { GetObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import type { JobRecord } from "@/lib/types/jobs";
 import ImportButton from "@/components/layout/ImportButton";
@@ -141,13 +141,17 @@ async function loadLatestTerminalJob(
   bucket: string,
   prefix: string,
 ): Promise<JobRecord | null> {
-  let keys: string[];
+  let listed: ListedObject[];
   try {
-    keys = await listAllObjectKeys(client, bucket, prefix);
+    listed = await listAllObjects(client, bucket, prefix);
   } catch {
     return null;
   }
-  const jsonKeys = keys.filter((k) => k.endsWith(".json")).sort().reverse();
+  // Newest-first by the record's write time; ids stay opaque.
+  const jsonKeys = listed
+    .filter((o) => o.key.endsWith(".json"))
+    .sort((a, b) => Date.parse(b.lastModified ?? "") - Date.parse(a.lastModified ?? ""))
+    .map((o) => o.key);
   if (jsonKeys.length === 0) return null;
   const limit = Math.min(jsonKeys.length, 5);
   for (let i = 0; i < limit; i++) {

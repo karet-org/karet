@@ -2,6 +2,7 @@
 // the worker fleet owns claiming, locking, progress, retries and the S3 record.
 
 import { loadS3Config } from "@/lib/config/s3-client";
+import { newId } from "@/lib/config/id";
 import { enqueueJob } from "@/lib/services/live-jobs";
 import type { JobRecord } from "@/lib/types/jobs";
 
@@ -12,15 +13,11 @@ export interface StartJobOptions {
   trigger?: "manual" | "webhook";
 }
 
-function newJobId(): string {
-  return `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 /** Enqueue a job for the worker fleet and return its initial (queued) record. */
 export async function startJob(opts: StartJobOptions): Promise<JobRecord> {
   const config = loadS3Config();
   return enqueueJob({
-    job_id: newJobId(),
+    job_id: newId("job"),
     pipeline: opts.pipeline,
     prefix: `${config.pipelinesPrefix}${opts.pipeline}/`,
     clean_run: opts.cleanRun,

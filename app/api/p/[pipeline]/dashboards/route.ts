@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { newId } from "@/lib/config/id";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import {
   getDashboardV2,
@@ -43,7 +44,7 @@ export async function POST(
   const client = createS3Client(config);
 
   const body = (await request.json().catch(() => ({}))) as { id?: string };
-  const id = body.id ?? `dashboard-${Date.now()}`;
+  const id = body.id ?? newId("dash");
   if (!ID_RE.test(id)) {
     return NextResponse.json({ error: "invalid_id" }, { status: 422 });
   }

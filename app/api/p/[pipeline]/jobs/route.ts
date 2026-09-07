@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import { listAllObjectKeys, readBodyToBuffer } from "@/lib/services/s3-helpers";
+import { listAllObjects, readBodyToBuffer } from "@/lib/services/s3-helpers";
 import { startJob } from "@/lib/services/job-runner";
 import { listLiveJobs, orderedJobIds, pickJobRecord } from "@/lib/services/live-jobs";
 import type { JobRecord } from "@/lib/types/jobs";
@@ -47,11 +47,11 @@ export async function GET(
   );
 
   return wrapS3Error(async () => {
-    const allKeys = await listAllObjectKeys(client, base.pipelinesBucket, prefix);
-    const keyById = new Map(
-      allKeys
-        .filter((k) => k.endsWith(".json"))
-        .map((k) => [k.slice(prefix.length, -".json".length), k] as const),
+    const listed = await listAllObjects(client, base.pipelinesBucket, prefix);
+    const historyById = new Map(
+      listed
+        .filter((o) => o.key.endsWith(".json"))
+        .map((o) => [o.key.slice(prefix.length, -".json".length), o] as const),
     );
 
     // Redis briefly down degrades to history-only rather than failing.
@@ -65,14 +65,17 @@ export async function GET(
 
     // Paginate the deduped union so a job lands on exactly one page and
     // totals stay consistent, then fetch only that page's S3 records.
-    const ids = orderedJobIds([...keyById.keys()], live);
+    const ids = orderedJobIds(
+      [...historyById.entries()].map(([id, o]) => ({ id, lastModified: o.lastModified })),
+      live,
+    );
     const total = ids.length;
     const pageIds = ids.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
 
     const jobs = (
       await Promise.all(
         pageIds.map(async (id) => {
-          const key = keyById.get(id);
+          const key = historyById.get(id)?.key;
           const history = key
             ? await fetchJobRecord(client, base.pipelinesBucket, key)
             : null;
