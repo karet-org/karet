@@ -66,9 +66,24 @@ function colorFor(key: string): string {
   return CHART_PALETTE[Math.abs(h) % CHART_PALETTE.length];
 }
 
-type Hover =
+export type Hover =
   | { kind: "node"; name: string; value: number; x: number; y: number }
   | { kind: "link"; from: string; to: string; value: number; x: number; y: number };
+
+// Labels shorter than the node is tall collide with their neighbors;
+// suppress them and let the tooltip carry the name.
+const LABEL_MIN_NODE_HEIGHT = 9;
+const LABEL_MAX_CHARS = 30;
+
+export function truncate(name: string): string {
+  return name.length > LABEL_MAX_CHARS ? `${name.slice(0, LABEL_MAX_CHARS - 1)}\u2026` : name;
+}
+
+export function linkOpacity(hover: Hover | null, from: string, to: string): number {
+  if (!hover) return 0.3;
+  if (hover.kind === "node") return hover.name === from || hover.name === to ? 0.55 : 0.08;
+  return hover.from === from && hover.to === to ? 0.55 : 0.08;
+}
 
 export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -173,6 +188,7 @@ export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
               layout={computed.graph}
               width={renderWidth}
               height={height}
+              hover={hover}
               onHover={setHover}
             />
             {hover ? (
@@ -189,11 +205,13 @@ function SankeySvg({
   layout,
   width,
   height,
+  hover,
   onHover,
 }: {
   layout: SankeyGraph<NodeDatum, LinkDatum>;
   width: number;
   height: number;
+  hover: Hover | null;
   onHover: (h: Hover | null) => void;
 }) {
   const linkPath = sankeyLinkHorizontal<NodeDatum, LinkDatum>();
@@ -206,26 +224,9 @@ function SankeySvg({
       className="block"
       onMouseLeave={() => onHover(null)}
     >
-      <defs>
-        {layout.links.map((l, i) => {
-          const src = l.source as D3Node<NodeDatum, LinkDatum>;
-          const tgt = l.target as D3Node<NodeDatum, LinkDatum>;
-          return (
-            <linearGradient
-              key={`grad-${i}`}
-              id={`sankey-grad-${i}`}
-              gradientUnits="userSpaceOnUse"
-              x1={src.x1 ?? 0}
-              x2={tgt.x0 ?? 0}
-            >
-              <stop offset="0%" stopColor={colorFor(src.name)} stopOpacity={0.5} />
-              <stop offset="100%" stopColor={colorFor(tgt.name)} stopOpacity={0.5} />
-            </linearGradient>
-          );
-        })}
-      </defs>
-
-      {/* Links first; nodes paint over them. */}
+      {/* Links first; nodes paint over them. Ribbons take the source
+          node's color: flows fan out in one hue per origin instead of
+          blending two palette colors into mud mid-ribbon. */}
       <g fill="none">
         {layout.links.map((l, i) => {
           const d = linkPath(l as D3Link<NodeDatum, LinkDatum>);
@@ -236,8 +237,10 @@ function SankeySvg({
             <path
               key={`link-${i}`}
               d={d}
-              stroke={`url(#sankey-grad-${i})`}
+              stroke={colorFor(src.name)}
+              strokeOpacity={linkOpacity(hover, src.name, tgt.name)}
               strokeWidth={Math.max(1, l.width ?? 1)}
+              style={{ transition: "stroke-opacity 120ms" }}
               onMouseMove={(e) =>
                 onHover({
                   kind: "link",
@@ -260,6 +263,7 @@ function SankeySvg({
           const y0 = n.y0 ?? 0;
           const y1 = n.y1 ?? 0;
           const labelOnRight = (x0 + x1) / 2 < midX;
+          const showLabel = y1 - y0 >= LABEL_MIN_NODE_HEIGHT;
           return (
             <g key={`node-${i}`}>
               <rect
@@ -267,9 +271,8 @@ function SankeySvg({
                 y={y0}
                 width={Math.max(0, x1 - x0)}
                 height={Math.max(0, y1 - y0)}
+                rx={2}
                 fill={colorFor(n.name)}
-                stroke="rgba(0,0,0,0.2)"
-                strokeWidth={1}
                 onMouseMove={(e) =>
                   onHover({
                     kind: "node",
@@ -280,17 +283,19 @@ function SankeySvg({
                   })
                 }
               />
-              <text
-                x={labelOnRight ? x1 + 6 : x0 - 6}
-                y={(y0 + y1) / 2}
-                dy="0.35em"
-                textAnchor={labelOnRight ? "start" : "end"}
-                fontSize={11}
-                fill="var(--color-ink-2)"
-                style={{ pointerEvents: "none" }}
-              >
-                {n.name}
-              </text>
+              {showLabel ? (
+                <text
+                  x={labelOnRight ? x1 + 6 : x0 - 6}
+                  y={(y0 + y1) / 2}
+                  dy="0.35em"
+                  textAnchor={labelOnRight ? "start" : "end"}
+                  fontSize={11}
+                  fill="var(--color-ink-2)"
+                  style={{ pointerEvents: "none" }}
+                >
+                  {truncate(n.name)}
+                </text>
+              ) : null}
             </g>
           );
         })}
