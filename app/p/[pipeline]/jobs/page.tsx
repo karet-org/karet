@@ -80,12 +80,9 @@ export default function JobsPage() {
   const loadJobsRef = useRef(loadJobs);
   loadJobsRef.current = loadJobs;
 
-  // Live updates over SSE. Events only patch rows already on the page;
-  // unknown ids and terminal transitions trigger a repaginating reload.
-  //
-  // Only runs while the tab is visible: an EventSource holds one of the
-  // browser's 6 per-origin HTTP/1.1 connections for the page's lifetime,
-  // so background tabs would starve the app's own fetches.
+  // SSE row updates; unknown/terminal events trigger a repaginating reload.
+  // Only runs while visible: an EventSource pins one of the browser's 6
+  // per-origin connections, so background tabs would starve the app.
   const [sseConnected, setSseConnected] = useState(false);
   useEffect(() => {
     let es: EventSource | null = null;

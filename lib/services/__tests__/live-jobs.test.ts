@@ -1,9 +1,5 @@
-// Tests for the Redis-backed live-jobs module.
-//
-// The pure parts (hash → record mapping, live-over-history merge) always
-// run. The enqueue transaction runs against a real server when
-// REDIS_TEST_URL is set (CI provides a valkey service container), pinning
-// wire-level compatibility with the worker's queue.rs.
+// Pure parts always run; the enqueue transaction needs REDIS_TEST_URL
+// (CI valkey) and pins wire compatibility with the worker's queue.rs.
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {

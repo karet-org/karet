@@ -105,17 +105,14 @@ export async function listLiveJobs(pipeline: string, limit = 100): Promise<JobRe
 
 const TERMINAL = new Set(["completed", "failed", "abandoned"]);
 
-/** A history entry: job id plus the S3 record's write time. */
 export interface HistoryStub {
   id: string;
   lastModified?: string;
 }
 
 /**
- * Union of history and live ids, newest-first and deduped, so pagination puts
- * a job on exactly one page and totals stay consistent. Ordering comes from
- * data — the live record's startedAt or the S3 record's write time — never
- * from parsing the id, so the id format stays opaque.
+ * Deduped union of history and live ids, newest-first by record data
+ * (live startedAt / S3 write time) — ids are opaque, never parsed.
  */
 export function orderedJobIds(history: HistoryStub[], live: JobRecord[]): string[] {
   const at = new Map<string, number>();
