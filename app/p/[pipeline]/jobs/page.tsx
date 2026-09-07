@@ -277,7 +277,18 @@ export default function JobsPage() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="data-table min-w-full">
+            {/* Fixed layout: widths come from the colgroup, so live content
+                (progress text, status words) can't reflow the columns. */}
+            <table className="data-table w-full table-fixed">
+              <colgroup>
+                <col className="w-[215px]" />
+                <col className="w-[110px]" />
+                <col className="w-[80px]" />
+                <col />
+                <col className="w-[175px]" />
+                <col className="w-[90px]" />
+                <col className="w-8" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Job</th>
@@ -286,7 +297,7 @@ export default function JobsPage() {
                   <th>Progress</th>
                   <th>Started</th>
                   <th>Duration</th>
-                  <th className="w-8" aria-hidden />
+                  <th aria-hidden />
                 </tr>
               </thead>
               <tbody>
@@ -305,7 +316,7 @@ export default function JobsPage() {
                         className={terminal ? "cursor-pointer" : ""}
                       >
                         <td>
-                          <code className="text-[12px]">{job.id}</code>
+                          <code className="block truncate text-[12px]" title={job.id}>{job.id}</code>
                         </td>
                         <td>
                           <span className="inline-flex items-center gap-1.5">
@@ -320,8 +331,11 @@ export default function JobsPage() {
                           {job.status === "scheduled" && job.nextRunAt ? (
                             scheduledCountdown(job.nextRunAt)
                           ) : active ? (
-                            <span className="inline-flex items-center gap-2" title={progressLine(job)}>
-                              <span className="h-1 w-[120px] overflow-hidden rounded-full bg-[color:var(--color-surface-2)]">
+                            // Bar with the message stacked beneath it; both
+                            // clamp to the (fixed) column so updates never
+                            // change the cell's width.
+                            <span className="block" title={progressLine(job)}>
+                              <span className="block h-1 max-w-[220px] overflow-hidden rounded-full bg-[color:var(--color-surface-2)]">
                                 {progressPct(job) === null ? (
                                   <span className="block h-full w-1/3 animate-pulse rounded-full bg-[color:var(--color-carrot)]" />
                                 ) : (
@@ -331,20 +345,20 @@ export default function JobsPage() {
                                   />
                                 )}
                               </span>
-                              <span className="text-[11px]">{progressLine(job)}</span>
+                              <span className="mt-1 block truncate text-[11px]">{progressLine(job)}</span>
                             </span>
                           ) : job.status === "failed" && job.error ? (
-                            <span className="block max-w-[260px] truncate text-[color:var(--color-rose-deep)]" title={job.error}>
+                            <span className="block truncate text-[color:var(--color-rose-deep)]" title={job.error}>
                               {job.error}
                             </span>
                           ) : (
                             "-"
                           )}
                         </td>
-                        <td className="whitespace-nowrap">
+                        <td className="whitespace-nowrap tabular-nums">
                           {new Date(job.startedAt).toLocaleString()}
                         </td>
-                        <td className="whitespace-nowrap">
+                        <td className="whitespace-nowrap tabular-nums">
                           {job.completedAt ? formatDuration(job.startedAt, job.completedAt) : "-"}
                         </td>
                         <td className="text-[color:var(--color-ink-4)]" aria-hidden>
