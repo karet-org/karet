@@ -277,8 +277,7 @@ export default function JobsPage() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            {/* Fixed layout: widths come from the colgroup, so live content
-                (progress text, status words) can't reflow the columns. */}
+            {/* Fixed layout: live content can't reflow the columns. */}
             <table className="data-table w-full table-fixed">
               <colgroup>
                 <col className="w-[215px]" />
@@ -331,9 +330,6 @@ export default function JobsPage() {
                           {job.status === "scheduled" && job.nextRunAt ? (
                             scheduledCountdown(job.nextRunAt)
                           ) : active ? (
-                            // Bar with the message stacked beneath it; both
-                            // clamp to the (fixed) column so updates never
-                            // change the cell's width.
                             <span className="block" title={progressLine(job)}>
                               <span className="block h-1 max-w-[220px] overflow-hidden rounded-full bg-[color:var(--color-surface-2)]">
                                 {progressPct(job) === null ? (
@@ -400,8 +396,7 @@ export default function JobsPage() {
                                 )}
                               </dl>
                               {job.errors && job.errors.length > 0 ? (
-                                // The summary string bakes in errors[0], so
-                                // show only the itemized list when it exists.
+                                // The summary bakes in errors[0]; show one or the other.
                                 <div className="rounded border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] p-2 text-[11px] text-[color:var(--color-rose-deep)]">
                                   <div className="mb-0.5 font-medium">
                                     {job.errors.length === 1 ? "Error" : `Errors (${job.errors.length})`}
