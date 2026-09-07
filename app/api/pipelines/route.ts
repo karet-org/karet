@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { bucketForRelPath, withS3 } from "@/lib/config/s3-client";
-import { newPipelineId } from "@/lib/config/pipeline-id";
+import { newId } from "@/lib/config/id";
 import { listPipelinesWithNames } from "@/lib/services/config-service";
 import { TEMPLATES, type TemplateId } from "@/lib/templates";
 import type { PipelineConfig } from "@/lib/types/config";
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     // random suffix; retry a few times rather than clobber.
     let slug = "";
     for (let attempt = 0; attempt < 3; attempt++) {
-      const candidate = newPipelineId();
+      const candidate = newId("p");
       try {
         await client.send(
           new HeadObjectCommand({

@@ -105,26 +105,23 @@ export async function listLiveJobs(pipeline: string, limit = 100): Promise<JobRe
 
 const TERMINAL = new Set(["completed", "failed", "abandoned"]);
 
-/** Timestamp embedded in `job-<ms>-<rand>` ids; 0 when unparseable. */
-function jobIdTimestamp(id: string): number {
-  const ms = Number(id.split("-")[1]);
-  return Number.isFinite(ms) ? ms : 0;
+/** A history entry: job id plus the S3 record's write time. */
+export interface HistoryStub {
+  id: string;
+  lastModified?: string;
 }
 
 /**
  * Union of history and live ids, newest-first and deduped, so pagination puts
- * a job on exactly one page and totals stay consistent.
+ * a job on exactly one page and totals stay consistent. Ordering comes from
+ * data — the live record's startedAt or the S3 record's write time — never
+ * from parsing the id, so the id format stays opaque.
  */
-export function orderedJobIds(historyIds: string[], live: JobRecord[]): string[] {
-  const seen = new Set<string>();
-  const ids: string[] = [];
-  for (const id of [...live.map((r) => r.id), ...historyIds]) {
-    if (!seen.has(id)) {
-      seen.add(id);
-      ids.push(id);
-    }
-  }
-  return ids.sort((a, b) => jobIdTimestamp(b) - jobIdTimestamp(a) || b.localeCompare(a));
+export function orderedJobIds(history: HistoryStub[], live: JobRecord[]): string[] {
+  const at = new Map<string, number>();
+  for (const h of history) at.set(h.id, Date.parse(h.lastModified ?? "") || 0);
+  for (const r of live) at.set(r.id, Date.parse(r.startedAt) || 0);
+  return [...at.keys()].sort((a, b) => at.get(b)! - at.get(a)! || b.localeCompare(a));
 }
 
 /**

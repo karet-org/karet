@@ -70,19 +70,35 @@ describe("liveHashToRecord", () => {
 });
 
 describe("orderedJobIds", () => {
-  it("dedups and sorts newest-first by the id timestamp", () => {
-    const live = [record({ id: "job-3000-aa", status: "queued" })];
-    const history = ["job-2000-bb", "job-1000-cc", "job-3000-aa"];
-    expect(orderedJobIds(history, live)).toEqual([
-      "job-3000-aa",
-      "job-2000-bb",
-      "job-1000-cc",
-    ]);
+  it("dedups and sorts newest-first by record timestamps, not id contents", () => {
+    const live = [
+      record({ id: "job-aa", status: "queued", startedAt: "2026-01-03T00:00:00.000Z" }),
+    ];
+    const history = [
+      { id: "job-bb", lastModified: "2026-01-02T00:00:00.000Z" },
+      { id: "job-cc", lastModified: "2026-01-01T00:00:00.000Z" },
+      { id: "job-aa", lastModified: "2026-01-03T00:00:05.000Z" },
+    ];
+    expect(orderedJobIds(history, live)).toEqual(["job-aa", "job-bb", "job-cc"]);
   });
 
-  it("keeps unparseable ids at the end, ordered stably", () => {
-    const ids = orderedJobIds(["weird-id", "job-5000-xx"], []);
-    expect(ids).toEqual(["job-5000-xx", "weird-id"]);
+  it("entries without any timestamp sort last, ordered stably", () => {
+    const ids = orderedJobIds(
+      [{ id: "no-timestamp" }, { id: "dated", lastModified: "2026-01-01T00:00:00.000Z" }],
+      [],
+    );
+    expect(ids).toEqual(["dated", "no-timestamp"]);
+  });
+
+  it("a live record's startedAt overrides the history write time", () => {
+    const live = [
+      record({ id: "j1", status: "running", startedAt: "2026-01-05T00:00:00.000Z" }),
+    ];
+    const history = [
+      { id: "j1", lastModified: "2026-01-01T00:00:00.000Z" },
+      { id: "j2", lastModified: "2026-01-04T00:00:00.000Z" },
+    ];
+    expect(orderedJobIds(history, live)).toEqual(["j1", "j2"]);
   });
 });
 
