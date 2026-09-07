@@ -108,7 +108,7 @@ export function ExpressionField({
         </div>
         {open && (
           <div
-            className={`mt-3 h-64 overflow-hidden rounded-[9px] border bg-[color:var(--color-bg)] ${
+            className={`mt-3 h-64 overflow-hidden rounded-[9px] border bg-[color:var(--color-bg)] [--editor-gutter-bg:var(--color-bg)] ${
               error
                 ? "border-[color:var(--color-rose-deep)]"
                 : "border-[color:var(--color-rule-soft)]"

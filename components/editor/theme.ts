@@ -24,8 +24,11 @@ export const editorTheme = EditorView.theme(
       backgroundColor: "rgba(255, 107, 53, 0.22) !important",
     },
     ".cm-activeLine": { backgroundColor: "rgba(255, 255, 255, 0.03)" },
+    // Gutters are sticky; an opaque fill matching the host keeps
+    // content from showing through the numbers on horizontal scroll.
+    // Hosts on another background set --editor-gutter-bg.
     ".cm-gutters": {
-      backgroundColor: "transparent",
+      backgroundColor: "var(--editor-gutter-bg, var(--color-surface))",
       color: "var(--color-ink-4)",
       border: "none",
       fontFamily: "var(--font-mono)",
