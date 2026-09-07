@@ -364,14 +364,16 @@ panels:
   - kind: sankey
     title: Cash Flow
     query: |
-      SELECT description AS src, account AS dst, sum(abs(amount)) AS total
+      SELECT merchant AS src, account AS dst, sum(abs(amount)) AS total,
+             0 AS src_layer, 1 AS dst_layer
       FROM transactions
       WHERE category = 'INCOME' AND account = coalesce($account, account)
         AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
                      AND coalesce($period_to, DATE '9999-12-31')
       GROUP BY 1, 2
       UNION ALL
-      SELECT account AS src, category AS dst, sum(abs(amount)) AS total
+      SELECT account AS src, category AS dst, sum(abs(amount)) AS total,
+             1 AS src_layer, 2 AS dst_layer
       FROM transactions
       WHERE category NOT IN ('INCOME', 'TRANSFER', 'INVESTMENT') AND account = coalesce($account, account)
         AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
@@ -380,6 +382,8 @@ panels:
     source: src
     target: dst
     value: total
+    source_layer: src_layer
+    target_layer: dst_layer
     grid: { span: full, maxHeight: 40rem }
 
   - kind: table

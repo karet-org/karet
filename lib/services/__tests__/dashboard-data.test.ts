@@ -69,8 +69,8 @@ describe("panelBindings", () => {
   it("collects the kind-specific bound columns", () => {
     const bar: PanelV2 = { kind: "bar", title: "t", query: "q", x: "m", y: "v", series: "s" };
     expect(panelBindings(bar)).toEqual(["m", "v", "s"]);
-    const sankey: PanelV2 = { kind: "sankey", title: "t", query: "q", source: "a", target: "b", value: "c" };
-    expect(panelBindings(sankey)).toEqual(["a", "b", "c"]);
+    const sankey: PanelV2 = { kind: "sankey", title: "t", query: "q", source: "a", target: "b", value: "c", source_layer: "sl", target_layer: "tl" };
+    expect(panelBindings(sankey)).toEqual(["a", "b", "c", "sl", "tl"]);
     const table: PanelV2 = { kind: "table", title: "t", query: "q" };
     expect(panelBindings(table)).toEqual([]);
   });

@@ -18,6 +18,15 @@ import type { PanelProps } from "./types";
 
 type SankeyPanelConfig = Extract<PanelV2, { kind: "sankey" }>;
 
+/** Declared layers, rank-normalized to 0..k-1 so gaps in the authored
+ * numbers don't push nodes past d3's topological layer count (d3 clamps
+ * the align result to it). First declaration per node wins. */
+export function normalizeLayers(declared: Map<string, number>): Map<string, number> {
+  const ranks = [...new Set(declared.values())].sort((a, b) => a - b);
+  const rankOf = new Map(ranks.map((v, i) => [v, i]));
+  return new Map([...declared].map(([name, v]) => [name, rankOf.get(v) ?? 0]));
+}
+
 /** Would adding from->to close a cycle? d3-sankey requires a DAG. */
 function wouldCreateCycle(
   links: { from: string; to: string }[],
@@ -79,30 +88,6 @@ export function truncate(name: string): string {
   return name.length > LABEL_MAX_CHARS ? `${name.slice(0, LABEL_MAX_CHARS - 1)}\u2026` : name;
 }
 
-/** Column alignment. d3's default places any node with no inflows in
- * the leftmost layer, so e.g. a credit card account (spend only, no
- * income) lands among the income sources and its ribbons cross the
- * whole diagram. Instead: sinks hug the right edge, pure sources sit
- * one layer left of their nearest target, everything else keeps its
- * longest-path depth. */
-export function alignHugTargets(
-  node: {
-    depth?: number;
-    sourceLinks?: { target: unknown }[];
-    targetLinks?: unknown[];
-  },
-  n: number,
-): number {
-  const out = node.sourceLinks ?? [];
-  if (out.length === 0) return n - 1;
-  if ((node.targetLinks ?? []).length === 0) {
-    // Targets are resolved node objects by the time align runs.
-    const depths = out.map((l) => (l.target as { depth?: number }).depth ?? 0);
-    return Math.min(...depths) - 1;
-  }
-  return node.depth ?? 0;
-}
-
 export function linkOpacity(hover: Hover | null, from: string, to: string): number {
   if (!hover) return 0.3;
   if (hover.kind === "node") return hover.name === from || hover.name === to ? 0.55 : 0.08;
@@ -134,11 +119,17 @@ export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
     // One link per result row: source/target/value bound columns.
     // Duplicate edges sum; self-links and cycle-closers are skipped.
     const sums = new Map<string, { from: string; to: string; flow: number }>();
+    const declared = new Map<string, number>();
     for (const row of data.rows) {
       const from = String(row[config.source] ?? "");
       const to = String(row[config.target] ?? "");
       const flow = toNum(row[config.value]);
+      const fromLayer = toNum(row[config.source_layer]);
+      const toLayer = toNum(row[config.target_layer]);
       if (!from || !to || flow === null || flow <= 0) continue;
+      if (fromLayer === null || toLayer === null) continue;
+      if (!declared.has(from)) declared.set(from, fromLayer);
+      if (!declared.has(to)) declared.set(to, toLayer);
       const key = `${from}\u0000${to}`;
       const cur = sums.get(key);
       if (cur) cur.flow += flow;
@@ -170,10 +161,11 @@ export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
     }));
 
     // Column placement follows flow topology: sources left, sinks right.
+    const layers = normalizeLayers(declared);
     const sankeyGen = d3Sankey<NodeDatum, LinkDatum>()
       .nodeWidth(NODE_WIDTH)
       .nodePadding(NODE_PADDING)
-      .nodeAlign(alignHugTargets)
+      .nodeAlign((node) => layers.get(node.name) ?? 0)
       .extent([
         [LABEL_PAD_LEFT, PADDING],
         [Math.max(renderWidth - LABEL_PAD_RIGHT, LABEL_PAD_LEFT + 100), height - PADDING],
@@ -190,7 +182,7 @@ export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
       console.warn("Sankey layout failed; rendering empty panel:", err);
       return null;
     }
-  }, [data.rows, config.source, config.target, config.value, renderWidth, height]);
+  }, [data.rows, config.source, config.target, config.value, config.source_layer, config.target_layer, renderWidth, height]);
 
   return (
     <div

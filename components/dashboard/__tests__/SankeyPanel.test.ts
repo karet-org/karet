@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alignHugTargets, linkOpacity, truncate, type Hover } from "../SankeyPanel";
+import { linkOpacity, normalizeLayers, truncate, type Hover } from "../SankeyPanel";
 
 describe("truncate", () => {
   it("leaves short names alone and ellipsizes long ones", () => {
@@ -31,19 +31,16 @@ describe("linkOpacity", () => {
   });
 });
 
-describe("alignHugTargets", () => {
-  const N = 3;
-  it("keeps ordinary sources at their depth and sinks at the right edge", () => {
-    expect(alignHugTargets({ depth: 0, sourceLinks: [{ target: { depth: 1 } }], targetLinks: [] }, N)).toBe(0);
-    expect(alignHugTargets({ depth: 1, sourceLinks: [], targetLinks: [{}] }, N)).toBe(2);
+describe("normalizeLayers", () => {
+  it("rank-normalizes gapped layer numbers and keeps order", () => {
+    const out = normalizeLayers(new Map([["a", 0], ["b", 5], ["c", 10]]));
+    expect(out.get("a")).toBe(0);
+    expect(out.get("b")).toBe(1);
+    expect(out.get("c")).toBe(2);
   });
 
-  it("pulls an inflow-less node next to its targets", () => {
-    // Spend-only account: no inflows, outflows to depth-2 categories.
-    expect(alignHugTargets({ depth: 0, sourceLinks: [{ target: { depth: 2 } }], targetLinks: [] }, N)).toBe(1);
-  });
-
-  it("leaves mid-chain nodes at their computed depth", () => {
-    expect(alignHugTargets({ depth: 1, sourceLinks: [{ target: { depth: 2 } }], targetLinks: [{}] }, N)).toBe(1);
+  it("is identity on contiguous layers", () => {
+    const out = normalizeLayers(new Map([["a", 0], ["b", 1], ["c", 1]]));
+    expect([...out.values()]).toEqual([0, 1, 1]);
   });
 });
