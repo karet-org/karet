@@ -18,6 +18,15 @@ import type { PanelProps } from "./types";
 
 type SankeyPanelConfig = Extract<PanelV2, { kind: "sankey" }>;
 
+/** Declared layers, rank-normalized to 0..k-1 so gaps in the authored
+ * numbers don't push nodes past d3's topological layer count (d3 clamps
+ * the align result to it). First declaration per node wins. */
+export function normalizeLayers(declared: Map<string, number>): Map<string, number> {
+  const ranks = [...new Set(declared.values())].sort((a, b) => a - b);
+  const rankOf = new Map(ranks.map((v, i) => [v, i]));
+  return new Map([...declared].map(([name, v]) => [name, rankOf.get(v) ?? 0]));
+}
+
 /** Would adding from->to close a cycle? d3-sankey requires a DAG. */
 function wouldCreateCycle(
   links: { from: string; to: string }[],
@@ -66,9 +75,24 @@ function colorFor(key: string): string {
   return CHART_PALETTE[Math.abs(h) % CHART_PALETTE.length];
 }
 
-type Hover =
+export type Hover =
   | { kind: "node"; name: string; value: number; x: number; y: number }
   | { kind: "link"; from: string; to: string; value: number; x: number; y: number };
+
+// Labels shorter than the node is tall collide with their neighbors;
+// suppress them and let the tooltip carry the name.
+const LABEL_MIN_NODE_HEIGHT = 9;
+const LABEL_MAX_CHARS = 30;
+
+export function truncate(name: string): string {
+  return name.length > LABEL_MAX_CHARS ? `${name.slice(0, LABEL_MAX_CHARS - 1)}\u2026` : name;
+}
+
+export function linkOpacity(hover: Hover | null, from: string, to: string): number {
+  if (!hover) return 0.3;
+  if (hover.kind === "node") return hover.name === from || hover.name === to ? 0.55 : 0.08;
+  return hover.from === from && hover.to === to ? 0.55 : 0.08;
+}
 
 export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -95,11 +119,17 @@ export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
     // One link per result row: source/target/value bound columns.
     // Duplicate edges sum; self-links and cycle-closers are skipped.
     const sums = new Map<string, { from: string; to: string; flow: number }>();
+    const declared = new Map<string, number>();
     for (const row of data.rows) {
       const from = String(row[config.source] ?? "");
       const to = String(row[config.target] ?? "");
       const flow = toNum(row[config.value]);
+      const fromLayer = toNum(row[config.source_layer]);
+      const toLayer = toNum(row[config.target_layer]);
       if (!from || !to || flow === null || flow <= 0) continue;
+      if (fromLayer === null || toLayer === null) continue;
+      if (!declared.has(from)) declared.set(from, fromLayer);
+      if (!declared.has(to)) declared.set(to, toLayer);
       const key = `${from}\u0000${to}`;
       const cur = sums.get(key);
       if (cur) cur.flow += flow;
@@ -131,9 +161,11 @@ export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
     }));
 
     // Column placement follows flow topology: sources left, sinks right.
+    const layers = normalizeLayers(declared);
     const sankeyGen = d3Sankey<NodeDatum, LinkDatum>()
       .nodeWidth(NODE_WIDTH)
       .nodePadding(NODE_PADDING)
+      .nodeAlign((node) => layers.get(node.name) ?? 0)
       .extent([
         [LABEL_PAD_LEFT, PADDING],
         [Math.max(renderWidth - LABEL_PAD_RIGHT, LABEL_PAD_LEFT + 100), height - PADDING],
@@ -150,7 +182,7 @@ export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
       console.warn("Sankey layout failed; rendering empty panel:", err);
       return null;
     }
-  }, [data.rows, config.source, config.target, config.value, renderWidth, height]);
+  }, [data.rows, config.source, config.target, config.value, config.source_layer, config.target_layer, renderWidth, height]);
 
   return (
     <div
@@ -173,6 +205,7 @@ export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
               layout={computed.graph}
               width={renderWidth}
               height={height}
+              hover={hover}
               onHover={setHover}
             />
             {hover ? (
@@ -189,11 +222,13 @@ function SankeySvg({
   layout,
   width,
   height,
+  hover,
   onHover,
 }: {
   layout: SankeyGraph<NodeDatum, LinkDatum>;
   width: number;
   height: number;
+  hover: Hover | null;
   onHover: (h: Hover | null) => void;
 }) {
   const linkPath = sankeyLinkHorizontal<NodeDatum, LinkDatum>();
@@ -206,26 +241,9 @@ function SankeySvg({
       className="block"
       onMouseLeave={() => onHover(null)}
     >
-      <defs>
-        {layout.links.map((l, i) => {
-          const src = l.source as D3Node<NodeDatum, LinkDatum>;
-          const tgt = l.target as D3Node<NodeDatum, LinkDatum>;
-          return (
-            <linearGradient
-              key={`grad-${i}`}
-              id={`sankey-grad-${i}`}
-              gradientUnits="userSpaceOnUse"
-              x1={src.x1 ?? 0}
-              x2={tgt.x0 ?? 0}
-            >
-              <stop offset="0%" stopColor={colorFor(src.name)} stopOpacity={0.5} />
-              <stop offset="100%" stopColor={colorFor(tgt.name)} stopOpacity={0.5} />
-            </linearGradient>
-          );
-        })}
-      </defs>
-
-      {/* Links first; nodes paint over them. */}
+      {/* Links first; nodes paint over them. Ribbons take the source
+          node's color: flows fan out in one hue per origin instead of
+          blending two palette colors into mud mid-ribbon. */}
       <g fill="none">
         {layout.links.map((l, i) => {
           const d = linkPath(l as D3Link<NodeDatum, LinkDatum>);
@@ -236,8 +254,10 @@ function SankeySvg({
             <path
               key={`link-${i}`}
               d={d}
-              stroke={`url(#sankey-grad-${i})`}
+              stroke={colorFor(src.name)}
+              strokeOpacity={linkOpacity(hover, src.name, tgt.name)}
               strokeWidth={Math.max(1, l.width ?? 1)}
+              style={{ transition: "stroke-opacity 120ms" }}
               onMouseMove={(e) =>
                 onHover({
                   kind: "link",
@@ -260,6 +280,7 @@ function SankeySvg({
           const y0 = n.y0 ?? 0;
           const y1 = n.y1 ?? 0;
           const labelOnRight = (x0 + x1) / 2 < midX;
+          const showLabel = y1 - y0 >= LABEL_MIN_NODE_HEIGHT;
           return (
             <g key={`node-${i}`}>
               <rect
@@ -267,9 +288,8 @@ function SankeySvg({
                 y={y0}
                 width={Math.max(0, x1 - x0)}
                 height={Math.max(0, y1 - y0)}
+                rx={2}
                 fill={colorFor(n.name)}
-                stroke="rgba(0,0,0,0.2)"
-                strokeWidth={1}
                 onMouseMove={(e) =>
                   onHover({
                     kind: "node",
@@ -280,17 +300,19 @@ function SankeySvg({
                   })
                 }
               />
-              <text
-                x={labelOnRight ? x1 + 6 : x0 - 6}
-                y={(y0 + y1) / 2}
-                dy="0.35em"
-                textAnchor={labelOnRight ? "start" : "end"}
-                fontSize={11}
-                fill="var(--color-ink-2)"
-                style={{ pointerEvents: "none" }}
-              >
-                {n.name}
-              </text>
+              {showLabel ? (
+                <text
+                  x={labelOnRight ? x1 + 6 : x0 - 6}
+                  y={(y0 + y1) / 2}
+                  dy="0.35em"
+                  textAnchor={labelOnRight ? "start" : "end"}
+                  fontSize={11}
+                  fill="var(--color-ink-2)"
+                  style={{ pointerEvents: "none" }}
+                >
+                  {truncate(n.name)}
+                </text>
+              ) : null}
             </g>
           );
         })}

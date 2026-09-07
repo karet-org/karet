@@ -14,7 +14,7 @@ const PANEL_BINDINGS: Record<string, string[]> = {
   line: ["x", "y", "series"],
   doughnut: ["label", "value"],
   table: ["columns", "page_size"],
-  sankey: ["source", "target", "value"],
+  sankey: ["source", "target", "value", "source_layer", "target_layer"],
   choropleth_map: ["region", "value"],
   symbol_map: ["lat", "lon", "value", "label", "max_radius"],
   summary: [],

@@ -42,7 +42,7 @@ export type PanelV2 = PanelBase &
     | { kind: "line"; x: string; y: string; series?: string }
     | { kind: "doughnut"; label: string; value: string; emit?: EmitBinding }
     | { kind: "table"; columns?: string[]; page_size?: number }
-    | { kind: "sankey"; source: string; target: string; value: string }
+    | { kind: "sankey"; source: string; target: string; value: string; source_layer: string; target_layer: string }
     | { kind: "choropleth_map"; region: string; value: string }
     | { kind: "symbol_map"; lat: string; lon: string; value: string; label?: string; max_radius?: number }
     | { kind: "summary" }
@@ -79,7 +79,7 @@ const REQUIRED_BINDINGS: Record<string, string[]> = {
   line: ["x", "y"],
   doughnut: ["label", "value"],
   table: [],
-  sankey: ["source", "target", "value"],
+  sankey: ["source", "target", "value", "source_layer", "target_layer"],
   choropleth_map: ["region", "value"],
   symbol_map: ["lat", "lon", "value"],
   summary: [],

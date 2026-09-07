@@ -105,7 +105,7 @@ export function panelBindings(panel: PanelV2): string[] {
     case "doughnut":
       return [panel.label, panel.value];
     case "sankey":
-      return [panel.source, panel.target, panel.value];
+      return [panel.source, panel.target, panel.value, panel.source_layer, panel.target_layer];
     case "choropleth_map":
       return [panel.region, panel.value];
     case "symbol_map":
