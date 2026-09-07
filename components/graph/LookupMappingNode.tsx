@@ -7,7 +7,7 @@ import NodeShell from "./NodeShell";
 
 const MAX_KEYWORD_PREVIEW = 5;
 
-export function LookupMappingNode({
+function LookupMappingNode({
   data,
   selected,
 }: NodeProps & { data: LookupMappingNodeData }) {

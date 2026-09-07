@@ -22,7 +22,7 @@ ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Title, T
 
 type LineConfig = Extract<PanelV2, { kind: "line" }>;
 
-export function LinePanel({ config, data }: PanelProps<LineConfig>) {
+function LinePanel({ config, data }: PanelProps<LineConfig>) {
   const { labels, datasets } = pivotSeries(data.rows, config.x, config.y, config.series);
 
   const chartData = {

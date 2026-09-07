@@ -4,7 +4,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { AnalyticTableNodeData } from "@/lib/graph/build";
 import NodeShell from "./NodeShell";
 
-export function AnalyticTableNode({
+function AnalyticTableNode({
   data,
   selected,
 }: NodeProps & { data: AnalyticTableNodeData }) {

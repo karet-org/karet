@@ -1,14 +1,5 @@
-// Structural editor for an Analytic_Table, display-first per the
-// partition-keys v2 design (doc rev 1.4).
-//
-// The table owns structure: schema columns (name, type, not-null,
-// min/max for numerics), the hive partition_keys (max 2, non-float),
-// and the dedup_keys. Mappings own only expressions; schema edits here
-// propagate placeholders via the parent's schema-sync (NodeDetailPanel).
-//
-// Section layout: Name / Output prefix / Partition keys / Dedup keys /
-// Schema. Key sections render as quiet rows and switch to chips behind
-// the pencil; schema rows edit in place on click.
+// The table owns structure (schema, partition_keys, dedup_keys); mappings own
+// only expressions, and NodeDetailPanel propagates schema edits to them.
 
 import { useMemo, useState } from "react";
 import type { AnalyticTable, ColumnSchema } from "@/lib/types/config";
@@ -29,13 +20,13 @@ import {
 import { InlineErrorList } from "./editorPrimitives";
 import { KNOWN_COLUMN_TYPES } from "./validation";
 
-export const ANALYTIC_TABLE_EDITOR_ERROR_TESTID = "analytic-table-editor-error";
-export const PARTITION_KEYS_TESTID = "partition-keys-section";
-export const DEDUP_KEYS_TESTID = "dedup-keys-section";
+const ANALYTIC_TABLE_EDITOR_ERROR_TESTID = "analytic-table-editor-error";
+const PARTITION_KEYS_TESTID = "partition-keys-section";
+const DEDUP_KEYS_TESTID = "dedup-keys-section";
 
 const MAX_PARTITION_KEYS = 2;
 
-export interface AnalyticTableEditorProps {
+interface AnalyticTableEditorProps {
   value: AnalyticTable;
   onChange: (next: AnalyticTable) => void;
 }
@@ -68,7 +59,7 @@ function placeholder(type: string | undefined): string {
   }
 }
 
-export function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProps) {
+function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProps) {
   const [editingKeys, setEditingKeys] = useState(false);
   const [editingDedup, setEditingDedup] = useState(false);
   const [editingRow, setEditingRow] = useState<number | null>(null);
@@ -84,8 +75,8 @@ export function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProp
 
   const typeOf = (name: string) => value.schema.find((c) => c.name === name)?.type;
 
-  // Rename and delete cascade through both key lists; the parent's
-  // schema-sync cascades into mapping columns.
+  // Renames/deletes cascade through both key lists; the parent cascades
+  // further into mapping columns.
   const renameColumn = (index: number, name: string) => {
     const prev = value.schema[index].name;
     const schema = value.schema.map((c, i) => (i === index ? { ...c, name } : c));
@@ -102,8 +93,7 @@ export function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProp
     onChange({
       ...value,
       schema,
-      // Floats are ineligible partition keys; the chip disappears with
-      // the retype and the path preview updates in the same frame.
+      // Floats are ineligible partition keys.
       partition_keys:
         type === "float64" ? partitionKeys.filter((k) => k !== name) : value.partition_keys,
     });

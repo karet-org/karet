@@ -18,7 +18,7 @@ function formatCell(v: unknown): string {
   return String(v);
 }
 
-export function TablePanel({ config, data }: PanelProps<TableConfig>) {
+function TablePanel({ config, data }: PanelProps<TableConfig>) {
   const [page, setPage] = useState(0);
   const columns = config.columns?.length ? config.columns : data.columns;
   const pageSize = config.page_size ?? 10;

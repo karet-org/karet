@@ -40,7 +40,7 @@ function spanStyle(panel: PanelV2, columns: number): React.CSSProperties {
   return {};
 }
 
-export function DashboardView({
+function DashboardView({
   pipeline,
   id,
   config,

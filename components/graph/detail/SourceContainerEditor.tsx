@@ -1,9 +1,4 @@
-// Structural editor for a Source_Container, display-first.
-//
-// Sections: Name / Lake folder / Schema. The lake folder is an absolute
-// key prefix anywhere in the data lake (partition-keys v2 design §7);
-// the browse control lists folders from /api/lake so the common case is
-// pick-not-type, with free text kept for folders that don't exist yet.
+// `path_prefix` is an absolute lake key prefix; browse lists /api/lake folders.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ColumnSchema, SourceContainer } from "@/lib/types/config";
@@ -23,7 +18,7 @@ import {
   type ValidationResult,
 } from "./validation";
 
-export interface SourceContainerEditorProps {
+interface SourceContainerEditorProps {
   value: SourceContainer;
   onChange: (next: SourceContainer) => void;
   onValidate?: (result: ValidationResult) => void;
@@ -31,7 +26,7 @@ export interface SourceContainerEditorProps {
 
 export const SOURCE_CONTAINER_EDITOR_ERROR_TESTID = "source-container-editor-error";
 
-export function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerEditorProps) {
+function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerEditorProps) {
   const result = useMemo(() => validateSourceContainer(value), [value]);
   if (onValidate) onValidate(result);
 
@@ -172,10 +167,7 @@ export function SourceContainerEditor({ value, onChange, onValidate }: SourceCon
   );
 }
 
-/**
- * Lake folder input with a browse dropdown listing folders at the
- * current prefix level from /api/lake. Free text always works.
- */
+/** Folder input with a /api/lake browse dropdown; free text always works. */
 function LakeFolderField({
   value,
   onChange,

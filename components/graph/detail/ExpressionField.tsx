@@ -1,13 +1,11 @@
 "use client";
 
-// Inline expression input with an expand control. The expanded modal is
-// a CodeMirror editor (line numbers, highlighting, lint, autocomplete)
-// sharing the same value; closing commits via `onCommit`.
+// Expands into a CodeMirror modal over the same value; closing calls `onCommit`.
 
 import { useState } from "react";
 import type { CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import Modal from "@/components/ui/Modal";
-import { CloseButton } from "@/components/ui/CloseButton";
+import CloseButton from "@/components/ui/CloseButton";
 import CodeEditor from "@/components/editor/CodeEditor";
 import {
   expressionCompletions,
@@ -26,7 +24,7 @@ function ExpandIcon({ size = 14 }: { size?: number }) {
   );
 }
 
-export interface ExpressionFieldProps {
+interface ExpressionFieldProps {
   value: string;
   onChange: (value: string) => void;
   /** Commit handler: inline blur and modal close. */
@@ -42,7 +40,7 @@ export interface ExpressionFieldProps {
   lookupIds: string[];
 }
 
-export function ExpressionField({
+function ExpressionField({
   value,
   onChange,
   onCommit,

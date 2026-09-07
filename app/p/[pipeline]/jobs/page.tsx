@@ -20,56 +20,77 @@ export default function JobsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
+  // Refs let long-lived effects (stream, poll timer) read current state
+  // without re-running on every render.
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const pageSizeRef = useRef(pageSize);
+  pageSizeRef.current = pageSize;
+  const jobsRef = useRef(jobs);
+  jobsRef.current = jobs;
+
+  // Single-flight with a trailing rerun: SSE bursts arrive faster than a
+  // fetch completes, so per-event loads would pile up and starve the
+  // server. Asks during a flight collapse into one follow-up.
+  const loadInFlight = useRef(false);
+  const loadAgain = useRef(false);
   const loadJobs = useCallback(async () => {
+    if (loadInFlight.current) {
+      loadAgain.current = true;
+      return;
+    }
+    loadInFlight.current = true;
     try {
-      const r = await fetch(
-        `/api/p/${pipeline}/jobs?page=${page}&pageSize=${pageSize}`,
-      );
-      if (!r.ok) {
-        const body = await r.json().catch(() => ({}));
-        if (body.error === "bucket_not_found") setBucketError(body.message);
-        else setLoadError(body.message ?? "Could not load jobs.");
-        return;
-      }
-      const d = await r.json();
-      setJobs(d.jobs ?? []);
-      setTotalPages(d.totalPages ?? 1);
-      setTotal(d.total ?? 0);
-      setLoadError(null);
-    } catch (e) {
-      setLoadError(e instanceof Error ? e.message : String(e));
+      do {
+        loadAgain.current = false;
+        try {
+          const r = await fetch(
+            `/api/p/${pipeline}/jobs?page=${pageRef.current}&pageSize=${pageSizeRef.current}`,
+          );
+          if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            if (body.error === "bucket_not_found") setBucketError(body.message);
+            else setLoadError(body.message ?? "Could not load jobs.");
+            continue;
+          }
+          const d = await r.json();
+          setJobs(d.jobs ?? []);
+          setTotalPages(d.totalPages ?? 1);
+          setTotal(d.total ?? 0);
+          setLoadError(null);
+        } catch (e) {
+          setLoadError(e instanceof Error ? e.message : String(e));
+        }
+      } while (loadAgain.current);
     } finally {
+      loadInFlight.current = false;
       setLoaded(true);
     }
-  }, [pipeline, page, pageSize]);
+  }, [pipeline]);
 
   useEffect(() => {
     loadJobs();
-  }, [loadJobs]);
+  }, [loadJobs, page, pageSize]);
 
-  // Keep the page within range if the total shrinks (e.g. records change).
+  // Clamp the page when the total shrinks.
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  // Refs let long-lived effects (stream, poll timer) read current state
-  // without re-running on every render.
   const loadJobsRef = useRef(loadJobs);
   loadJobsRef.current = loadJobs;
-  const pageRef = useRef(page);
-  pageRef.current = page;
-  const jobsRef = useRef(jobs);
-  jobsRef.current = jobs;
 
-  // Live updates over SSE. Events only update rows already on the page
-  // (inserting would break page size and totals); unknown ids and
-  // terminal transitions trigger a reload, which repaginates correctly.
+  // Live updates over SSE. Events only patch rows already on the page;
+  // unknown ids and terminal transitions trigger a repaginating reload.
+  //
+  // Only runs while the tab is visible: an EventSource holds one of the
+  // browser's 6 per-origin HTTP/1.1 connections for the page's lifetime,
+  // so background tabs would starve the app's own fetches.
   const [sseConnected, setSseConnected] = useState(false);
   useEffect(() => {
-    const es = new EventSource(`/api/p/${pipeline}/jobs/events`);
-    es.onopen = () => setSseConnected(true);
-    es.onerror = () => setSseConnected(false);
-    es.onmessage = (e) => {
+    let es: EventSource | null = null;
+
+    const onMessage = (e: MessageEvent) => {
       const record = JSON.parse(e.data) as Job;
       const known = jobsRef.current.some((j) => j.id === record.id);
       if (known) {
@@ -81,20 +102,54 @@ export default function JobsPage() {
       if (!known && pageRef.current === 1) loadJobsRef.current();
       else if (terminal) loadJobsRef.current();
     };
-    return () => es.close();
+
+    const open = () => {
+      if (es) return;
+      es = new EventSource(`/api/p/${pipeline}/jobs/events`);
+      es.onopen = () => setSseConnected(true);
+      es.onerror = () => setSseConnected(false);
+      es.onmessage = onMessage;
+    };
+    const close = () => {
+      es?.close();
+      es = null;
+      setSseConnected(false);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        close();
+      } else {
+        open();
+        // Catch up on anything that happened while hidden.
+        loadJobsRef.current();
+      }
+    };
+
+    if (document.visibilityState !== "hidden") open();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      close();
+    };
   }, [pipeline]);
 
-  // Reconciliation poll: slow while SSE is delivering, faster fallback
-  // when it isn't.
+  // Reconciliation poll: slow while SSE delivers, faster fallback when it
+  // doesn't. Skipped while hidden; the visibility handler catches up.
   useEffect(() => {
-    const id = setInterval(() => loadJobsRef.current(), sseConnected ? 30000 : 5000);
+    const id = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      loadJobsRef.current();
+    }, sseConnected ? 30000 : 5000);
     return () => clearInterval(id);
   }, [sseConnected]);
 
-  // Synchronous lock so a rapid double-click doesn't fire two POSTs
-  // before React rerenders the disabled state of the button. Without
-  // this, two parallel jobs land for the same pipeline and race over
-  // the same S3 prefix.
+  // Another trigger would just stack an identical clean run behind it.
+  const hasActiveJob = jobs.some(
+    (j) => j.status === "queued" || j.status === "running" || j.status === "scheduled",
+  );
+
+  // Synchronous lock: a double-click fires two POSTs before React
+  // rerenders the disabled state, racing two jobs over the same S3 prefix.
   const triggerInFlight = useRef(false);
   async function triggerJob() {
     if (triggerInFlight.current) return;
@@ -102,8 +157,10 @@ export default function JobsPage() {
     setRunning(true);
     try {
       await fetch(`/api/p/${pipeline}/jobs?clean=true`, { method: "POST" });
+      // Await the reload so the button stays locked until the queued job
+      // is on screen; a spam-click in the gap would enqueue extras.
       if (page !== 1) setPage(1);
-      else loadJobs();
+      else await loadJobs();
     } finally {
       triggerInFlight.current = false;
       setRunning(false);
@@ -190,10 +247,11 @@ export default function JobsPage() {
         <button
           type="button"
           onClick={() => triggerJob()}
-          disabled={running}
+          disabled={running || hasActiveJob}
+          title={hasActiveJob ? "A run is already queued or in progress" : undefined}
           className="flex shrink-0 items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
         >
-          {running ? "Running…" : <><IconPlay size={12} /> Run Pipeline</>}
+          {running || hasActiveJob ? "Running…" : <><IconPlay size={12} /> Run Pipeline</>}
         </button>
       </div>
 

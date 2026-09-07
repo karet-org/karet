@@ -10,8 +10,8 @@ function jobsPrefix(pipeline: string): string {
   return `${loadS3Config().pipelinesPrefix}${pipeline}/jobs/`;
 }
 
-// Job keys sort lexicographically newest-first; we fetch only one page's
-// records, bounding the S3 fan-out regardless of total history.
+// Job keys sort lexicographically newest-first, so fetching one page's
+// records bounds the S3 fan-out regardless of total history.
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 
@@ -29,7 +29,7 @@ async function fetchJobRecord(
   }
 }
 
-/** GET, list job history (paginated, newest first). */
+/** Paginated job history, newest first. */
 export async function GET(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
@@ -54,8 +54,7 @@ export async function GET(
         .map((k) => [k.slice(prefix.length, -".json".length), k] as const),
     );
 
-    // Live queue state (bounded); Redis briefly down degrades to
-    // history-only rather than failing the listing.
+    // Redis briefly down degrades to history-only rather than failing.
     let live: JobRecord[] = [];
     try {
       live = await listLiveJobs(pipeline);
@@ -64,8 +63,8 @@ export async function GET(
     }
     const liveById = new Map(live.map((r) => [r.id, r]));
 
-    // Paginate the deduped union so a job appears on exactly one page
-    // and totals are consistent, then fetch only the page's S3 records.
+    // Paginate the deduped union so a job lands on exactly one page and
+    // totals stay consistent, then fetch only that page's S3 records.
     const ids = orderedJobIds([...keyById.keys()], live);
     const total = ids.length;
     const pageIds = ids.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
@@ -92,12 +91,7 @@ export async function GET(
   }, `GET /api/p/${pipeline}/jobs`);
 }
 
-/**
- * POST, trigger a new job. Returns immediately with the initial
- * `running` record; the pipeline runs in the background of this Node
- * process. Poll GET `/jobs` to watch the status transition to
- * `completed` | `failed`.
- */
+/** Triggers a job and returns immediately; it runs in this Node process. */
 export async function POST(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },

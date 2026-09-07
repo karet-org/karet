@@ -1,8 +1,6 @@
 "use client";
 
-// Pipeline sidebar: 220px rail on desktop, drawer behind a 48px bar on
-// mobile. Switcher, tabs, dashboards, Export, and Settings (Rename and
-// Delete live in its popover).
+// Pipeline sidebar: rail on desktop, drawer behind a top bar on mobile.
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -15,13 +13,12 @@ import {
   IconTrash,
   KaretLogo,
 } from "@/components/icons";
-import { sanitizeSlug } from "@/lib/config/slug";
 import Modal from "@/components/ui/Modal";
-import { cachedJson } from "@/lib/client/fetch-cache";
+import { cachedJson, invalidateCached } from "@/lib/client/fetch-cache";
 import { notifyDashboardsChanged, useDashboardsIndex } from "@/lib/client/dashboards-index";
 
 /** Mobile top bar height; pages offset content by this below md. */
-export const MOBILE_NAV_HEIGHT_PX = 48;
+const MOBILE_NAV_HEIGHT_PX = 48;
 
 import { pipelineHue } from "@/lib/config/pipeline-hue";
 import { formatRelative } from "@/lib/format/relative-time";
@@ -31,8 +28,9 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
   const router = useRouter();
   const { listings: dashboards, drafts } = useDashboardsIndex(pipeline);
   const [statusLine, setStatusLine] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState(pipeline);
   const [creating, setCreating] = useState(false);
-  const [pipelines, setPipelines] = useState<string[]>([]);
+  const [pipelines, setPipelines] = useState<{ id: string; name: string }[]>([]);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -49,11 +47,27 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
 
   const base = `/p/${pipeline}`;
 
-  // Close the drawer on navigation.
   useEffect(() => {
     setDrawerOpen(false);
   }, [pathname]);
 
+
+  // The `pipeline` prop is the immutable id; the name is cosmetic.
+  useEffect(() => {
+    let cancelled = false;
+    setDisplayName(pipeline);
+    (async () => {
+      try {
+        const body = await cachedJson<{ name?: string }>(`/api/p/${pipeline}/config`);
+        if (!cancelled && body.name?.trim()) setDisplayName(body.name.trim());
+      } catch {
+        // Id stays as the label.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pipeline]);
 
   // Latest terminal run for the identity subline.
   useEffect(() => {
@@ -92,7 +106,9 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
       try {
         const res = await fetch("/api/pipelines");
         if (!res.ok) return;
-        const body = (await res.json()) as { pipelines?: string[] };
+        const body = (await res.json()) as {
+          pipelines?: { id: string; name: string }[];
+        };
         if (!cancelled && Array.isArray(body.pipelines))
           setPipelines(body.pipelines);
       } catch {
@@ -160,11 +176,11 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
             style={{ background: `hsl(${pipelineHue(pipeline)} 72% 55%)` }}
             aria-hidden
           >
-            {pipeline[0]?.toUpperCase()}
+            {displayName[0]?.toUpperCase()}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-mono text-[12.5px] leading-tight text-[color:var(--color-ink)]">
-              {pipeline}
+            <span className="block truncate text-[12.5px] font-medium leading-tight text-[color:var(--color-ink)]">
+              {displayName}
             </span>
             {statusLine && (
               <span className="block truncate text-[10.5px] leading-tight text-[color:var(--color-ink-3)]">
@@ -183,19 +199,19 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
             {pipelines.length === 0 ? (
               <div className="px-3 py-2 text-xs text-[color:var(--color-ink-3)]">Loading…</div>
             ) : (
-              pipelines.map((slug) => (
+              pipelines.map(({ id, name }) => (
                 <Link
-                  key={slug}
-                  href={`/p/${slug}/graph`}
+                  key={id}
+                  href={`/p/${id}/graph`}
                   onClick={() => setSwitcherOpen(false)}
                   role="menuitem"
-                  className={`block px-3 py-1.5 font-mono text-[12px] ${
-                    slug === pipeline
+                  className={`block truncate px-3 py-1.5 text-[12px] ${
+                    id === pipeline
                       ? "bg-[color:var(--color-carrot-soft)] text-[color:var(--color-carrot-deep)]"
                       : "text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-rule-soft)]"
                   }`}
                 >
-                  {slug}
+                  {name}
                 </Link>
               ))
             )}
@@ -295,7 +311,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
         })}
       </div>
 
-      {/* Footer: Export and Settings (Rename/Delete in the popover). */}
+      {/* Footer: Export and Settings */}
       <div ref={settingsRef} className="relative mt-auto flex flex-col gap-0.5 border-t border-[color:var(--color-rule-soft)] pt-2">
         {settingsOpen && (
           <div
@@ -309,7 +325,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
               data-testid="side-nav-rename-pipeline"
               onClick={() => {
                 setSettingsOpen(false);
-                setRenameValue(pipeline);
+                setRenameValue(displayName);
                 setRenameError(null);
                 setRenameOpen(true);
               }}
@@ -382,8 +398,8 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
         <Link href="/" className="flex items-center">
           <KaretLogo size={22} />
         </Link>
-        <span className="truncate font-mono text-[12.5px] text-[color:var(--color-ink)]">
-          {pipeline}
+        <span className="truncate text-[12.5px] font-medium text-[color:var(--color-ink)]">
+          {displayName}
         </span>
       </div>
 
@@ -423,8 +439,8 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
           <form
             onSubmit={async (e) => {
               e.preventDefault();
-              if (sanitizeSlug(deleteConfirm) !== pipeline) {
-                setDeleteError(`Type "${pipeline}" exactly to confirm deletion.`);
+              if (deleteConfirm.trim() !== displayName) {
+                setDeleteError(`Type "${displayName}" exactly to confirm deletion.`);
                 return;
               }
               setDeleting(true);
@@ -457,7 +473,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
               This permanently removes the config, dashboards, raw CSVs, Parquet
               output, and job history for{" "}
               <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono text-[11px]">
-                {pipeline}
+                {displayName}
               </code>
               . Cannot be undone.
             </p>
@@ -473,7 +489,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
             <label className="mt-4 block text-sm font-medium text-[color:var(--color-ink-2)]">
               Type{" "}
               <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono text-[11px]">
-                {pipeline}
+                {displayName}
               </code>{" "}
               to confirm
             </label>
@@ -504,7 +520,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
               </button>
               <button
                 type="submit"
-                disabled={deleting || sanitizeSlug(deleteConfirm) !== pipeline}
+                disabled={deleting || deleteConfirm.trim() !== displayName}
                 data-testid="delete-pipeline-submit"
                 className="rounded-md bg-[color:var(--color-rose-deep)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
@@ -525,12 +541,12 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
           <form
             onSubmit={async (e) => {
               e.preventDefault();
-              const newSlug = sanitizeSlug(renameValue);
-              if (!newSlug) {
+              const newName = renameValue.trim();
+              if (!newName) {
                 setRenameError("Name is required");
                 return;
               }
-              if (newSlug === pipeline) {
+              if (newName === displayName) {
                 setRenameError("New name is the same as the current name");
                 return;
               }
@@ -540,26 +556,24 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
                 const res = await fetch(`/api/pipelines/${encodeURIComponent(pipeline)}`, {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ newSlug }),
+                  body: JSON.stringify({ name: newName }),
+                  signal: AbortSignal.timeout(30_000),
                 });
                 const data = await res.json().catch(() => ({}));
-                if (res.status === 409) {
-                  setRenameError(`Pipeline "${newSlug}" already exists`);
-                  return;
-                }
                 if (!res.ok || !data.ok) {
                   setRenameError(data.message ?? data.error ?? `Rename failed (${res.status})`);
                   return;
                 }
-                const newPath = pathname.replace(
-                  new RegExp(`^/p/${pipeline}(?=/|$)`),
-                  `/p/${newSlug}`,
-                );
+                setDisplayName(newName);
+                invalidateCached(`/api/p/${pipeline}/config`);
                 setRenameOpen(false);
-                router.push(newPath);
                 router.refresh();
               } catch (err) {
-                setRenameError((err as Error).message);
+                setRenameError(
+                  (err as Error).name === "TimeoutError"
+                    ? "Rename timed out. Check your connection and try again."
+                    : (err as Error).message,
+                );
               } finally {
                 setRenaming(false);
               }
@@ -567,11 +581,12 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
           >
             <h2 className="text-lg font-semibold">Rename pipeline</h2>
             <p className="mt-1 text-xs text-[color:var(--color-ink-3)]">
-              The URL and S3 prefix change from{" "}
+              Changes the display name only. The URL and stored data keep the
+              id{" "}
               <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono text-[11px]">
                 {pipeline}
-              </code>{" "}
-              to the new name. Existing links to the old URL will break.
+              </code>
+              , so links keep working.
             </p>
 
             <label className="mt-4 block text-sm font-medium text-[color:var(--color-ink-2)]">
@@ -585,12 +600,6 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
               onChange={(e) => setRenameValue(e.target.value)}
               className="mt-1 w-full rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-2 text-sm focus:border-[color:var(--color-carrot)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
             />
-            <p className="mt-1 text-xs text-[color:var(--color-ink-4)]">
-              Will be saved as{" "}
-              <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono">
-                {sanitizeSlug(renameValue) || "…"}
-              </code>
-            </p>
 
             {renameError ? (
               <p className="mt-3 text-sm text-[color:var(--color-rose-deep)]" role="alert">

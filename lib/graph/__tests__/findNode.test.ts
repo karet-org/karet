@@ -4,6 +4,7 @@ import type { PipelineConfig } from "../../types/config";
 
 const cfg: PipelineConfig = {
   version: 1,
+  name: "Test Pipeline",
   source_containers: [
     { id: "src1", name: "Src 1", path_prefix: "raw/", schema: [] },
   ],

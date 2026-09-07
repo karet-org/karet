@@ -35,8 +35,7 @@ export default function DataPage() {
   const [tablesOpen, setTablesOpen] = useState(false);
   const [bucketError, setBucketError] = useState<string | null>(null);
 
-  // Sidebar fetch state, tracked per source so a failure shows an error
-  // instead of a misleading "empty" list.
+  // Tracked per source so a failure shows an error, not an empty list.
   const [tablesLoading, setTablesLoading] = useState(true);
   const [tablesError, setTablesError] = useState<string | null>(null);
   const [queriesLoading, setQueriesLoading] = useState(true);
@@ -53,7 +52,6 @@ export default function DataPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Load table metadata.
   useEffect(() => {
     setTablesLoading(true);
     setTablesError(null);

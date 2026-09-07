@@ -1,18 +1,6 @@
-// Next.js edge middleware, login wall.
-//
-// Behavior:
-//   - Browser routes (anything except /login, public assets, /api/*): if no
-//     valid session cookie, 302 to /login?next=<original-path>.
-//   - /api/* (except /api/auth/*): require a valid session cookie.
-//     Otherwise 401 JSON.
-//   - /api/auth/* and /login are always reachable so the user can sign in.
-//
-// RustFS webhook events go to the worker service, not this app, so no
-// other unauthenticated API surface exists.
-//
-// Session cookies are HMAC-signed. Verification uses Web Crypto so it works
-// in the Edge runtime; password hashing (which needs Node `crypto.scrypt`)
-// stays in the route handlers.
+// Edge middleware login wall: browser routes redirect to /login, `/api/*` gets
+// 401 JSON, only /login and /api/auth/* are reachable unauthenticated. Session
+// verification uses Web Crypto so it runs in the Edge runtime.
 
 import { NextResponse, type NextRequest } from "next/server";
 import {
@@ -22,8 +10,7 @@ import {
 } from "@/lib/auth/session";
 
 export const config = {
-  // Run on every request except Next internals and static asset routes.
-  // The redirect logic in `middleware()` then decides what to do.
+  // Every request except Next internals and static assets; `middleware()` decides.
   matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.svg|opengraph-image.svg|manifest.webmanifest).*)"],
 };
 
@@ -44,9 +31,8 @@ export async function middleware(request: NextRequest) {
 
   const secret = getSessionKeyMaterial();
   if (!secret) {
-    // Missing configuration, fail closed instead of silently letting
-    // requests through. The startup check in `instrumentation.ts` should
-    // have caught this; this is the belt-and-braces.
+    // Missing configuration: fail closed rather than letting requests through
+    // (the startup check in `instrumentation.ts` should have caught this).
     if (isApi) {
       return NextResponse.json(
         {
@@ -72,7 +58,6 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  // Browser route, bounce to /login, preserving the original target.
   const loginUrl = request.nextUrl.clone();
   loginUrl.pathname = "/login";
   loginUrl.search = "";

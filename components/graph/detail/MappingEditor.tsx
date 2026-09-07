@@ -1,27 +1,26 @@
-// Structural editor for a Mapping's output columns, display-first.
-// The column set mirrors the connected table's schema; the mapping
-// authors only the expressions, parsed and committed on blur.
+// Columns mirror the connected table's schema; only expressions are authored
+// here, parsed and committed on blur.
 
 import { useEffect, useMemo, useState } from "react";
 import type { AstNode, Mapping, MappingColumn } from "@/lib/types/config";
 import { astExpression } from "../astSummary";
 import { parseExpression } from "@/lib/graph/expressionParser";
 import { useGraphStore } from "@/lib/graph/store";
-import { ExpressionField } from "./ExpressionField";
+import ExpressionField from "./ExpressionField";
 import { InspRow, kvInputClass, Section } from "./inspector";
 import { inputClass } from "./editorPrimitives";
 import { validateMapping } from "./validation";
 
-export interface MappingEditorProps {
+interface MappingEditorProps {
   value: Mapping;
   onChange: (next: Mapping) => void;
 }
 
-export const MAPPING_COLUMN_EDITOR_TESTID = "mapping-column-editor";
-export const AST_JSON_PARSE_ERROR_TESTID = "ast-json-parse-error";
-export const MAPPING_EDITOR_UNCONNECTED_TESTID = "mapping-editor-unconnected";
+const MAPPING_COLUMN_EDITOR_TESTID = "mapping-column-editor";
+const AST_JSON_PARSE_ERROR_TESTID = "ast-json-parse-error";
+const MAPPING_EDITOR_UNCONNECTED_TESTID = "mapping-editor-unconnected";
 
-export function MappingEditor({ value, onChange }: MappingEditorProps) {
+function MappingEditor({ value, onChange }: MappingEditorProps) {
   const validationResult = useMemo(() => validateMapping(value), [value]);
 
   const table = useGraphStore((s) =>
@@ -30,8 +29,7 @@ export function MappingEditor({ value, onChange }: MappingEditorProps) {
       : null,
   );
 
-  // Entity selector (not a derived array) so Object.is holds between
-  // renders; three-state semantics documented on `validateExprText`.
+  // Select the entity, not a derived array, so Object.is holds across renders.
   const source = useGraphStore((s) => {
     if (!value.source_container_id) return undefined;
     return s.config?.source_containers.find((c) => c.id === value.source_container_id) ?? null;
@@ -124,9 +122,8 @@ export function MappingEditor({ value, onChange }: MappingEditorProps) {
 }
 
 /**
- * Parse `text` and check every `col` reference against the source schema.
- * `sourceColumns`: `string[]` = validate against the set; `null` = source
- * deleted (all refs broken); `undefined` = no source configured.
+ * `sourceColumns`: `string[]` = validate `col` refs against it; `null` =
+ * source deleted (all refs broken); `undefined` = no source configured.
  */
 function validateExprText(
   text: string,

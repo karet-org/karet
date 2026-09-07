@@ -1,17 +1,10 @@
-// Required-env validation for the Web service.
-//
-// The Web service expects the same S3/pipeline env vars as the Worker so
-// both sides of the platform read identical configuration (Requirements
-// 10.2, 10.4). On Next.js server start we run `assertRequiredEnvVars` from
-// `instrumentation.ts` and throw a descriptive error when any are missing,
-// preventing the app from silently running with incomplete configuration.
+// Required-env validation, run from `instrumentation.ts` at server start so the
+// app fails fast instead of running with incomplete configuration.
 
 /**
- * Env vars the Web service cannot start without. Matches the Worker's
- * `REQUIRED_ENV_VARS` list so both services share the same contract.
- *
- * `PORT` and `HOSTNAME` are intentionally excluded, Next.js assigns
- * defaults when they are unset.
+ * Env vars the Web service cannot start without; matches the Worker's
+ * `REQUIRED_ENV_VARS` so both services share one contract. `PORT`/`HOSTNAME`
+ * are excluded — Next.js defaults them.
  */
 export const REQUIRED_ENV_VARS = [
   "S3_BUCKET_PIPELINES",
@@ -27,14 +20,10 @@ export const REQUIRED_ENV_VARS = [
   "REDIS_URL",
 ] as const;
 
-/** Minimal environment shape the check reads from. Parameterizing lets tests
- * inject a fixture without mutating `process.env`. */
+/** Parameterized so tests can inject a fixture without mutating `process.env`. */
 type EnvSource = Record<string, string | undefined>;
 
-/**
- * Return every required env var that is unset or set to an empty string,
- * preserving the order of `REQUIRED_ENV_VARS`.
- */
+/** Required env vars that are unset or empty, in `REQUIRED_ENV_VARS` order. */
 export function missingRequiredEnvVars(
   env: EnvSource = process.env,
   required: readonly string[] = REQUIRED_ENV_VARS,
@@ -45,13 +34,7 @@ export function missingRequiredEnvVars(
   });
 }
 
-/**
- * Throw with a descriptive message when any required env var is missing.
- *
- * Called at Web server startup from `instrumentation.ts`. When running in the
- * Edge runtime or browser this is a no-op, env-var assertions only make
- * sense in Node.js where the app actually reads `process.env` to talk to S3.
- */
+/** Throw with a descriptive message when any required env var is missing. */
 export function assertRequiredEnvVars(
   env: EnvSource = process.env,
   required: readonly string[] = REQUIRED_ENV_VARS,

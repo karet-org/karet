@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import JSZip from "jszip";
 import { bucketForRelPath, createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import { sanitizeSlug } from "@/lib/config/slug";
+import { newPipelineId } from "@/lib/config/pipeline-id";
 import {
   isSafeEntryPath,
   MAX_ENTRIES,
@@ -14,9 +14,10 @@ export async function POST(request: Request) {
   const base = loadS3Config();
   const client = createS3Client(base);
 
-  // Slug comes from query param or is derived from the zip's pipeline.json
+  // `?name=` only seeds the display name when the zip's pipeline.json
+  // doesn't carry one; the id itself is always freshly generated.
   const url = new URL(request.url);
-  let slug = sanitizeSlug(url.searchParams.get("name"));
+  const fallbackName = url.searchParams.get("name")?.trim() ?? "";
 
   const declared = Number(request.headers.get("content-length"));
   if (declared > MAX_ZIP_BYTES) {
@@ -33,7 +34,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_zip" }, { status: 422 });
   }
 
-  // Require pipeline.json in the zip
   if (!zip.file("pipeline.json")) {
     return NextResponse.json(
       { error: "missing_pipeline_json", message: "Zip must contain pipeline.json at the root" },
@@ -56,20 +56,30 @@ export async function POST(request: Request) {
     }
   }
 
-  // Derive slug from filename if not provided
-  if (!slug) {
-    slug = `imported-${Date.now()}`;
-  }
+  const slug = newPipelineId();
 
   const prefix = `${base.pipelinesPrefix}${slug}/`;
 
   return wrapS3Error(async () => {
     let totalBytes = 0;
     for (const [relPath, entry] of entries) {
-      const data = await entry.async("nodebuffer");
+      let data = await entry.async("nodebuffer");
       totalBytes += data.length;
       if (totalBytes > MAX_TOTAL_UNCOMPRESSED) {
         return NextResponse.json({ error: "zip_expands_too_large" }, { status: 413 });
+      }
+      // Older exports carry no `name`; seed one so the pipeline never
+      // renders as its opaque id.
+      if (relPath === "pipeline.json") {
+        try {
+          const cfg = JSON.parse(data.toString("utf-8")) as { name?: string };
+          if (!cfg.name?.trim()) {
+            cfg.name = fallbackName || `Imported ${new Date().toISOString().slice(0, 10)}`;
+            data = Buffer.from(JSON.stringify(cfg, null, 2));
+          }
+        } catch {
+          // Stored as-is; validation is the graph page's job.
+        }
       }
       const key = `${prefix}${relPath}`;
       const contentType = relPath.endsWith(".json")

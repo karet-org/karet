@@ -27,12 +27,11 @@ import {
   listDashboardsV2,
   listDashboardsWithNamesV2,
   listParquetKeys,
+  listPipelinesWithNames,
   listQueries,
   PreconditionFailedError,
   putPipelineConfig,
   putQuery,
-  renamePipelinePrefix,
-  SourceNotFoundError,
   TargetExistsError,
 } from "../config-service";
 import type { PipelineConfig } from "@/lib/types/config";
@@ -152,6 +151,7 @@ const DEFAULT_CONFIG: S3Config = {
 
 const SAMPLE_CONFIG: PipelineConfig = {
   version: 1,
+  name: "Sample Pipeline",
   source_containers: [
     {
       id: "visa",
@@ -426,106 +426,34 @@ describe("config-service", () => {
     });
   });
 
-  describe("renamePipelinePrefix", () => {
-    const MINIMAL_CONFIG_JSON = JSON.stringify({
-      version: 1,
-      source_containers: [],
-      lookup_mappings: [],
-      mappings: [],
-      analytic_tables: [],
-    });
-
-    it("copies every object under the old prefix to the new one and deletes the originals", async () => {
+  describe("listPipelinesWithNames", () => {
+    it("pairs each pipeline id with the display name from its pipeline.json", async () => {
       const client = buildStubClient({
-        "pipelines/old/pipeline.json": { body: MINIMAL_CONFIG_JSON, etag: "1" },
-        "pipelines/old/dashboards/overview.json": { body: "{}", etag: "2" },
-        "pipelines/old/t/year=2024/month=01/data.parquet": {
-          body: "PAR1",
-          etag: "3",
+        "pipelines/alpha/pipeline.json": {
+          body: JSON.stringify({ ...SAMPLE_CONFIG, name: "Zebra Budget" }),
+          etag: "1",
         },
-        // Unrelated pipeline, must be left alone.
-        "pipelines/other/pipeline.json": { body: MINIMAL_CONFIG_JSON, etag: "4" },
+        "pipelines/beta/pipeline.json": {
+          body: JSON.stringify({ ...SAMPLE_CONFIG, name: "Apple Spend" }),
+          etag: "2",
+        },
       });
 
-      const moved = await renamePipelinePrefix(
-        client,
-        DEFAULT_CONFIG,
-        "old",
-        "new",
-      );
+      const listings = await listPipelinesWithNames(client, DEFAULT_CONFIG);
 
-      expect(moved).toBe(3);
-
-      // The old prefix is empty after the rename.
-      const oldKeys = await listParquetKeys(
-        client,
-        { ...DEFAULT_CONFIG, warehousePrefix: "pipelines/old/" },
-        "",
-      );
-      expect(oldKeys).toEqual([]);
-
-      // New keys exist with the same relative paths.
-      const newCfg = { ...DEFAULT_CONFIG, warehousePrefix: "pipelines/new/" };
-      const newParquet = await listParquetKeys(client, newCfg, "t");
-      expect(newParquet).toEqual([
-        "pipelines/new/t/year=2024/month=01/data.parquet",
+      // Sorted by display name, not id.
+      expect(listings).toEqual([
+        { id: "beta", name: "Apple Spend" },
+        { id: "alpha", name: "Zebra Budget" },
       ]);
-
-      // The unrelated pipeline's pipeline.json still loads.
-      const otherCfg = {
-        ...DEFAULT_CONFIG,
-        pipelineConfigKey: "pipelines/other/pipeline.json",
-      };
-      const pc = await getPipelineConfig(client, otherCfg);
-      expect(pc).not.toBeNull();
     });
 
-    it("throws SourceNotFoundError when no objects exist under the old prefix", async () => {
-      const client = buildStubClient({});
-      await expect(
-        renamePipelinePrefix(client, DEFAULT_CONFIG, "ghost", "new"),
-      ).rejects.toBeInstanceOf(SourceNotFoundError);
-    });
-
-    it("throws TargetExistsError when the new slug already has a pipeline.json", async () => {
+    it("lists an unparseable config under its id", async () => {
       const client = buildStubClient({
-        "pipelines/old/pipeline.json": { body: MINIMAL_CONFIG_JSON, etag: "1" },
-        "pipelines/new/pipeline.json": { body: MINIMAL_CONFIG_JSON, etag: "2" },
+        "pipelines/broken/pipeline.json": { body: "not json", etag: "1" },
       });
-      await expect(
-        renamePipelinePrefix(client, DEFAULT_CONFIG, "old", "new"),
-      ).rejects.toBeInstanceOf(TargetExistsError);
-
-      // Pre-flight failed before any copy ran, so the old pipeline is intact.
-      const old = await getPipelineConfig(client, {
-        ...DEFAULT_CONFIG,
-        pipelineConfigKey: "pipelines/old/pipeline.json",
-      });
-      expect(old).not.toBeNull();
-    });
-
-    it("handles keys containing characters that need URL-encoding in CopySource", async () => {
-      // Spaces, plus signs, parens, all legal in S3 keys, all require
-      // encoding in the CopySource header.
-      const client = buildStubClient({
-        "pipelines/old/raw/weird name (1).csv": { body: "a,b\n1,2", etag: "1" },
-        "pipelines/old/pipeline.json": { body: MINIMAL_CONFIG_JSON, etag: "2" },
-      });
-      const moved = await renamePipelinePrefix(
-        client,
-        DEFAULT_CONFIG,
-        "old",
-        "new",
-      );
-      expect(moved).toBe(2);
-
-      // The weird-named file made it across with the same relative name.
-      const cfg = {
-        ...DEFAULT_CONFIG,
-        pipelineConfigKey: "pipelines/new/pipeline.json",
-      };
-      const pc = await getPipelineConfig(client, cfg);
-      expect(pc).not.toBeNull();
+      const listings = await listPipelinesWithNames(client, DEFAULT_CONFIG);
+      expect(listings).toEqual([{ id: "broken", name: "broken" }]);
     });
   });
 

@@ -1,9 +1,6 @@
-// Shared fast-check generators for property tests.
-//
-// Mirrors the proptest generators in `src/karet-worker/src/testgen.rs` so
-// the TypeScript and Rust property tests draw from the same distribution.
-// Generators are intentionally bounded, `arbAstNode` caps depth at ~6 via
-// `fc.letrec`'s depth-identifier so shrinking stays fast.
+// Shared fast-check generators for property tests. Mirrors the proptest
+// generators in `src/karet-worker/src/testgen.rs` so both sides draw from the
+// same distribution; `arbAstNode` is depth-bounded to keep shrinking fast.
 
 import fc from "fast-check";
 import type {
@@ -20,10 +17,6 @@ import type {
   SourceContainer,
 } from "./types/config";
 
-// ---------------------------------------------------------------------------
-// Primitives
-// ---------------------------------------------------------------------------
-
 /** ASCII-lowercase identifier: starts with a letter, 1..=8 chars. */
 const arbId: fc.Arbitrary<string> = fc
   .tuple(
@@ -33,7 +26,7 @@ const arbId: fc.Arbitrary<string> = fc
   .map(([head, tail]) => head + tail);
 
 /** Non-empty ASCII alphanumeric string, 1..=12 chars. */
-export const arbName: fc.Arbitrary<string> = fc
+const arbName: fc.Arbitrary<string> = fc
   .stringMatching(/^[A-Za-z0-9]{1,12}$/)
   .filter((s) => s.length >= 1);
 
@@ -42,7 +35,7 @@ const arbPathPrefix: fc.Arbitrary<string> = fc
   .stringMatching(/^[a-z][a-z0-9/_-]{0,15}$/);
 
 /** One of the supported logical column types. */
-export const arbColumnType: fc.Arbitrary<string> = fc.constantFrom(
+const arbColumnType: fc.Arbitrary<string> = fc.constantFrom(
   "string",
   "number",
   "int64",
@@ -59,32 +52,22 @@ const arbCastType: fc.Arbitrary<CastType> = fc.constantFrom(
   "date",
 );
 
-/**
- * Finite `number` suitable for AST `Num` literals. Excludes `NaN` and
- * ±∞ because JSON round-trip would collapse them to `null`.
- */
+/** Finite `number` for AST `Num` literals: JSON round-trip collapses NaN/±∞. */
 const arbFiniteNumber: fc.Arbitrary<number> = fc.double({
   noNaN: true,
   noDefaultInfinity: true,
 });
 
-// ---------------------------------------------------------------------------
-// AstNode, recursive generator via fc.letrec (depth-limited).
-// ---------------------------------------------------------------------------
-
 /**
- * Recursive generator for {@link AstNode}.
- *
- * Depth is bounded via fast-check's `depthIdentifier` + `depthSize`. Width
- * bounds mirror the Rust generator: `concat.args` is 0..=4, and the config
- * defaults are sized so trees stay small enough for fast shrinking.
+ * Recursive generator for {@link AstNode}. Depth-bounded via `depthIdentifier`;
+ * width bounds mirror the Rust generator (`concat.args` 0..=4).
  */
 export const arbAstNode: fc.Arbitrary<AstNode> = fc.letrec<{
   node: AstNode;
 }>((tie) => ({
   node: fc.oneof(
     { depthIdentifier: "astNode", depthSize: "small", withCrossShrink: true },
-    // Leaves (non-recursive), listed first so they're picked as depth grows.
+    // Leaves first so they're favored as depth grows.
     arbName.map<AstNode>((name) => ({ kind: "col", name })),
     fc.string().map<AstNode>((value) => ({ kind: "str", value })),
     arbFiniteNumber.map<AstNode>((value) => ({ kind: "num", value })),
@@ -174,10 +157,6 @@ export const arbAstNode: fc.Arbitrary<AstNode> = fc.letrec<{
   ),
 })).node as fc.Arbitrary<AstNode>;
 
-// ---------------------------------------------------------------------------
-// Pipeline_Config pieces
-// ---------------------------------------------------------------------------
-
 /** A single {@link ColumnSchema} with a random logical type. */
 const arbColumnSchema: fc.Arbitrary<ColumnSchema> = fc.record({
   name: arbName,
@@ -185,12 +164,7 @@ const arbColumnSchema: fc.Arbitrary<ColumnSchema> = fc.record({
   nullable: fc.option(fc.boolean(), { nil: undefined }),
 });
 
-/**
- * Analytic-table schema: 1..=5 columns.
- *
- * Exposed so graph / dashboard tests can sample schemas without constructing
- * a full `AnalyticTable`.
- */
+/** Analytic-table schema, 1..=5 columns; exported for schema-only tests. */
 export const arbAnalyticTableSchema: fc.Arbitrary<ColumnSchema[]> = fc.array(
   arbColumnSchema,
   { minLength: 1, maxLength: 5 },
@@ -214,12 +188,7 @@ const arbLookupRow: fc.Arbitrary<LookupRow> = fc.record(
   { requiredKeys: ["input_patterns", "output"] },
 );
 
-/**
- * {@link LookupMapping}, flat (no recursive children).
- *
- * Mirrors the Rust generator: `children` is omitted so the generator stays
- * bounded; validator tests build hierarchies explicitly.
- */
+/** Flat {@link LookupMapping}; like the Rust generator, `children` is omitted. */
 const arbLookupMapping: fc.Arbitrary<LookupMapping> = fc.record(
   {
     id: arbId,
@@ -258,7 +227,7 @@ const arbMapping: fc.Arbitrary<Mapping> = fc.record(
 );
 
 /** {@link AnalyticTable} with 1..=5 columns. */
-export const arbAnalyticTable: fc.Arbitrary<AnalyticTable> = fc.record({
+const arbAnalyticTable: fc.Arbitrary<AnalyticTable> = fc.record({
   id: arbId,
   name: arbName,
   schema: arbAnalyticTableSchema,
@@ -271,9 +240,8 @@ const arbLayoutPosition: fc.Arbitrary<LayoutPosition> = fc.record({
 });
 
 /**
- * Suffix colliding entity ids (`_1`, `_2`, ...) so every id is globally
- * unique. Reference fields are left untouched; references are not
- * guaranteed to resolve.
+ * Suffix colliding entity ids (`_1`, `_2`, ...) so ids are globally unique.
+ * Reference fields are untouched, so references need not resolve.
  */
 function uniquifyEntityIds(cfg: PipelineConfig): PipelineConfig {
   const seen = new Set<string>();
@@ -310,14 +278,14 @@ function uniquifyEntityIds(cfg: PipelineConfig): PipelineConfig {
 }
 
 /**
- * Full {@link PipelineConfig} with globally unique entity ids (graph
- * rendering keys nodes by id). References are not guaranteed to resolve;
- * validator tests build valid configs explicitly.
+ * Full {@link PipelineConfig} with globally unique entity ids (graph nodes key
+ * by id). References may not resolve; validator tests build valid configs.
  */
 export const arbPipelineConfig: fc.Arbitrary<PipelineConfig> = fc
   .record(
     {
       version: fc.constant(1),
+      name: arbName,
       source_containers: fc.array(arbSourceContainer, {
         minLength: 1,
         maxLength: 3,
@@ -342,6 +310,7 @@ export const arbPipelineConfig: fc.Arbitrary<PipelineConfig> = fc
     {
       requiredKeys: [
         "version",
+        "name",
         "source_containers",
         "lookup_mappings",
         "mappings",
@@ -350,8 +319,4 @@ export const arbPipelineConfig: fc.Arbitrary<PipelineConfig> = fc
     },
   )
   .map(uniquifyEntityIds);
-
-// ---------------------------------------------------------------------------
-// Dashboard
-// ---------------------------------------------------------------------------
 

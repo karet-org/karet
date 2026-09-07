@@ -16,6 +16,7 @@ import { disconnectEdgeInConfig } from "../nodeDefaults";
 function baseConfig(): PipelineConfig {
   return {
     version: 1,
+    name: "Test Pipeline",
     source_containers: [
       { id: "src1", name: "Src", path_prefix: "raw/", schema: [] },
     ],

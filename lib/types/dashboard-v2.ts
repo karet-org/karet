@@ -1,9 +1,9 @@
-// Dashboard config v2: YAML documents with per-panel DuckDB SQL and
-// column bindings. See karet-dashboards-v2-design.html.
+// Dashboard config v2: YAML with per-panel DuckDB SQL and column bindings.
+// See karet-dashboards-v2-design.html.
 
 import { parse } from "yaml";
 
-export type FilterKindV2 = "dropdown" | "date_range";
+type FilterKindV2 = "dropdown" | "date_range";
 
 export interface DashboardFilterV2 {
   /** Parameter name: dropdown exposes $name, date_range $name_from/$name_to. */
@@ -15,11 +15,11 @@ export interface DashboardFilterV2 {
 }
 
 /** Click-to-filter: clicking a mark sets the named dropdown param. */
-export interface EmitBinding {
+interface EmitBinding {
   param: string;
 }
 
-export interface PanelGridV2 {
+interface PanelGridV2 {
   /** Column span: a number or "full". */
   span?: number | "full";
   aspect?: string;
@@ -108,7 +108,7 @@ export type V2ValidationResult =
   | { ok: true; config: DashboardConfigV2; panelCount: number }
   | { ok: false; errors: string[] };
 
-export interface DetailedError {
+interface DetailedError {
   message: string;
   /** YAML path for editor diagnostics; null when positionless. */
   path: (string | number)[] | null;

@@ -1,28 +1,21 @@
 // S3-backed reads/writes for Pipeline_Config, dashboards, and Parquet keys.
-//
-// All functions take an explicit `S3Client` + config so tests can inject a
-// stub client. The API routes wire the environment-derived pair.
+// Every function takes an explicit `S3Client` + config so tests can inject a stub.
 
 import {
-  CopyObjectCommand,
   DeleteObjectCommand,
-  DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
   NoSuchKey,
-  type ObjectIdentifier,
   PutObjectCommand,
   S3Client,
   S3ServiceException,
 } from "@aws-sdk/client-s3";
-import { allBuckets, type S3Config } from "../config/s3-client";
+import { type S3Config } from "../config/s3-client";
 import type { PipelineConfig } from "../types/config";
 import type { SavedQuery } from "../types/query";
 import { listAllObjectKeys, readBodyToBuffer } from "./s3-helpers";
 
-// ---------------------------------------------------------------------------
 // Errors
-// ---------------------------------------------------------------------------
 
 /** Raised when the server-stored ETag does not match the client's `If-Match`. */
 export class PreconditionFailedError extends Error {
@@ -32,10 +25,7 @@ export class PreconditionFailedError extends Error {
   }
 }
 
-/**
- * Raised when the rename target slug already has a pipeline.json.
- * Callers should translate into 409 Conflict.
- */
+/** Rename target slug already has a pipeline.json; callers translate to 409. */
 export class TargetExistsError extends Error {
   constructor(message = "Target pipeline slug already exists") {
     super(message);
@@ -43,29 +33,14 @@ export class TargetExistsError extends Error {
   }
 }
 
-/**
- * Raised when no objects exist under the source prefix.
- * Callers should translate into 404.
- */
-export class SourceNotFoundError extends Error {
-  constructor(message = "Source pipeline not found") {
-    super(message);
-    this.name = "SourceNotFoundError";
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 async function streamToString(body: unknown): Promise<string> {
   return (await readBodyToBuffer(body)).toString("utf-8");
 }
 
 /**
- * Normalize an ETag: strip quotes and RustFS's alphabetic codec suffix
- * (`<md5>-zstd`), which flip-flops across reads and would break the
- * compare-and-swap. Numeric multipart suffixes are preserved.
+ * Strip quotes and RustFS's alphabetic codec suffix (`<md5>-zstd`), which
+ * flip-flops across reads and would break compare-and-swap. Numeric multipart
+ * suffixes are preserved.
  */
 function normalizeETag(etag: string | undefined): string | undefined {
   if (!etag) return undefined;
@@ -84,9 +59,7 @@ function isNotFound(err: unknown): boolean {
   return false;
 }
 
-// ---------------------------------------------------------------------------
 // Pipelines
-// ---------------------------------------------------------------------------
 
 /** Lists pipeline slugs by finding `pipeline.json` files under the pipelines prefix. */
 export async function listPipelines(
@@ -106,9 +79,39 @@ export async function listPipelines(
   return slugs;
 }
 
-// ---------------------------------------------------------------------------
+/** A pipeline's immutable id (slug, also the S3 prefix) plus its display name. */
+export interface PipelineListing {
+  id: string;
+  name: string;
+}
+
+/** Pipeline listing with display names from each `pipeline.json`; an unreadable
+ * config lists under its id. Sorted by name. */
+export async function listPipelinesWithNames(
+  client: S3Client,
+  config: S3Config,
+): Promise<PipelineListing[]> {
+  const ids = await listPipelines(client, config);
+  const listings = await Promise.all(
+    ids.map(async (id): Promise<PipelineListing> => {
+      const scoped: S3Config = {
+        ...config,
+        pipelineConfigKey: `${config.pipelinesPrefix}${id}/pipeline.json`,
+      };
+      try {
+        const pc = await getPipelineConfig(client, scoped);
+        const name = pc?.config.name?.trim();
+        return { id, name: name && name.length > 0 ? name : id };
+      } catch {
+        return { id, name: id };
+      }
+    }),
+  );
+  listings.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  return listings;
+}
+
 // Pipeline_Config
-// ---------------------------------------------------------------------------
 
 export interface PipelineConfigWithETag {
   config: PipelineConfig;
@@ -116,6 +119,8 @@ export interface PipelineConfigWithETag {
   body: string;
   /** S3 ETag (quotes stripped). */
   etag?: string;
+  /** S3 LastModified (ISO). Creation time until the config is next edited. */
+  lastModified?: string;
 }
 
 /** Reads the Pipeline_Config from S3. Returns `null` if missing. */
@@ -132,7 +137,12 @@ export async function getPipelineConfig(
     );
     const body = await streamToString(response.Body);
     const parsed = JSON.parse(body) as PipelineConfig;
-    return { config: parsed, body, etag: normalizeETag(response.ETag) };
+    return {
+      config: parsed,
+      body,
+      etag: normalizeETag(response.ETag),
+      lastModified: response.LastModified?.toISOString(),
+    };
   } catch (err) {
     if (isNotFound(err)) return null;
     throw err;
@@ -140,9 +150,9 @@ export async function getPipelineConfig(
 }
 
 /**
- * Write the Pipeline_Config. The `ifMatch` compare-and-swap runs against
- * a fresh GET (RustFS doesn't honor If-Match), and the returned ETag
- * comes from a HEAD after the PUT (the PutObject ETag can differ).
+ * Write the Pipeline_Config. `ifMatch` compare-and-swap runs against a fresh
+ * GET (RustFS doesn't honor If-Match) and the returned ETag comes from a HEAD
+ * after the PUT (the PutObject ETag can differ).
  */
 export async function putPipelineConfig(
   client: S3Client,
@@ -184,9 +194,7 @@ export async function putPipelineConfig(
   }
 }
 
-// ---------------------------------------------------------------------------
 // Dashboards
-// ---------------------------------------------------------------------------
 
 
 /** A dashboard's stem id plus its display name. */
@@ -196,9 +204,6 @@ export interface DashboardListing {
 }
 
 
-
-// --- v2 (YAML) dashboard storage. v1 JSON functions below are removed at
-// the top of the v2 stack. ---
 
 import { validateDashboardV2 } from "@/lib/types/dashboard-v2";
 import type { DashboardConfigV2 } from "@/lib/types/dashboard-v2";
@@ -344,9 +349,7 @@ export async function publishDashboardV2(
   }
 }
 
-// ---------------------------------------------------------------------------
 // Saved queries
-// ---------------------------------------------------------------------------
 
 /** Reads a saved query by stem. Returns `null` when missing. */
 export async function getQuery(
@@ -377,7 +380,7 @@ export async function listQueries(
   for (const key of allKeys) {
     if (!key.endsWith(".json")) continue;
     const rel = key.slice(config.queriesPrefix.length);
-    if (rel.includes("/")) continue; // skip nested keys
+    if (rel.includes("/")) continue;
     ids.push(rel.slice(0, -".json".length));
   }
   const queries = await Promise.all(ids.map((id) => getQuery(client, config, id)));
@@ -386,11 +389,8 @@ export async function listQueries(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/**
- * Writes a saved query. When `overwrite` is false (the default), a query
- * already stored under the same id throws `TargetExistsError` so a create
- * can't clobber an existing name.
- */
+/** Writes a saved query; without `overwrite`, an existing id throws
+ * `TargetExistsError` so a create can't clobber an existing name. */
 export async function putQuery(
   client: S3Client,
   config: S3Config,
@@ -427,89 +427,9 @@ export async function deleteQuery(
   );
 }
 
-// ---------------------------------------------------------------------------
-// Rename (slug move)
-// ---------------------------------------------------------------------------
-
-/**
- * Rename a pipeline prefix across all three buckets: 409 pre-flight if
- * the target exists, copy everything, then delete originals in batches.
- * A failed copy leaves the source intact; a failed delete after copies
- * leaves orphaned bytes at the old slug (cleanup is out-of-band).
- * Returns the number of objects moved.
- */
-export async function renamePipelinePrefix(
-  client: S3Client,
-  config: S3Config,
-  fromSlug: string,
-  toSlug: string,
-): Promise<number> {
-  const { pipelinesPrefix } = config;
-  const fromPrefix = `${pipelinesPrefix}${fromSlug}/`;
-  const toPrefix = `${pipelinesPrefix}${toSlug}/`;
-
-  try {
-    await client.send(
-      new HeadObjectCommand({
-        Bucket: config.pipelinesBucket,
-        Key: `${toPrefix}pipeline.json`,
-      }),
-    );
-    throw new TargetExistsError(`Pipeline "${toSlug}" already exists`);
-  } catch (err) {
-    if (err instanceof TargetExistsError) throw err;
-    if (!isNotFound(err)) throw err;
-  }
-
-  let moved = 0;
-  let sawAny = false;
-
-  for (const bucket of allBuckets(config)) {
-    const keys = await listAllObjectKeys(client, bucket, fromPrefix);
-    if (keys.length === 0) continue;
-    sawAny = true;
-
-    for (const key of keys) {
-      const destKey = `${toPrefix}${key.slice(fromPrefix.length)}`;
-      await client.send(
-        new CopyObjectCommand({
-          Bucket: bucket,
-          // CopySource is `/<bucket>/<key>`, URL-encoded except slashes.
-          CopySource: `/${bucket}/${encodeURIComponent(key).replace(/%2F/g, "/")}`,
-          Key: destKey,
-        }),
-      );
-    }
-
-    const toDelete: ObjectIdentifier[] = keys.map((Key) => ({ Key }));
-    for (let i = 0; i < toDelete.length; i += 1000) {
-      const chunk = toDelete.slice(i, i + 1000);
-      await client.send(
-        new DeleteObjectsCommand({
-          Bucket: bucket,
-          Delete: { Objects: chunk, Quiet: true },
-        }),
-      );
-    }
-
-    moved += keys.length;
-  }
-
-  if (!sawAny) {
-    throw new SourceNotFoundError(`Pipeline "${fromSlug}" not found`);
-  }
-
-  return moved;
-}
-
-// ---------------------------------------------------------------------------
 // Analytic table rows (Parquet)
-// ---------------------------------------------------------------------------
 
-/**
- * Lists every `*.parquet` key under `<pipeline>/<table>/` (recursive) in the
- * warehouse bucket.
- */
+/** Lists every `*.parquet` key under `<pipeline>/<table>/` in the warehouse bucket. */
 export async function listParquetKeys(
   client: S3Client,
   config: S3Config,

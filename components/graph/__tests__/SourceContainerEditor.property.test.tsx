@@ -14,8 +14,7 @@ import { describe, expect, it } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import fc from "fast-check";
 import type { ColumnSchema, SourceContainer } from "@/lib/types/config";
-import {
-  SourceContainerEditor,
+import SourceContainerEditor, {
   SOURCE_CONTAINER_EDITOR_ERROR_TESTID,
 } from "../detail/SourceContainerEditor";
 import {

@@ -14,7 +14,7 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 type DoughnutConfig = Extract<PanelV2, { kind: "doughnut" }>;
 
-export function DoughnutPanel({
+function DoughnutPanel({
   config,
   data,
   params,

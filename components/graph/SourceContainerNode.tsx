@@ -4,7 +4,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { SourceContainerNodeData } from "@/lib/graph/build";
 import NodeShell from "./NodeShell";
 
-export function SourceContainerNode({
+function SourceContainerNode({
   data,
   selected,
 }: NodeProps & { data: SourceContainerNodeData }) {

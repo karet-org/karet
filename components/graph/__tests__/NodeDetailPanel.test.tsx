@@ -79,6 +79,7 @@ describe("NodeDetailPanel", () => {
     useGraphStore.setState({
       config: {
         version: 1,
+        name: "Test Pipeline",
         source_containers: [sourceContainer],
         lookup_mappings: [],
         mappings: [mapping],

@@ -1,7 +1,6 @@
 "use client";
 
-// Sankey panel: d3-sankey layout + SVG render. Click a node to emit a
-// cross-filter on its source column; ribbons are hover-only.
+// Sankey panel: d3-sankey layout + SVG render, hover-only interaction.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -18,9 +17,8 @@ import type { PanelProps } from "./types";
 
 type SankeyPanelConfig = Extract<PanelV2, { kind: "sankey" }>;
 
-/** Declared layers, rank-normalized to 0..k-1 so gaps in the authored
- * numbers don't push nodes past d3's topological layer count (d3 clamps
- * the align result to it). First declaration per node wins. */
+/** Rank-normalizes declared layers to 0..k-1 so gaps don't exceed d3's
+ * topological layer count (it clamps the align result). First declaration wins. */
 export function normalizeLayers(declared: Map<string, number>): Map<string, number> {
   const ranks = [...new Set(declared.values())].sort((a, b) => a - b);
   const rankOf = new Map(ranks.map((v, i) => [v, i]));
@@ -60,12 +58,10 @@ interface LinkDatum {
 const NODE_WIDTH = 16;
 const NODE_PADDING = 10;
 const MIN_HEIGHT = 320;
-// Below this the label gutters crowd out the flows, so we render at this
-// width and let the container scroll horizontally.
+// Narrower than this, label gutters crowd out the flows; the container scrolls.
 const MIN_RENDER_WIDTH = 560;
 const PADDING = 8;
-// Node labels anchor inward (toward center), so these side gutters are just
-// breathing room that keeps the outermost nodes off the panel edge.
+// Labels anchor inward, so these gutters keep outer nodes off the panel edge.
 const LABEL_PAD_LEFT = 80;
 const LABEL_PAD_RIGHT = 80;
 
@@ -79,8 +75,7 @@ export type Hover =
   | { kind: "node"; name: string; value: number; x: number; y: number }
   | { kind: "link"; from: string; to: string; value: number; x: number; y: number };
 
-// Labels shorter than the node is tall collide with their neighbors;
-// suppress them and let the tooltip carry the name.
+// Labels on shorter nodes collide; the tooltip carries the name instead.
 const LABEL_MIN_NODE_HEIGHT = 9;
 const LABEL_MAX_CHARS = 30;
 
@@ -94,7 +89,7 @@ export function linkOpacity(hover: Hover | null, from: string, to: string): numb
   return hover.from === from && hover.to === to ? 0.55 : 0.08;
 }
 
-export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
+function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [hover, setHover] = useState<Hover | null>(null);
@@ -116,8 +111,7 @@ export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
 
   // d3-sankey mutates its input; recompute every render.
   const computed = useMemo(() => {
-    // One link per result row: source/target/value bound columns.
-    // Duplicate edges sum; self-links and cycle-closers are skipped.
+    // One link per row; duplicates sum, self-links and cycle-closers drop.
     const sums = new Map<string, { from: string; to: string; flow: number }>();
     const declared = new Map<string, number>();
     for (const row of data.rows) {
@@ -160,7 +154,6 @@ export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
       value: l.flow,
     }));
 
-    // Column placement follows flow topology: sources left, sinks right.
     const layers = normalizeLayers(declared);
     const sankeyGen = d3Sankey<NodeDatum, LinkDatum>()
       .nodeWidth(NODE_WIDTH)
@@ -241,9 +234,8 @@ function SankeySvg({
       className="block"
       onMouseLeave={() => onHover(null)}
     >
-      {/* Links first; nodes paint over them. Ribbons take the source
-          node's color: flows fan out in one hue per origin instead of
-          blending two palette colors into mud mid-ribbon. */}
+      {/* Links first; nodes paint over them. Ribbons take the source node's
+          color so flows don't blend two palette colors into mud. */}
       <g fill="none">
         {layout.links.map((l, i) => {
           const d = linkPath(l as D3Link<NodeDatum, LinkDatum>);

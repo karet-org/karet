@@ -10,8 +10,7 @@ import React from "react";
 import { describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { LookupMapping } from "@/lib/types/config";
-import {
-  LookupMappingEditor,
+import LookupMappingEditor, {
   LOOKUP_MAPPING_EDITOR_ERROR_TESTID,
 } from "../detail/LookupMappingEditor";
 

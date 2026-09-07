@@ -28,9 +28,13 @@ type StatusKind = "healthy" | "error" | "idle";
 
 interface PipelineSummary {
   slug: string;
+  /** Display name from pipeline.json; the slug when the config is unreadable. */
+  name: string;
   tableCount: number;
   /** ISO timestamp of the most recent job, or null if the pipeline has never run. */
   lastRunAt: string | null;
+  /** "Recently run" sort key: last run, else the config's S3 LastModified. */
+  activityAt: string | null;
   status: StatusKind;
   graph: ThumbGraph;
 }
@@ -58,9 +62,8 @@ async function getPipelines(): Promise<PipelineResult> {
           "S3 bucket does not exist. Create it first or check the S3_BUCKET_PIPELINES / S3_BUCKET_LAKE / S3_BUCKET_WAREHOUSE environment variables.",
       };
     }
-    // A transient S3/permission error must not masquerade as "no pipelines",
-    // surface it so the user knows the list failed to load rather than being
-    // genuinely empty.
+    // Surface transient S3/permission errors instead of rendering them
+    // as "no pipelines".
     return {
       pipelines: [],
       loadError: err instanceof Error ? err.message : String(err),
@@ -83,10 +86,8 @@ async function loadSummary(
     ),
   ]);
 
-  // The home-page status only reflects terminal runs. `scheduled` and
-  // `running` jobs collapse into the previous terminal status (or
-  // `idle` if none) so a webhook upload mid-debounce doesn't make the
-  // pipeline flicker between states on the home page.
+  // Only terminal runs count: `scheduled`/`running` collapse into the
+  // previous status so a mid-debounce webhook doesn't flicker the card.
   const status: StatusKind =
     latestTerminalJob === null
       ? "idle"
@@ -125,19 +126,16 @@ async function loadSummary(
 
   return {
     slug,
+    name: c?.name?.trim() || slug,
     tableCount: c?.analytic_tables.length ?? 0,
     lastRunAt: latestTerminalJob?.startedAt ?? null,
+    activityAt: latestTerminalJob?.startedAt ?? configResult?.lastModified ?? null,
     status,
     graph,
   };
 }
 
-/**
- * Walk newest-first through job records and return the first terminal
- * one (`completed` or `failed`). Caps at 5 reads, in practice the
- * latest job is almost always terminal, and we only fall through when
- * a webhook batch is in flight.
- */
+/** Newest-first scan for the first `completed`/`failed` job, capped at 5 reads. */
 async function loadLatestTerminalJob(
   client: S3Client,
   bucket: string,
@@ -167,12 +165,6 @@ async function loadLatestTerminalJob(
   return null;
 }
 
-function formatName(slug: string): string {
-  return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-
-
 export default async function Home() {
   const [{ pipelines, bucketError, loadError }, settings] = await Promise.all([
     getPipelines(),
@@ -185,13 +177,16 @@ export default async function Home() {
     })(),
   ]);
 
-  const known = new Set(pipelines.map((p) => p.slug));
-  const starred = settings.starred.filter((s) => known.has(s));
+  const names = new Map(pipelines.map((p) => [p.slug, p.name]));
+  const starred = settings.starred
+    .filter((s) => names.has(s))
+    .map((id) => ({ id, name: names.get(id)! }));
   const cards: PipelineCardData[] = pipelines.map((p) => ({
     slug: p.slug,
-    name: formatName(p.slug),
+    name: p.name,
     tableCount: p.tableCount,
     lastRunAt: p.lastRunAt,
+    activityAt: p.activityAt,
     lastRunLabel: formatRelative(p.lastRunAt).toLowerCase(),
     status: p.status,
     graph: p.graph,
@@ -245,7 +240,7 @@ export default async function Home() {
           ) : (
             <PipelineGrid
               pipelines={cards}
-              starred={starred}
+              starred={starred.map((s) => s.id)}
               createSlot={<CreatePipelineButton variant="card" />}
             />
           )}

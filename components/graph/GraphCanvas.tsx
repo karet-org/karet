@@ -1,7 +1,5 @@
 "use client";
 
-// GraphCanvas, React Flow wrapper for the Data Flow Graph.
-
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   Background,
@@ -37,7 +35,7 @@ export interface GraphCanvasHandle {
   updateGraph: (nodes: GraphNode[], edges: GraphEdge[]) => void;
 }
 
-export interface GraphCanvasProps {
+interface GraphCanvasProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
   onNodeClick?: (nodeId: string) => void;
@@ -47,34 +45,20 @@ export interface GraphCanvasProps {
   onAddNode?: (kind: NodeKind, position: { x: number; y: number }) => void;
   onConnect?: (sourceId: string, targetId: string) => void;
   onDeleteNode?: (nodeId: string) => void;
-  /**
-   * Compute the cascading damage that deleting the given node would
-   * cause. The canvas calls this when the delete-confirm modal opens
-   * so the user can see disconnected mappings and broken expressions
-   * before committing. Optional: omit to skip the preview.
-   */
+  /** Cascading damage preview for the delete-confirm modal. */
   analyzeDeleteImpact?: (nodeId: string) => DeleteImpactSummary;
-  /**
-   * Remove an edge from the underlying config. Only fired for edges whose
-   * kind maps to a direct config field (source→mapping, mapping→table).
-   * Lookup→mapping edges are implicit from the mapping's AST and are not
-   * disconnectable from the graph canvas.
-   */
+  /** Only fired for edges backed by a config field (source→mapping, mapping→table). */
   onDisconnectEdge?: (edge: { id: string; source: string; target: string }) => void;
-  /**
-   * Trigger a pipeline run from the canvas toolbar. Optional: omit to
-   * hide the run button.
-   */
+  /** Omit to hide the toolbar's run button. */
   onRun?: () => void;
 }
 
-export interface DeleteImpactSummary {
+interface DeleteImpactSummary {
   disconnectedMappings: { id: string; name: string }[];
   disconnectedTables: { id: string; name: string }[];
   brokenExpressions: { mappingId: string; mappingName: string; columnName: string }[];
 }
 
-/** Static map used to register the four custom node types with React Flow. */
 const nodeTypes: NodeTypes = {
   [NODE_TYPE.sourceContainer]: SourceContainerNode,
   [NODE_TYPE.lookupMapping]: LookupMappingNode,
@@ -113,10 +97,7 @@ function deriveEdgeKind(
   return null;
 }
 
-/**
- * Apply design-defined styles to each edge based on its inferred kind.
- * Edges that already carry an explicit `style` pass through untouched.
- */
+/** Styles each edge by inferred kind; edges with an explicit `style` pass through. */
 function styleEdges(edges: GraphEdge[], nodes: GraphNode[]): Edge[] {
   const nodesById = new Map(nodes.map((n) => [n.id, n]));
   return edges.map((e) => {
@@ -156,7 +137,7 @@ function styleEdges(edges: GraphEdge[], nodes: GraphNode[]): Edge[] {
   });
 }
 
-export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas(
+const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas(
   { nodes, edges, onNodeClick, onPaneClick, onLayout, onNodeDragStop, onAddNode, onConnect: onConnectProp, onDeleteNode, analyzeDeleteImpact, onDisconnectEdge, onRun },
   ref,
 ) {
@@ -186,13 +167,11 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
       setInternalEdges(styleEdges(newEdges, newNodes));
     },
     updateGraph: (newNodes: GraphNode[], newEdges: GraphEdge[]) => {
-      // Merge: keep existing node positions for nodes that already exist,
-      // only add/remove as needed
       setInternalNodes((prev) => {
         const prevById = new Map(prev.map((n) => [n.id, n]));
         return newNodes.map((n) => {
           const existing = prevById.get(n.id);
-          // Preserve the existing node's measured position if it exists
+          // Keep the live position so rebuilds don't jump nodes.
           return existing ? { ...n, position: existing.position } : n;
         });
       });
@@ -202,7 +181,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
 
   const handleNodesChange = useCallback(
     (changes: NodeChange<GraphNode>[]) => {
-      // Block all remove changes, deletion only via right-click menu
+      // Deletion is only allowed via the right-click menu.
       const filtered = changes.filter((c) => c.type !== "remove");
       if (filtered.length > 0) {
         setInternalNodes((prev) => applyNodeChanges(filtered, prev));
@@ -247,12 +226,8 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
     onLayout?.(laid);
   }, [internalNodes, edges, onLayout]);
 
-  // React Flow's `onNodeDragStop` callback receives the *dragged* nodes
-  // as its third argument, not the whole graph (typically a singleton;
-  // multi-select drag would have more). Pass the full `internalNodes`
-  // instead so the parent can persist every current position. Otherwise
-  // a single-node drag would write only that node's position back, and
-  // every other auto-laid node would lose its position on reload.
+  // React Flow passes only the dragged nodes; pass `internalNodes` so the
+  // parent persists every position instead of dropping the rest.
   const handleNodeDragStop = useCallback(() => {
     onNodeDragStop?.(internalNodes);
   }, [internalNodes, onNodeDragStop]);

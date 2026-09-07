@@ -1,7 +1,7 @@
 import React from "react";
 import { describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { ChipListEditor } from "../ChipListEditor";
+import ChipListEditor from "../ChipListEditor";
 
 function setup(initial: string[]) {
   let current = initial;

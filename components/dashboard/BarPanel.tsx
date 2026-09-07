@@ -24,7 +24,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 type BarConfig = Extract<PanelV2, { kind: "bar" }>;
 
-export function BarPanel({
+function BarPanel({
   config,
   data,
   params,
@@ -89,4 +89,3 @@ export function BarPanel({
 }
 
 export default BarPanel;
-export { toNum };

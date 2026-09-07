@@ -92,7 +92,7 @@ function PanelSkeleton({ panel }: { panel: PanelV2 }) {
   );
 }
 
-export function PanelRenderer({
+function PanelRenderer({
   panel,
   result,
   params,

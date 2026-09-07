@@ -27,18 +27,16 @@ export default function PipelineGraphPage() {
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  // When the user clicks an in-app link with unsaved changes, we
-  // intercept the click and stash the destination here. Resolving the
-  // modal either navigates to it or discards the intent.
+  // Destination stashed by the click interceptor; the modal either
+  // navigates to it or discards it.
   const [pendingNav, setPendingNav] = useState<string | null>(null);
 
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
   const select = useGraphStore((s) => s.select);
   const clear = useGraphStore((s) => s.clear);
   const setConfig = useGraphStore((s) => s.setConfig);
-  // Subscribe to config so the page re-renders when editors mutate the
-  // store, otherwise `selectedNodeValue` stays stale and controlled
-  // `<input value=...>` reverts on every keystroke after the first.
+  // Subscribe to config so editor keystrokes rerender the page; without
+  // it `selectedNodeValue` goes stale and controlled inputs revert.
   const config = useGraphStore((s) => s.config);
 
   const canvasRef = useRef<GraphCanvasHandle>(null);
@@ -51,7 +49,6 @@ export default function PipelineGraphPage() {
   const markDirty = useCallback(() => setIsDirty(true), []);
   const clearDirty = useCallback(() => setIsDirty(false), []);
 
-  // Load config from S3.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -86,8 +83,6 @@ export default function PipelineGraphPage() {
     return () => { cancelled = true; };
   }, [pipeline, setConfig]);
 
-  // Current selected node, derived from the live config so the detail
-  // panel's editor inputs see every keystroke of store state.
   const selectedNodeValue = useMemo<GraphNode | null>(() => {
     if (!selectedNodeId || !config) return null;
     return findNode(config, selectedNodeId);
@@ -103,31 +98,25 @@ export default function PipelineGraphPage() {
 
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      // Setting returnValue is the spec-compliant way; modern browsers
-      // ignore the string and show their own message, but we still need
-      // to set it to trigger the prompt.
+      // Browsers ignore the string but still require returnValue to prompt.
       e.returnValue = message;
       return message;
     };
 
     const onClick = (e: MouseEvent) => {
-      // Ignore modified clicks and non-primary buttons, those are the
-      // user explicitly asking for a new tab/window, not navigating
-      // away from the current view.
+      // Modified/non-primary clicks mean "new tab", not navigating away.
       if (e.defaultPrevented) return;
       if (e.button !== 0) return;
       if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 
-      // Walk up to find an anchor. `composedPath` handles shadow DOM
-      // correctly; the fallback works for plain documents.
+      // `composedPath` handles shadow DOM; the fallback covers plain docs.
       const path = (e.composedPath?.() ?? []) as EventTarget[];
       const anchor = (path.find(
         (n) => n instanceof HTMLElement && n.tagName === "A",
       ) ?? null) as HTMLAnchorElement | null;
       if (!anchor || !anchor.href) return;
 
-      // Skip new-tab links and downloads, those don't navigate the
-      // current page, so the warning would be a false positive.
+      // New-tab links and downloads don't navigate this page.
       if (anchor.target && anchor.target !== "" && anchor.target !== "_self") return;
       if (anchor.hasAttribute("download")) return;
 
@@ -152,10 +141,8 @@ export default function PipelineGraphPage() {
         return;
       }
 
-      // Block the navigation entirely so the synchronous click never
-      // turns into a route change, then surface a Modal asking whether
-      // to leave. Resolution lives in `pendingNav`, confirm =
-      // router.push, cancel = drop.
+      // Block the synchronous click so it never becomes a route change;
+      // `pendingNav` resolves it (confirm = push, cancel = drop).
       e.preventDefault();
       e.stopPropagation();
       setPendingNav(dest.pathname + dest.search + dest.hash);
@@ -163,7 +150,7 @@ export default function PipelineGraphPage() {
 
     window.addEventListener("beforeunload", onBeforeUnload);
     // Capture phase so we run before React's synthetic handlers and
-    // next/link's own click handler get a chance to navigate.
+    // next/link's own click handler navigate.
     document.addEventListener("click", onClick, true);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
@@ -171,7 +158,6 @@ export default function PipelineGraphPage() {
     };
   }, [isDirty]);
 
-  /** Apply a draft config change: update store, update canvas, mark dirty. */
   const applyDraft = useCallback((cfg: PipelineConfig) => {
     useGraphStore.setState({ config: cfg });
     const built = buildGraph(cfg);
@@ -192,21 +178,16 @@ export default function PipelineGraphPage() {
     setSaving(true);
     setValidationErrors([]);
     try {
-      // Client-side pre-flight: refuse to save if any analytic table
-      // has empty or duplicate column names. The worker validates the
-      // same constraints, but we want to block the request locally so
-      // the rule still applies when the worker is unreachable.
+      // Pre-flight locally so the rule still holds when the worker (which
+      // validates the same constraints) is unreachable.
       const localErrors = validateConfigForSave(cfg);
       if (localErrors.length > 0) {
         setValidationErrors(localErrors);
         return;
       }
 
-      // Validate via the worker before saving. Network failures are
-      // surfaced to the user instead of silently skipping validation,
-      // a worker-down save risks landing a config that's already known
-      // to be invalid, so the user must explicitly accept the risk
-      // (here, by retrying after the worker is back).
+      // Worker validation. Network failures are surfaced rather than
+      // skipped: saving unvalidated risks landing a known-bad config.
       try {
         const valRes = await fetch(`/api/p/${pipeline}/validate`, {
           method: "POST",
@@ -233,11 +214,8 @@ export default function PipelineGraphPage() {
         return;
       }
 
-      // Honor the ETag we read at load time so a concurrent edit by
-      // another session doesn't get silently overwritten. Failures here
-      // (5xx, 412 ETag mismatch, network) MUST be surfaced, previously
-      // they were swallowed and the dirty banner cleared as if the save
-      // had succeeded.
+      // Send the load-time ETag so a concurrent edit isn't overwritten;
+      // 412/5xx/network failures must stay dirty, not clear the banner.
       const etag = useGraphStore.getState().etag;
       let res: Response;
       try {
@@ -291,12 +269,8 @@ export default function PipelineGraphPage() {
     if (!saved) return;
     useGraphStore.setState({ config: saved });
     const built = buildGraph(saved);
-    // Honor the saved `layout` map, `buildGraph` already reads
-    // positions out of it. Only fall back to `autoLayout` when the
-    // saved config has no layout at all (e.g. a fresh template-created
-    // pipeline). The previous version unconditionally re-ran
-    // autoLayout, which silently overwrote any hand-tuned positions
-    // the user had previously saved.
+    // Only autoLayout when the saved config has no layout at all;
+    // otherwise re-running it would clobber hand-tuned positions.
     const hasLayout =
       saved.layout && Object.keys(saved.layout).length > 0;
     const positioned = hasLayout
@@ -307,7 +281,6 @@ export default function PipelineGraphPage() {
     setValidationErrors([]);
   }, [clearDirty]);
 
-  // Toolbar run: fire a job, jump to Jobs.
   const runningRef = useRef(false);
   const handleRun = useCallback(async () => {
     if (runningRef.current) return;
@@ -357,10 +330,8 @@ export default function PipelineGraphPage() {
     const cfg = useGraphStore.getState().config;
     if (!cfg) return;
 
-    // Disconnect every edge that references the doomed node first so the
-    // same field-clearing rules (including emptying `mapping.columns` when
-    // a table connection drops) stay consistent with the edge-disconnect
-    // flow.
+    // Disconnect edges first so field-clearing rules (e.g. emptying
+    // `mapping.columns`) match the edge-disconnect flow.
     let working = cfg;
     for (const m of cfg.mappings) {
       if (m.source_container_id === nodeId) {
@@ -371,11 +342,8 @@ export default function PipelineGraphPage() {
       }
     }
 
-    // If the doomed node is a Lookup, scrub every `lookup_ref` whose
-    // root id matches it from every mapping column expression. The
-    // user still needs to rewrite the affected columns, but at least
-    // the config parses and the worker won't reject it on save with
-    // a cryptic "unknown lookup id" error.
+    // Scrub `lookup_ref`s to a deleted Lookup so the config still parses
+    // and the worker won't reject the save with "unknown lookup id".
     const isLookup = cfg.lookup_mappings.some((l) => l.id === nodeId);
     if (isLookup) {
       working = {
@@ -390,8 +358,6 @@ export default function PipelineGraphPage() {
       };
     }
 
-    // Then drop the node itself from its owning collection and clean up
-    // its layout entry.
     const updated: PipelineConfig = {
       ...working,
       source_containers: working.source_containers.filter((s) => s.id !== nodeId),
@@ -407,10 +373,8 @@ export default function PipelineGraphPage() {
     applyDraft(updated);
   }, [applyDraft, clear]);
 
-  // Disconnect an edge by clearing the underlying config field that produced
-  // it. Lookup→mapping edges are derived from AST `lookup_ref` nodes inside a
-  // mapping column expression; they cannot be removed from the canvas and the
-  // GraphCanvas suppresses the menu item for that edge kind.
+  // Clears the config field that produced the edge. Lookup→mapping edges
+  // come from AST `lookup_ref`s, so GraphCanvas hides the menu item there.
   const handleDisconnectEdge = useCallback(
     ({ source, target }: { id: string; source: string; target: string }) => {
       const cfg = useGraphStore.getState().config;
@@ -438,9 +402,8 @@ export default function PipelineGraphPage() {
     );
   }
 
-  // On mobile the detail panel is a full-width fixed overlay, so the canvas
-  // stays full-width underneath; only offset it at sm and up.
-  // 300 must match NodeDetailPanel's sm:w-[300px].
+  // Mobile shows the detail panel as a full-width overlay, so only offset
+  // the canvas at sm+. 300 must match NodeDetailPanel's sm:w-[300px].
   const canvasClass = selectedNodeValue
     ? "relative h-full w-full sm:w-[calc(100%-300px)]"
     : "relative h-full w-full";
@@ -528,8 +491,7 @@ export default function PipelineGraphPage() {
               onClick={() => {
                 const dest = pendingNav;
                 setPendingNav(null);
-                // Mark the page clean so the navigation isn't blocked
-                // again by the same handler we just resolved through.
+                // Clean first, or the same handler blocks this push.
                 clearDirty();
                 router.push(dest);
               }}
@@ -545,17 +507,11 @@ export default function PipelineGraphPage() {
   );
 }
 
-/**
- * Block-on-save pre-flight: empty/duplicate table column names, empty
- * node names, duplicate node names within a kind. Everything else is
- * the worker validator's job. One message per problem.
- */
+/** Blocking pre-flight checks; deeper validation is the worker's job. */
 function validateConfigForSave(cfg: PipelineConfig): string[] {
   const errors: string[] = [];
 
-  // Per-kind name uniqueness + non-empty checks. Each kind keeps its
-  // own scope so a Source named "Transactions" doesn't collide with a
-  // Table named "Transactions", they're different shapes in the UI.
+  // Name scopes are per-kind: a Source and a Table may share a name.
   const kinds: { label: string; entities: { id: string; name?: string }[] }[] = [
     { label: "Source", entities: cfg.source_containers },
     { label: "Lookup", entities: cfg.lookup_mappings },
@@ -591,8 +547,7 @@ function validateConfigForSave(cfg: PipelineConfig): string[] {
     }
   }
 
-  // Per-table column name checks. Empty/duplicate columns inside an
-  // analytic table break SQL queries and Parquet output.
+  // Empty/duplicate table columns break SQL queries and Parquet output.
   for (const t of cfg.analytic_tables) {
     const label = t.name?.trim() || t.id;
     const seen = new Set<string>();
@@ -626,12 +581,8 @@ function validateConfigForSave(cfg: PipelineConfig): string[] {
   return errors;
 }
 
-// Sync a Mapping's columns with its newly-connected Analytic_Table schema.
-// The mapping's `analytic_table_id` is set to `tableId`, and its `columns`
-// are rebuilt to match the table's schema in order. Any existing column
-// whose `name` matches a table column keeps its authored `expr`; every
-// other column is seeded with `null` (the conventional "absent value" in
-// the AST taxonomy) so the user has a row per table column to fill in.
+// Rebuilds columns to match the table schema in order; columns matched by
+// name keep their `expr`, new ones are seeded with the AST `null` value.
 function syncMappingToTable(
   mapping: PipelineConfig["mappings"][number],
   tableId: string,

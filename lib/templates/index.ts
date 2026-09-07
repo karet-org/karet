@@ -1,7 +1,5 @@
-// Pipeline templates used when creating a new pipeline from the homepage.
-//
-// A template is a bundle of files (relative path -> JSON-serializable
-// content) that get written under `pipelines/<slug>/` in S3.
+// Pipeline templates for new-pipeline creation: bundles of files (relative
+// path -> content) written under `pipelines/<slug>/` in S3.
 
 import type { AstNode, PipelineConfig } from "@/lib/types/config";
 
@@ -19,14 +17,14 @@ export interface Template {
 
 const blankPipeline: PipelineConfig = {
   version: 1,
+  name: "Blank",
   source_containers: [],
   lookup_mappings: [],
   mappings: [],
   analytic_tables: [],
 };
 
-// `upper(trim(col(description)))`. Reused as the description column,
-// the merchant lookup input, and the category lookup input.
+// Reused as the description column and as both lookup inputs.
 const CLEANED_DESCRIPTION: AstNode = {
   kind: "upper",
   input: {
@@ -35,8 +33,6 @@ const CLEANED_DESCRIPTION: AstNode = {
   },
 };
 
-// `cast(col(amount), float64)`. Reused by amount and the inflow/outflow/net
-// derived columns.
 const PARSED_DATE: AstNode = {
   kind: "parse_date",
   input: { kind: "col", name: "date" },
@@ -51,6 +47,7 @@ const AMOUNT_FLOAT: AstNode = {
 
 const spendingPipeline: PipelineConfig = {
   version: 1,
+  name: "Spending Tracker",
   source_containers: [
     {
       id: "transactions_raw",
@@ -85,11 +82,9 @@ const spendingPipeline: PipelineConfig = {
         },
         { input_patterns: ["AMAZON", "TARGET", "WALMART"], output: "SHOPPING" },
         { input_patterns: ["NETFLIX", "SPOTIFY", "HULU", "STEAM"], output: "ENTERTAINMENT" },
-        // Bank-internal rows. The dashboard's `where` clause excludes
-        // these from the spending view by default.
+        // Bank-internal rows; the dashboard's `where` clause excludes these.
         { input_patterns: ["CUSTOMER TRANSFER", "PAYMENT THANK YOU", "WITHDRAWAL"], output: "TRANSFER" },
-        // INCOME outranks SHOPPING so an "AMAZON PAYROLL DEPOSIT" resolves
-        // to INCOME instead of matching the earlier SHOPPING row on "AMAZON".
+        // INCOME outranks SHOPPING so "AMAZON PAYROLL DEPOSIT" isn't SHOPPING.
         { input_patterns: ["DEPOSIT", "PAYROLL", "TAX REFUND"], output: "INCOME", priority: 10 },
         { input_patterns: ["INVESTMENT"], output: "INVESTMENT" },
       ],
@@ -101,9 +96,8 @@ const spendingPipeline: PipelineConfig = {
       name: "Merchants",
       match: "keyword_substring",
       case_insensitive: true,
-      // Canonical names for common merchants. Anything not listed
-      // falls through to the cleaned description via `coalesce` in
-      // the merchant column expression below.
+      // Unlisted merchants fall through to the cleaned description via the
+      // `coalesce` in the merchant column below.
       rows: [
         { input_patterns: ["STARBUCKS"], output: "Starbucks" },
         { input_patterns: ["TIM HORTONS"], output: "Tim Hortons" },
@@ -129,8 +123,6 @@ const spendingPipeline: PipelineConfig = {
       columns: [
         { name: "date", expr: PARSED_DATE },
         { name: "description", expr: CLEANED_DESCRIPTION },
-        // Known merchants get a canonical name; anything else falls
-        // back to the cleaned description.
         {
           name: "merchant",
           expr: {
@@ -308,9 +300,8 @@ layout:
   gap: 1rem
 `;
 
-// Two months of seed transactions covering every category and most
-// of the merchant patterns. Description values are exact substring
-// matches against the lookup patterns.
+// Two months of seed transactions; descriptions are exact substring matches
+// against the lookup patterns above.
 const SPENDING_SEED_CSV = `date,description,amount,account
 2026-04-02,STARBUCKS,5.75,visa-1234
 2026-04-03,UBER,18.40,visa-1234

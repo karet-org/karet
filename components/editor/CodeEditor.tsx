@@ -1,13 +1,6 @@
 "use client";
 
-// Shared CodeMirror host used by the YAML, SQL, and expression editors.
-//
-// Owns the boilerplate every editor repeated: mount/teardown, the app
-// theme + highlight style, external value replacement, fresh callback
-// refs so the view never remounts, an optional completion override, an
-// optional lint source with gutter, and the Tab behavior (accept an
-// open completion, indent a selection, else insert spaces). Language
-// and any extra keymaps arrive via `extensions`.
+// Shared CodeMirror host; callbacks live in refs so the view never remounts.
 
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { EditorState, StateEffect, type Extension } from "@codemirror/state";
@@ -30,8 +23,7 @@ import { indentUnit, syntaxHighlighting } from "@codemirror/language";
 import { linter, type Diagnostic } from "@codemirror/lint";
 import { editorHighlight, editorTheme } from "./theme";
 
-/** Marker effect: tells the linter its diagnostics changed without a
- * doc change (e.g. async server validation resolving). */
+/** Signals the linter that diagnostics changed without a doc change. */
 export const lintRefresh = StateEffect.define<null>();
 
 /** True when a view update carries the lintRefresh marker. */
@@ -120,11 +112,8 @@ export default function CodeEditor({
       built.push(autocompletion({ override: [(ctx) => completeRef.current?.(ctx) ?? null] }));
     }
     if (lintSource) {
-      // No lint gutter: it reserves a column even when empty, and the
-      // wavy underline + hover tooltip already carry the diagnostics.
-      // needsRefresh: the plugin only re-runs on doc changes otherwise,
-      // so late-arriving diagnostics (async validation) would wait for
-      // the next keystroke.
+      // No gutter: it reserves a column even when empty. `needsRefresh` is
+      // required or async diagnostics wait for the next keystroke.
       built.push(
         linter((view) => lintRef.current?.(view) ?? [], {
           delay: 300,
@@ -159,7 +148,7 @@ export default function CodeEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // External value replacement (load resolves after mount, chips, etc.).
+  // External value replacement (a load resolving after mount, chips, etc.).
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;

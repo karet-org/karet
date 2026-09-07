@@ -1,13 +1,5 @@
-// Server-sent events: live job updates for one pipeline.
-//
-// The worker publishes a job id on karet:jobs:events:<pipeline> after
-// every live-hash write; each event here carries the full JobRecord read
-// back from the hash. Best-effort: the jobs page keeps a slow poll as
-// reconciliation.
-//
-// Every stream owns a dedicated Redis subscriber connection, so cleanup
-// must run on every exit path (client abort, stream cancel, subscribe
-// failure) and concurrent streams are capped.
+// The worker publishes a job id on karet:jobs:events:<pipeline> per live-hash
+// write. Each stream owns a Redis subscriber, so every exit path must clean up.
 
 import { liveHashToRecord } from "@/lib/services/live-jobs";
 import { eventsChannel, getRedis, liveKey } from "@/lib/services/redis";

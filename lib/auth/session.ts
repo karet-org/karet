@@ -1,13 +1,6 @@
-// Session cookies, HMAC-signed JSON payload.
-//
-// Cookie value: `<base64url(payload)>.<base64url(hmacSHA256(payload))>`
-// Payload: `{ "exp": <unix-seconds> }`. Karet is single-admin and
-// password-only, so the cookie carries nothing but expiry, possession
-// of a valid HMAC over a fresh `exp` is the entire authorization signal.
-//
-// Stateless: no server-side session table. Uses Web Crypto (`globalThis.
-// crypto.subtle`) so the same module works in both the Edge middleware
-// and Node route handlers.
+// Stateless session cookies: `<base64url({exp})>.<base64url(hmacSHA256)>`; a valid
+// HMAC over a fresh `exp` is the whole authorization signal (single-admin app).
+// Web Crypto, so this module works in Edge middleware and Node handlers alike.
 
 import { NextResponse } from "next/server";
 
@@ -66,11 +59,7 @@ export async function signSession(
   };
 }
 
-/**
- * Returns `true` iff `cookieValue` is a valid, non-expired session signed
- * by `secret`. The payload is just an `exp` timestamp, there's no
- * additional state to surface.
- */
+/** True iff `cookieValue` is a valid, non-expired session signed by `secret`. */
 export async function verifySession(
   cookieValue: string | undefined,
   secret: string,
@@ -107,10 +96,8 @@ export async function verifySession(
   return true;
 }
 
-/**
- * Build the `Set-Cookie` value for a fresh session. Secure flag is opt-in,
- * dev runs over plain HTTP; prod (deploy-aws.md) terminates TLS at the ALB.
- */
+/** `Set-Cookie` for a fresh session. Secure is opt-in: dev runs over plain
+ * HTTP, prod terminates TLS at the ALB. */
 function sessionCookieHeader(
   value: string,
   expiresAt: number,
@@ -141,12 +128,7 @@ export function clearSessionCookieHeader(options: { secure: boolean }): string {
   return parts.join("; ");
 }
 
-/**
- * Sign a fresh session and return a `NextResponse` with `{ ok: true }` and
- * a `Set-Cookie` header attached. The cookie's `Secure` flag is derived
- * from `request.url`'s protocol so dev (HTTP) and prod (HTTPS via ALB)
- * both work.
- */
+/** Sign a fresh session; the cookie's `Secure` flag follows `request.url`'s protocol. */
 export async function issueSessionCookie(request: Request): Promise<NextResponse> {
   const { value, expiresAt } = await signSession(getSessionSecret());
   const secure = new URL(request.url).protocol === "https:";
@@ -156,11 +138,9 @@ export async function issueSessionCookie(request: Request): Promise<NextResponse
 }
 
 /**
- * HMAC key material for session signing, or `null` when configuration is
- * incomplete (callers fail closed). Derived from the session secret AND
- * the admin password hash, so rotating the password invalidates every
- * outstanding session — there is no server-side revocation list.
- * Edge-safe (pure string work); the middleware uses this too.
+ * Signing key material, or `null` when config is incomplete (callers fail
+ * closed). Derived from the session secret AND the admin password hash, so
+ * rotating the password invalidates every outstanding session. Edge-safe.
  */
 export function getSessionKeyMaterial(
   env: Record<string, string | undefined> = process.env,

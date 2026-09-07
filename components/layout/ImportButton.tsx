@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { sanitizeSlug } from "@/lib/config/slug";
 import { IconUpload } from "@/components/icons";
 
 export default function ImportButton() {
@@ -13,8 +12,8 @@ export default function ImportButton() {
   async function handleFile(file: File) {
     setImporting(true);
     try {
-      const slug = sanitizeSlug(file.name.replace(/\.zip$/i, ""));
-      const res = await fetch(`/api/pipelines/import?name=${encodeURIComponent(slug)}`, {
+      const displayName = file.name.replace(/\.zip$/i, "").trim();
+      const res = await fetch(`/api/pipelines/import?name=${encodeURIComponent(displayName)}`, {
         method: "POST",
         body: file,
       });

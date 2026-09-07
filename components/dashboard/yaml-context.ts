@@ -1,5 +1,4 @@
-// Pure helpers for YAML editing: path at offset, path to offset, and
-// schema-driven completions.
+// Pure helpers for YAML editing: offset/path mapping and completions.
 
 import { parseDocument, isMap, isSeq, isPair, isScalar, type Node } from "yaml";
 import { PANEL_KINDS_V2, filterParams, type DashboardFilterV2 } from "@/lib/types/dashboard-v2";

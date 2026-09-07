@@ -1,9 +1,5 @@
-// Pure validation predicates for the structural editors.
-//
-// Each predicate returns a `ValidationResult` whose `errors` array is empty
-// iff the edit is valid. The editors surface an inline error indicator iff
-// `errors.length > 0`. Keeping these functions side-effect-free lets the
-// property tests assert the DOM indicator equals the predicate.
+// Side-effect-free so property tests can assert the DOM error indicator
+// equals the predicate.
 
 import type {
   LookupMapping,
@@ -11,10 +7,7 @@ import type {
   SourceContainer,
 } from "@/lib/types/config";
 
-/**
- * The logical column types recognized by the Source_Container editor.
- * Mirrors the dropdown options and the validator's known-type list.
- */
+/** Mirrors the editor dropdown options and the validator's known-type list. */
 export const KNOWN_COLUMN_TYPES = [
   "string",
   "number",
@@ -24,7 +17,7 @@ export const KNOWN_COLUMN_TYPES = [
   "bool",
 ] as const;
 
-export type KnownColumnType = (typeof KNOWN_COLUMN_TYPES)[number];
+type KnownColumnType = (typeof KNOWN_COLUMN_TYPES)[number];
 
 function isKnownColumnType(t: string): t is KnownColumnType {
   return (KNOWN_COLUMN_TYPES as readonly string[]).includes(t);
@@ -35,15 +28,7 @@ export interface ValidationResult {
   errors: string[];
 }
 
-/**
- * Validate a Source_Container edit.
- *
- * Invalid iff any of:
- *   - `name` is empty (after trimming)
- *   - `schema` is empty
- *   - `schema` contains duplicate column names
- *   - any column uses a type that is not in {@link KNOWN_COLUMN_TYPES}
- */
+/** Requires a name and a schema with unique names and known types. */
 export function validateSourceContainer(
   entity: Pick<SourceContainer, "name" | "schema">,
 ): ValidationResult {
@@ -74,12 +59,7 @@ export function validateSourceContainer(
   return { errors };
 }
 
-/**
- * Validate a Lookup_Mapping edit.
- *
- * Invalid iff any row has an empty `input_patterns` array or any pattern is
- * an empty string.
- */
+/** Every row needs at least one non-empty input pattern. */
 export function validateLookupMapping(
   entity: Pick<LookupMapping, "rows">,
 ): ValidationResult {
@@ -99,15 +79,7 @@ export function validateLookupMapping(
   return { errors };
 }
 
-/**
- * Validate a Mapping edit.
- *
- * Invalid iff:
- *   - `name` is empty
- *   - not connected to a source container
- *   - not connected to an analytic table
- *   - any column expression is a bare `null` (unset)
- */
+/** Requires a name plus both source-container and analytic-table connections. */
 export function validateMapping(
   entity: Pick<Mapping, "name" | "source_container_id" | "analytic_table_id" | "columns">,
 ): ValidationResult {

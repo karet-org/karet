@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 import { DeleteObjectsCommand, type ObjectIdentifier } from "@aws-sdk/client-s3";
-import { allBuckets, createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import {
+  allBuckets,
+  createS3Client,
+  loadS3Config,
+  pipelineS3Config,
+  wrapS3Error,
+} from "@/lib/config/s3-client";
 import { sanitizeSlug } from "@/lib/config/slug";
 import {
-  renamePipelinePrefix,
-  SourceNotFoundError,
-  TargetExistsError,
+  getPipelineConfig,
+  putPipelineConfig,
 } from "@/lib/services/config-service";
 import { listAllObjectKeys } from "@/lib/services/s3-helpers";
 
-/**
- * Delete a pipeline by slug, removes every object under
- * `pipelines/<slug>/` across all three data-plane buckets.
- */
+/** Removes every object under `pipelines/<slug>/` in all three buckets. */
 export async function DELETE(
   _request: Request,
   context: { params: Promise<{ slug: string }> },
@@ -57,67 +59,38 @@ export async function DELETE(
   }, `DELETE /api/pipelines/${safeSlug}`);
 }
 
-/**
- * Rename a pipeline slug. Copies every object under `pipelines/<slug>/`
- * to `pipelines/<newSlug>/` across all three data-plane buckets, then
- * deletes the originals. External links to the old slug break by design.
- *
- * 4xx cases:
- *   - 422 invalid_slug   : either slug is empty after sanitization
- *   - 422 unchanged      : new slug equals old slug
- *   - 404 not_found      : no objects exist under the old prefix
- *   - 409 already_exists : new slug already has a `pipeline.json`
- */
+/** Renames the display name only; the id is immutable, so no objects move. */
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await context.params;
-  const safeFrom = sanitizeSlug(slug);
-  if (!safeFrom) {
+  const safeSlug = sanitizeSlug(slug);
+  if (!safeSlug) {
     return NextResponse.json({ error: "invalid_slug" }, { status: 422 });
   }
 
   const body = (await request.json().catch(() => null)) as
-    | { newSlug?: string }
+    | { name?: string }
     | null;
-  const safeTo = sanitizeSlug(body?.newSlug);
-  if (!safeTo) {
-    return NextResponse.json({ error: "invalid_slug" }, { status: 422 });
-  }
-  if (safeTo === safeFrom) {
-    return NextResponse.json(
-      { error: "unchanged", message: "new slug equals old slug" },
-      { status: 422 },
-    );
+  const name = body?.name?.trim() ?? "";
+  if (!name) {
+    return NextResponse.json({ error: "invalid_name" }, { status: 422 });
   }
 
-  const config = loadS3Config();
+  const config = pipelineS3Config(loadS3Config(), safeSlug);
   const client = createS3Client(config);
 
   return wrapS3Error(async () => {
-    try {
-      const moved = await renamePipelinePrefix(
-        client,
-        config,
-        safeFrom,
-        safeTo,
+    const current = await getPipelineConfig(client, config);
+    if (!current) {
+      return NextResponse.json(
+        { error: "not_found", pipeline: safeSlug },
+        { status: 404 },
       );
-      return NextResponse.json({ ok: true, from: safeFrom, to: safeTo, moved });
-    } catch (err) {
-      if (err instanceof SourceNotFoundError) {
-        return NextResponse.json(
-          { error: "not_found", pipeline: safeFrom },
-          { status: 404 },
-        );
-      }
-      if (err instanceof TargetExistsError) {
-        return NextResponse.json(
-          { error: "already_exists", pipeline: safeTo },
-          { status: 409 },
-        );
-      }
-      throw err;
     }
-  }, `PATCH /api/pipelines/${safeFrom}`);
+    const updated = { ...current.config, name };
+    await putPipelineConfig(client, config, JSON.stringify(updated, null, 2));
+    return NextResponse.json({ ok: true, pipeline: safeSlug, name });
+  }, `PATCH /api/pipelines/${safeSlug}`);
 }

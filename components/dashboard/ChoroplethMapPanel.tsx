@@ -42,7 +42,7 @@ type ChoroplethMapPanelConfig = Extract<PanelV2, { kind: "choropleth_map" }>;
 
 type CountryFeature = Feature<Geometry, { name: string }>;
 
-export function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfig>) {
+function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfig>) {
   const atlas = useWorldAtlas();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<ChartJS<"choropleth"> | null>(null);
