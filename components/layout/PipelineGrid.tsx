@@ -16,6 +16,8 @@ export interface PipelineCardData {
   name: string;
   tableCount: number;
   lastRunAt: string | null;
+  /** Last run, else creation/edit time — drives the "Recently run" sort. */
+  activityAt: string | null;
   lastRunLabel: string;
   status: "healthy" | "error" | "idle";
   graph: ThumbGraph;
@@ -55,16 +57,16 @@ export default function PipelineGrid({
     const list = pipelines.filter(
       (p) => !q || p.slug.includes(q) || p.name.toLowerCase().includes(q),
     );
-    if (sort === "alpha") list.sort((a, b) => a.slug.localeCompare(b.slug));
+    if (sort === "alpha") list.sort((a, b) => a.name.localeCompare(b.name));
     else if (sort === "failing")
       list.sort(
         (a, b) =>
           Number(b.status === "error") - Number(a.status === "error") ||
-          a.slug.localeCompare(b.slug),
+          a.name.localeCompare(b.name),
       );
     else
       list.sort(
-        (a, b) => Date.parse(b.lastRunAt ?? "0") - Date.parse(a.lastRunAt ?? "0"),
+        (a, b) => Date.parse(b.activityAt ?? "0") - Date.parse(a.activityAt ?? "0"),
       );
     return list;
   }, [pipelines, sort, query]);
@@ -151,7 +153,7 @@ export default function PipelineGrid({
               </Link>
               <button
                 type="button"
-                aria-label={isStarred ? `Unstar ${p.slug}` : `Star ${p.slug}`}
+                aria-label={isStarred ? `Unstar ${p.name}` : `Star ${p.name}`}
                 aria-pressed={isStarred}
                 onClick={() => toggleStar(p.slug)}
                 className={`absolute right-2.5 top-2.5 grid h-7 w-7 place-items-center rounded-lg bg-[rgba(0,0,0,0.45)] transition-opacity focus-visible:opacity-100 ${

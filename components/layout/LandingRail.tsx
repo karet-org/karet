@@ -13,7 +13,7 @@ import { SearchInput } from "@/components/layout/LandingSearch";
 interface RailProps {
   displayName: string;
   workspaceName: string;
-  starred: string[];
+  starred: { id: string; name: string }[];
 }
 
 function RailContent({ displayName, workspaceName, starred }: RailProps) {
@@ -88,17 +88,17 @@ function RailContent({ displayName, workspaceName, starred }: RailProps) {
             Starred
           </div>
           <div className="flex flex-col gap-0.5">
-            {starred.map((slug) => (
+            {starred.map(({ id, name }) => (
               <Link
-                key={slug}
-                href={`/p/${slug}/graph`}
+                key={id}
+                href={`/p/${id}/graph`}
                 className="flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
               >
                 <IconStar
                   size={14}
                   className="shrink-0 text-[color:var(--color-ink-3)]"
                 />
-                <span className="truncate">{slug}</span>
+                <span className="truncate">{name}</span>
               </Link>
             ))}
           </div>

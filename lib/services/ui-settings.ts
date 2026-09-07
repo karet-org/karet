@@ -7,6 +7,7 @@ import {
   type S3Client,
 } from "@aws-sdk/client-s3";
 import type { S3Config } from "@/lib/config/s3-client";
+import { getPipelineConfig } from "@/lib/services/config-service";
 import { readBodyToBuffer } from "@/lib/services/s3-helpers";
 
 export interface UiSettings {
@@ -82,4 +83,32 @@ export async function putUiSettings(
       ContentType: "application/json",
     }),
   );
+}
+
+/**
+ * Resolve starred pipeline ids to `{id, name}` pairs for the landing
+ * rail. Ids whose pipeline.json is missing or unreadable are dropped,
+ * they no longer exist, so the rail shouldn't link to them.
+ */
+export async function starredListings(
+  client: S3Client,
+  config: S3Config,
+  starred: string[],
+): Promise<{ id: string; name: string }[]> {
+  const listings = await Promise.all(
+    starred.map(async (id) => {
+      const scoped: S3Config = {
+        ...config,
+        pipelineConfigKey: `${config.pipelinesPrefix}${id}/pipeline.json`,
+      };
+      try {
+        const pc = await getPipelineConfig(client, scoped);
+        if (!pc) return null;
+        return { id, name: pc.config.name?.trim() || id };
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return listings.filter((l): l is { id: string; name: string } => l !== null);
 }

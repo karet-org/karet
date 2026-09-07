@@ -129,6 +129,8 @@ export interface LayoutPosition {
 
 export interface PipelineConfig {
   version: number;
+  /** Display name shown in the UI. The S3 prefix / URL id never changes. */
+  name: string;
   source_containers: SourceContainer[];
   lookup_mappings: LookupMapping[];
   mappings: Mapping[];

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { sanitizeSlug } from "@/lib/config/slug";
 import Modal from "@/components/ui/Modal";
 import { IconPlus } from "@/components/icons";
 
@@ -45,8 +44,8 @@ export default function CreatePipelineButton({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const slug = sanitizeSlug(name);
-    if (!slug) {
+    const trimmed = name.trim();
+    if (!trimmed) {
       setError("Name is required");
       return;
     }
@@ -56,13 +55,9 @@ export default function CreatePipelineButton({
       const res = await fetch("/api/pipelines", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, template }),
+        body: JSON.stringify({ name: trimmed, template }),
       });
       const data = await res.json();
-      if (res.status === 409) {
-        setError(`Pipeline "${slug}" already exists`);
-        return;
-      }
       if (!res.ok || !data.ok) {
         setError(data.message || data.error || "Failed to create pipeline");
         return;
@@ -125,12 +120,6 @@ export default function CreatePipelineButton({
               placeholder="My pipeline"
               className="mt-1.5 h-[38px] w-full rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 text-sm text-[color:var(--color-ink)] outline-none transition focus:border-[color:var(--color-carrot)] focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
             />
-            <p className="mt-1 text-[11px] text-[color:var(--color-ink-4)]">
-              Saved as{" "}
-              <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono">
-                {sanitizeSlug(name) || "…"}
-              </code>
-            </p>
 
             <label className="mt-4 block text-[12px] font-medium text-[color:var(--color-ink-2)]">
               Start from a template

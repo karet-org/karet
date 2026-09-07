@@ -1,5 +1,5 @@
 import { createS3Client, loadS3Config } from "@/lib/config/s3-client";
-import { getUiSettings } from "@/lib/services/ui-settings";
+import { getUiSettings, starredListings } from "@/lib/services/ui-settings";
 import LandingRail, { MobileRailToggle } from "@/components/layout/LandingRail";
 import { SearchProvider } from "@/components/layout/LandingSearch";
 import SettingsForm from "@/components/settings/SettingsForm";
@@ -7,9 +7,12 @@ import SettingsForm from "@/components/settings/SettingsForm";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const settings = await getUiSettings(createS3Client(), loadS3Config()).catch(
+  const client = createS3Client();
+  const config = loadS3Config();
+  const settings = await getUiSettings(client, config).catch(
     () => ({ displayName: "", workspaceName: "", starred: [] }),
   );
+  const starred = await starredListings(client, config, settings.starred).catch(() => []);
 
   return (
     <SearchProvider>
@@ -17,14 +20,14 @@ export default async function SettingsPage() {
         <LandingRail
           displayName={settings.displayName}
           workspaceName={settings.workspaceName}
-          starred={settings.starred}
+          starred={starred}
         />
         <main className="min-w-0 flex-1">
           <div className="sticky top-0 z-20 flex h-[52px] items-center border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 sm:px-6">
             <MobileRailToggle
               displayName={settings.displayName}
               workspaceName={settings.workspaceName}
-              starred={settings.starred}
+              starred={starred}
             />
             <h1 className="text-[15px] font-semibold text-[color:var(--color-ink)]">
               Settings

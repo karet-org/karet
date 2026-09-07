@@ -19,6 +19,7 @@ export interface Template {
 
 const blankPipeline: PipelineConfig = {
   version: 1,
+  name: "Blank",
   source_containers: [],
   lookup_mappings: [],
   mappings: [],
@@ -51,6 +52,7 @@ const AMOUNT_FLOAT: AstNode = {
 
 const spendingPipeline: PipelineConfig = {
   version: 1,
+  name: "Spending Tracker",
   source_containers: [
     {
       id: "transactions_raw",

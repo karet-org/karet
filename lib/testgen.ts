@@ -318,6 +318,7 @@ export const arbPipelineConfig: fc.Arbitrary<PipelineConfig> = fc
   .record(
     {
       version: fc.constant(1),
+      name: arbName,
       source_containers: fc.array(arbSourceContainer, {
         minLength: 1,
         maxLength: 3,
@@ -342,6 +343,7 @@ export const arbPipelineConfig: fc.Arbitrary<PipelineConfig> = fc
     {
       requiredKeys: [
         "version",
+        "name",
         "source_containers",
         "lookup_mappings",
         "mappings",

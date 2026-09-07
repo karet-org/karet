@@ -28,9 +28,17 @@ type StatusKind = "healthy" | "error" | "idle";
 
 interface PipelineSummary {
   slug: string;
+  /** Display name from pipeline.json; the slug when the config is unreadable. */
+  name: string;
   tableCount: number;
   /** ISO timestamp of the most recent job, or null if the pipeline has never run. */
   lastRunAt: string | null;
+  /**
+   * Sort key for "Recently run": the last run, else the config's S3
+   * LastModified — so a just-created pipeline lands at the front of the
+   * grid instead of sinking to the end.
+   */
+  activityAt: string | null;
   status: StatusKind;
   graph: ThumbGraph;
 }
@@ -125,8 +133,10 @@ async function loadSummary(
 
   return {
     slug,
+    name: c?.name?.trim() || slug,
     tableCount: c?.analytic_tables.length ?? 0,
     lastRunAt: latestTerminalJob?.startedAt ?? null,
+    activityAt: latestTerminalJob?.startedAt ?? configResult?.lastModified ?? null,
     status,
     graph,
   };
@@ -167,12 +177,6 @@ async function loadLatestTerminalJob(
   return null;
 }
 
-function formatName(slug: string): string {
-  return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-
-
 export default async function Home() {
   const [{ pipelines, bucketError, loadError }, settings] = await Promise.all([
     getPipelines(),
@@ -185,13 +189,16 @@ export default async function Home() {
     })(),
   ]);
 
-  const known = new Set(pipelines.map((p) => p.slug));
-  const starred = settings.starred.filter((s) => known.has(s));
+  const names = new Map(pipelines.map((p) => [p.slug, p.name]));
+  const starred = settings.starred
+    .filter((s) => names.has(s))
+    .map((id) => ({ id, name: names.get(id)! }));
   const cards: PipelineCardData[] = pipelines.map((p) => ({
     slug: p.slug,
-    name: formatName(p.slug),
+    name: p.name,
     tableCount: p.tableCount,
     lastRunAt: p.lastRunAt,
+    activityAt: p.activityAt,
     lastRunLabel: formatRelative(p.lastRunAt).toLowerCase(),
     status: p.status,
     graph: p.graph,
@@ -245,7 +252,7 @@ export default async function Home() {
           ) : (
             <PipelineGrid
               pipelines={cards}
-              starred={starred}
+              starred={starred.map((s) => s.id)}
               createSlot={<CreatePipelineButton variant="card" />}
             />
           )}

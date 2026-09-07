@@ -8,6 +8,7 @@ import type { PipelineConfig } from "@/lib/types/config";
 function cfg(name: string, id: string): PipelineConfig {
   return {
     version: 1,
+    name: "Test Pipeline",
     source_containers: [],
     lookup_mappings: [],
     mappings: [],
