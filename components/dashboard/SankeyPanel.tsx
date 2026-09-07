@@ -79,6 +79,30 @@ export function truncate(name: string): string {
   return name.length > LABEL_MAX_CHARS ? `${name.slice(0, LABEL_MAX_CHARS - 1)}\u2026` : name;
 }
 
+/** Column alignment. d3's default places any node with no inflows in
+ * the leftmost layer, so e.g. a credit card account (spend only, no
+ * income) lands among the income sources and its ribbons cross the
+ * whole diagram. Instead: sinks hug the right edge, pure sources sit
+ * one layer left of their nearest target, everything else keeps its
+ * longest-path depth. */
+export function alignHugTargets(
+  node: {
+    depth?: number;
+    sourceLinks?: { target: unknown }[];
+    targetLinks?: unknown[];
+  },
+  n: number,
+): number {
+  const out = node.sourceLinks ?? [];
+  if (out.length === 0) return n - 1;
+  if ((node.targetLinks ?? []).length === 0) {
+    // Targets are resolved node objects by the time align runs.
+    const depths = out.map((l) => (l.target as { depth?: number }).depth ?? 0);
+    return Math.min(...depths) - 1;
+  }
+  return node.depth ?? 0;
+}
+
 export function linkOpacity(hover: Hover | null, from: string, to: string): number {
   if (!hover) return 0.3;
   if (hover.kind === "node") return hover.name === from || hover.name === to ? 0.55 : 0.08;
@@ -149,6 +173,7 @@ export function SankeyPanel({ config, data }: PanelProps<SankeyPanelConfig>) {
     const sankeyGen = d3Sankey<NodeDatum, LinkDatum>()
       .nodeWidth(NODE_WIDTH)
       .nodePadding(NODE_PADDING)
+      .nodeAlign(alignHugTargets)
       .extent([
         [LABEL_PAD_LEFT, PADDING],
         [Math.max(renderWidth - LABEL_PAD_RIGHT, LABEL_PAD_LEFT + 100), height - PADDING],
