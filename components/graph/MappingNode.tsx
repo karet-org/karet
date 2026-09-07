@@ -6,7 +6,7 @@ import type { MappingNodeData } from "@/lib/graph/build";
 import { astSummary } from "./astSummary";
 import NodeShell from "./NodeShell";
 
-export function MappingNode({
+function MappingNode({
   data,
   selected,
 }: NodeProps & { data: MappingNodeData }) {

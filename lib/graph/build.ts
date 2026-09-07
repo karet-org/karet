@@ -1,19 +1,9 @@
 // Build a React Flow graph from a `Pipeline_Config`.
 //
-// Emits one node per Source_Container, Lookup_Mapping, Mapping, and
-// Analytic_Table; and one edge for each config reference:
-//
-//   - source_container_id → mapping_id      (per Mapping)
-//   - lookup_root_id      → mapping_id      (per `lookup_ref` found in any
-//                                            `MappingColumn.expr`; dedup per
-//                                            mapping, and the root portion of
-//                                            the dotted `lookup_id` is used
-//                                            since only root Lookup_Mappings
-//                                            have their own node)
-//   - mapping_id          → analytic_table_id (per Mapping)
-//
-// Node positions come from `cfg.layout[id]` when present, otherwise default
-// to `{ x: 0, y: 0 }`.
+// One node per Source_Container / Lookup_Mapping / Mapping / Analytic_Table,
+// plus an edge per config reference: source→mapping, lookup root→mapping (from
+// `lookup_ref`s in column exprs; only root lookups have nodes), mapping→table.
+// Positions come from `cfg.layout[id]`, defaulting to `{ x: 0, y: 0 }`.
 
 import type { Edge, Node } from "@xyflow/react";
 import type {
@@ -30,7 +20,7 @@ export type LookupMappingNodeData = { kind: "lookup-mapping"; entity: LookupMapp
 export type MappingNodeData = { kind: "mapping"; entity: Mapping };
 export type AnalyticTableNodeData = { kind: "analytic-table"; entity: AnalyticTable };
 
-export type GraphNodeData =
+type GraphNodeData =
   | SourceContainerNodeData
   | LookupMappingNodeData
   | MappingNodeData
@@ -44,7 +34,7 @@ export interface Graph {
   edges: GraphEdge[];
 }
 
-/** Node type tag strings (stable; wired to React Flow custom node registry). */
+/** Node type tags wired to the React Flow custom node registry. */
 export const NODE_TYPE = {
   sourceContainer: "source-container",
   lookupMapping: "lookup-mapping",
@@ -53,10 +43,8 @@ export const NODE_TYPE = {
 } as const;
 
 /**
- * Recursively walk an `AstNode`, collecting the root id for every
- * `lookup_ref` encountered. The `lookup_id` uses dotted-path syntax
- * (e.g. `categories.merchants`); the root (before the first dot) identifies
- * the Lookup_Mapping node in the graph.
+ * Collect the root id of every `lookup_ref` in an AST. `lookup_id` is a dotted
+ * path (`categories.merchants`); only the root has a graph node.
  */
 function collectLookupRootIds(node: AstNode, out: Set<string>): void {
   switch (node.kind) {
@@ -115,7 +103,6 @@ export function rootLookupId(lookupId: string): string {
   return dot === -1 ? lookupId : lookupId.slice(0, dot);
 }
 
-/** Build the React Flow graph for the given `PipelineConfig`. */
 export function buildGraph(cfg: PipelineConfig): Graph {
   const position = (id: string) => cfg.layout?.[id] ?? { x: 0, y: 0 };
 

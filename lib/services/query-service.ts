@@ -1,9 +1,5 @@
-// Shared query helpers: the single warehouse-only execution path used by the
-// Data page's query endpoint and by dashboards backed by a saved query.
-//
-// Every analytic table (warehouse) is exposed to the SQL as a relation named
-// by its slugified table name. Lake sources are intentionally not exposed,
-// queries run against query-ready Parquet only.
+// The single warehouse-only query path (Data page endpoint + saved-query
+// dashboards). Lake sources are deliberately not exposed to user SQL.
 
 import type { PipelineConfig } from "@/lib/types/config";
 import { describeUserQuery, executeUserQuery, warehouseSource, type QueryRelation } from "@/lib/services/duckdb";
@@ -12,9 +8,8 @@ export { nameToSlug } from "@/lib/config/name-to-slug";
 import { nameToSlug } from "@/lib/config/name-to-slug";
 
 /**
- * Every analytic table exposed as a warehouse relation the query can name.
- * Both the slugified display name and the table id resolve, so renaming a
- * table in the inspector cannot break SQL written against the id.
+ * Every analytic table as a nameable relation. Both the slugified display name
+ * and the table id resolve, so renaming a table can't break SQL using the id.
  */
 export function relationsForConfig(
   pipeline: string,
@@ -32,11 +27,8 @@ export function relationsForConfig(
   return out;
 }
 
-/**
- * Run a user's read-only SELECT against the pipeline's warehouse tables.
- * With `validateOnly`, the query is planned but no rows are returned, used
- * to check a query is valid before saving it.
- */
+/** Run a read-only SELECT against the pipeline's warehouse tables; `validateOnly`
+ * plans without returning rows. */
 export function runPipelineQuery(
   pipeline: string,
   config: PipelineConfig,

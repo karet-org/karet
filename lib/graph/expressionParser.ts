@@ -1,5 +1,4 @@
 // Expression parser for mapping columns.
-// Parses human-readable expressions into AstNode trees.
 //
 // Grammar (simplified):
 //   expr     = compare
@@ -11,10 +10,6 @@
 //   atom     = NUMBER | STRING | "true" | "false" | "null" | IDENT | "(" expr ")"
 
 import type { AstNode, CastType } from "@/lib/types/config";
-
-// ---------------------------------------------------------------------------
-// Tokenizer
-// ---------------------------------------------------------------------------
 
 type TokenKind = "num" | "str" | "ident" | "op" | "paren" | "comma" | "eof";
 interface Token { kind: TokenKind; value: string; pos: number }
@@ -30,15 +25,14 @@ function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
   while (i < input.length) {
-    // Skip whitespace
     if (/\s/.test(input[i])) { i++; continue; }
 
-    // Number, supports scientific notation (`1e-5`, `1.5e+10`).
+    // Number: a leading `-` only counts at expression start or after an op /
+    // comma / `(`; exponent form (`1e-5`, `1.5e+10`) is accepted.
     if (/[0-9]/.test(input[i]) || (input[i] === "-" && i + 1 < input.length && /[0-9]/.test(input[i + 1]) && (tokens.length === 0 || tokens[tokens.length - 1].kind === "op" || tokens[tokens.length - 1].kind === "comma" || (tokens[tokens.length - 1].kind === "paren" && tokens[tokens.length - 1].value === "(")))) {
       const start = i;
       if (input[i] === "-") i++;
       while (i < input.length && /[0-9.]/.test(input[i])) i++;
-      // Optional exponent: `e` or `E` followed by an optional sign and digits.
       if (i < input.length && (input[i] === "e" || input[i] === "E")) {
         i++;
         if (i < input.length && (input[i] === "+" || input[i] === "-")) i++;
@@ -48,7 +42,7 @@ function tokenize(input: string): Token[] {
       continue;
     }
 
-    // String literal
+    // String literal; `\` escapes the next char.
     if (input[i] === '"') {
       const start = i; i++;
       while (i < input.length && input[i] !== '"') {
@@ -61,7 +55,6 @@ function tokenize(input: string): Token[] {
       continue;
     }
 
-    // Multi-char operators
     if (i + 1 < input.length) {
       const two = input.slice(i, i + 2);
       if (["==", "!=", ">=", "<="].includes(two)) {
@@ -69,22 +62,19 @@ function tokenize(input: string): Token[] {
       }
     }
 
-    // Single-char operators
     if ("+-*/><".includes(input[i])) {
       tokens.push({ kind: "op", value: input[i], pos: i }); i++; continue;
     }
 
-    // Parens
     if ("()".includes(input[i])) {
       tokens.push({ kind: "paren", value: input[i], pos: i }); i++; continue;
     }
 
-    // Comma
     if (input[i] === ",") {
       tokens.push({ kind: "comma", value: ",", pos: i }); i++; continue;
     }
 
-    // Identifier (includes underscores, dots for lookup paths)
+    // Identifier; dots are allowed so dotted lookup paths tokenize as one ident.
     if (/[a-zA-Z_]/.test(input[i])) {
       const start = i;
       while (i < input.length && /[a-zA-Z0-9_.]/.test(input[i])) i++;
@@ -97,10 +87,6 @@ function tokenize(input: string): Token[] {
   tokens.push({ kind: "eof", value: "", pos: input.length });
   return tokens;
 }
-
-// ---------------------------------------------------------------------------
-// Parser
-// ---------------------------------------------------------------------------
 
 class Parser {
   private tokens: Token[];
@@ -164,7 +150,6 @@ class Parser {
   private parseUnary(): AstNode {
     const t = this.peek();
 
-    // Function call: ident(...)
     if (t.kind === "ident" && this.tokens[this.pos + 1]?.value === "(") {
       return this.parseFuncCall();
     }
@@ -173,7 +158,7 @@ class Parser {
   }
 
   private parseFuncCall(): AstNode {
-    const name = this.advance().value; // function name
+    const name = this.advance().value;
     this.expect("paren", "(");
     const args = this.parseArgList();
     this.expect("paren", ")");
@@ -186,11 +171,8 @@ class Parser {
       case "lower": return { kind: "lower", input: this.requireArg(args, 0, name) };
       case "trim": return { kind: "trim", input: this.requireArg(args, 0, name) };
       case "col": {
-        // `col("Name With Spaces")`, explicit form for column names
-        // that aren't bare identifiers. The bare-ident form (just
-        // writing `Description`) still works for normal names; this
-        // arm handles round-trip from `astExpression` for source
-        // schemas with whitespace, dashes, etc.
+        // Explicit form for names that aren't bare identifiers (spaces,
+        // dashes); round-trips output from `astExpression`.
         const arg = this.requireArg(args, 0, name);
         if (arg.kind !== "str") {
           throw new ParseError("col() requires a string column name", this.peek().pos);
@@ -199,18 +181,15 @@ class Parser {
       }
       case "contains": return { kind: "contains", input: this.requireArg(args, 0, name), pattern: this.requireArg(args, 1, name) };
       case "concat": {
-        // Shape: `concat("sep", a, b, ...)`, separator first, zero or
-        // more args after. The AST permits an empty `args` array (Polars
-        // produces an empty string for that case), so we don't require
-        // a minimum body arity here, only the separator itself.
+        // `concat("sep", ...)`: separator required, body may be empty (Polars
+        // yields an empty string), so no minimum body arity.
         if (args.length < 1) throw new ParseError("concat requires a string separator", this.peek().pos);
         const sep = args[0];
         if (sep.kind !== "str") throw new ParseError("concat first arg must be a string separator", this.peek().pos);
         return { kind: "concat", sep: sep.value, args: args.slice(1) };
       }
       case "coalesce": {
-        // `coalesce(a, b, c, ...)`, arity is open. Empty `coalesce()`
-        // is a constant null; we still allow it for symmetry with the
+        // Open arity; empty `coalesce()` is a constant null, matching the
         // worker-side semantics.
         return { kind: "coalesce", args };
       }
@@ -247,7 +226,7 @@ class Parser {
         if (args.length < 3) throw new ParseError("if requires (cond, then, else)", this.peek().pos);
         return { kind: "if", cond: args[0], then: args[1], else: args[2] };
       }
-      // Binary ops as function calls: add(a, b), mul(a, b), eq(a, b), etc.
+      // Binary ops also accepted in call form: add(a, b), eq(a, b), ...
       case "add": case "sub": case "mul": case "div":
       case "eq": case "ne": case "gt": case "lt": case "ge": case "le":
         return { kind: name, left: this.requireArg(args, 0, name), right: this.requireArg(args, 1, name) } as AstNode;
@@ -282,7 +261,6 @@ class Parser {
 
     if (t.kind === "str") {
       this.advance();
-      // Strip quotes and unescape
       const inner = t.value.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
       return { kind: "str", value: inner };
     }
@@ -292,7 +270,7 @@ class Parser {
       if (t.value === "true") return { kind: "bool", value: true };
       if (t.value === "false") return { kind: "bool", value: false };
       if (t.value === "null") return { kind: "null" };
-      // Bare identifier = column reference
+      // Bare identifier = column reference.
       return { kind: "col", name: t.value };
     }
 
@@ -306,10 +284,6 @@ class Parser {
     throw new ParseError(`Unexpected '${t.value}'`, t.pos);
   }
 }
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 export type ParseResult =
   | { ok: true; value: AstNode }

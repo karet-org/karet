@@ -1,17 +1,9 @@
-// Structural editor for a Lookup node (renamed from "lookup mapping",
-// which collided with mapping nodes), display-first.
-//
-// Rules render as quiet pattern-to-output rows; clicking one opens it
-// in place with the pattern chips, output, and priority (highest
-// matching rule wins, definition order breaks ties). Catch-all is its
-// own section: a fixed output on miss, or cleared so misses yield null.
-//
-// Validation (empty patterns) uses `validateLookupMapping` so the pure
-// predicate and the DOM error indicator stay in sync.
+// Highest-priority match wins (definition order breaks ties); an empty
+// catch-all output means a miss yields null.
 
 import { useMemo, useState } from "react";
 import type { LookupCatchAll, LookupMapping, LookupRow } from "@/lib/types/config";
-import { ChipListEditor } from "@/components/ui/ChipListEditor";
+import ChipListEditor from "@/components/ui/ChipListEditor";
 import { InlineErrorList } from "./editorPrimitives";
 import {
   EditField,
@@ -26,7 +18,7 @@ import {
 } from "./inspector";
 import { validateLookupMapping, type ValidationResult } from "./validation";
 
-export interface LookupMappingEditorProps {
+interface LookupMappingEditorProps {
   value: LookupMapping;
   onChange: (next: LookupMapping) => void;
   onValidate?: (result: ValidationResult) => void;
@@ -34,7 +26,7 @@ export interface LookupMappingEditorProps {
 
 export const LOOKUP_MAPPING_EDITOR_ERROR_TESTID = "lookup-mapping-editor-error";
 
-export function LookupMappingEditor({ value, onChange, onValidate }: LookupMappingEditorProps) {
+function LookupMappingEditor({ value, onChange, onValidate }: LookupMappingEditorProps) {
   const result = useMemo(() => validateLookupMapping(value), [value]);
   if (onValidate) onValidate(result);
 

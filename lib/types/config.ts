@@ -1,9 +1,5 @@
-// TypeScript mirror of the Rust `Pipeline_Config` and `AstNode` types.
-// Kept in lockstep with `src/karet-worker/src/config.rs` and `ast.rs`.
-
-// ---------------------------------------------------------------------------
-// AstNode, discriminated union on `kind`.
-// ---------------------------------------------------------------------------
+// TypeScript mirror of the Rust `Pipeline_Config` / `AstNode`; kept in lockstep
+// with `src/karet-worker/src/config.rs` and `ast.rs`.
 
 export type CastType = "int64" | "float64" | "string" | "date";
 
@@ -38,10 +34,6 @@ export type AstNode =
   | { kind: "lookup_ref"; lookup_id: string; input: AstNode }
   | { kind: "cast"; input: AstNode; to: CastType };
 
-// ---------------------------------------------------------------------------
-// Pipeline_Config
-// ---------------------------------------------------------------------------
-
 export interface ColumnSchema {
   name: string;
   type: string; // "string" | "number" | "int64" | "float64" | "date" | "bool"
@@ -49,12 +41,8 @@ export interface ColumnSchema {
   assertions?: ColumnAssertions;
 }
 
-/**
- * Declarative data-quality checks on an Analytic_Table column. Mirrors
- * `ColumnAssertions` in `karet-worker/src/config.rs`. All fields are
- * optional; a missing field means "don't check".
- */
-export interface ColumnAssertions {
+/** Data-quality checks on a column; missing field means "don't check". */
+interface ColumnAssertions {
   not_null?: boolean;
   min?: number;
   max?: number;
@@ -71,10 +59,8 @@ export interface LookupRow {
   input_patterns: string[];
   output: string;
   /**
-   * Tie-breaker when more than one row in the same lookup node matches an
-   * input. The matcher picks the matching row with the highest `priority`;
-   * ties fall back to definition order. Defaults to `0`, so omitting the
-   * field preserves first-match-wins behavior.
+   * Highest-priority matching row wins; ties fall back to definition order.
+   * Defaults to `0`, so omitting it preserves first-match-wins.
    */
   priority?: number;
 }
@@ -86,15 +72,10 @@ export interface LookupMapping {
   case_insensitive?: boolean;
   rows: LookupRow[];
   children?: LookupMapping[];
-  /**
-   * Fallback hit emitted when no row's patterns match (after children
-   * have also missed). Unset = miss yields `null` in the output column,
-   * preserving the original behavior.
-   */
+  /** Fallback when no row (and no child) matches; unset means `null`. */
   catch_all?: LookupCatchAll;
 }
 
-/** Output for a {@link LookupMapping.catch_all} fallback. */
 export interface LookupCatchAll {
   output: string;
 }

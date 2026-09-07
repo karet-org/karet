@@ -6,13 +6,7 @@ import {
   type S3Client,
 } from "@aws-sdk/client-s3";
 
-/**
- * List every object key under `prefix` in `bucket`, walking continuation
- * tokens so the result is complete. Callers that only want a subset
- * (e.g. a particular extension) should filter the returned list,
- * there's no point offering a predicate since the pagination cost is in
- * the S3 round trips, not the client-side filter.
- */
+/** Every object key under `prefix`, walking continuation tokens so the list is complete. */
 export async function listAllObjectKeys(
   client: S3Client,
   bucket: string,
@@ -36,10 +30,7 @@ export async function listAllObjectKeys(
   return keys;
 }
 
-/**
- * Drain an `AsyncIterable<Uint8Array>` (the AWS SDK v3 `Body` shape on
- * Node.js) into a single `Buffer`.
- */
+/** Drain an `AsyncIterable<Uint8Array>` (the SDK v3 `Body` shape on Node) into a Buffer. */
 export async function readBodyToBuffer(body: unknown): Promise<Buffer> {
   const chunks: Uint8Array[] = [];
   const stream = body as AsyncIterable<Uint8Array>;

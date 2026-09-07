@@ -29,12 +29,9 @@ export default function JobsPage() {
   const jobsRef = useRef(jobs);
   jobsRef.current = jobs;
 
-  // Single-flight with a trailing rerun: SSE bursts (every status
-  // transition of every queued job) each ask for a reload, and a fetch
-  // takes longer than the gap between events, so naive per-event fetches
-  // pile up dozens of concurrent /jobs requests and starve the server.
-  // At most one request is in flight; asks that arrive meanwhile collapse
-  // into a single follow-up.
+  // Single-flight with a trailing rerun: SSE bursts arrive faster than a
+  // fetch completes, so per-event loads would pile up and starve the
+  // server. Asks during a flight collapse into one follow-up.
   const loadInFlight = useRef(false);
   const loadAgain = useRef(false);
   const loadJobs = useCallback(async () => {
@@ -75,7 +72,7 @@ export default function JobsPage() {
     loadJobs();
   }, [loadJobs, page, pageSize]);
 
-  // Keep the page within range if the total shrinks (e.g. records change).
+  // Clamp the page when the total shrinks.
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
@@ -83,16 +80,12 @@ export default function JobsPage() {
   const loadJobsRef = useRef(loadJobs);
   loadJobsRef.current = loadJobs;
 
-  // Live updates over SSE. Events only update rows already on the page
-  // (inserting would break page size and totals); unknown ids and
-  // terminal transitions trigger a reload, which repaginates correctly.
+  // Live updates over SSE. Events only patch rows already on the page;
+  // unknown ids and terminal transitions trigger a repaginating reload.
   //
-  // The stream only runs while the tab is visible. Browsers cap
-  // concurrent HTTP/1.1 connections per origin (6 in Chrome/Firefox), and
-  // an EventSource holds one for the life of the page, so a handful of
-  // background jobs tabs would starve the whole app of connections —
-  // including this page's own fetches. Hidden tabs fall back to the
-  // (paused) poll and catch up when they become visible again.
+  // Only runs while the tab is visible: an EventSource holds one of the
+  // browser's 6 per-origin HTTP/1.1 connections for the page's lifetime,
+  // so background tabs would starve the app's own fetches.
   const [sseConnected, setSseConnected] = useState(false);
   useEffect(() => {
     let es: EventSource | null = null;
@@ -140,9 +133,8 @@ export default function JobsPage() {
     };
   }, [pipeline]);
 
-  // Reconciliation poll: slow while SSE is delivering, faster fallback
-  // when it isn't. Skipped entirely while the tab is hidden — the
-  // visibility handler reloads on return, so nothing is missed.
+  // Reconciliation poll: slow while SSE delivers, faster fallback when it
+  // doesn't. Skipped while hidden; the visibility handler catches up.
   useEffect(() => {
     const id = setInterval(() => {
       if (document.visibilityState === "hidden") return;
@@ -151,16 +143,13 @@ export default function JobsPage() {
     return () => clearInterval(id);
   }, [sseConnected]);
 
-  // A run is already queued or executing; another trigger would just
-  // stack an identical clean run behind it in the worker queue.
+  // Another trigger would just stack an identical clean run behind it.
   const hasActiveJob = jobs.some(
     (j) => j.status === "queued" || j.status === "running" || j.status === "scheduled",
   );
 
-  // Synchronous lock so a rapid double-click doesn't fire two POSTs
-  // before React rerenders the disabled state of the button. Without
-  // this, two parallel jobs land for the same pipeline and race over
-  // the same S3 prefix.
+  // Synchronous lock: a double-click fires two POSTs before React
+  // rerenders the disabled state, racing two jobs over the same S3 prefix.
   const triggerInFlight = useRef(false);
   async function triggerJob() {
     if (triggerInFlight.current) return;
@@ -169,7 +158,7 @@ export default function JobsPage() {
     try {
       await fetch(`/api/p/${pipeline}/jobs?clean=true`, { method: "POST" });
       // Await the reload so the button stays locked until the queued job
-      // is on screen — otherwise a spam-click in the gap enqueues extras.
+      // is on screen; a spam-click in the gap would enqueue extras.
       if (page !== 1) setPage(1);
       else await loadJobs();
     } finally {

@@ -23,12 +23,7 @@ function absolutizeSourcePrefixes(cfg: PipelineConfig, prefix: string): Pipeline
   };
 }
 
-/**
- * Create a pipeline. `name` is the display name; the immutable id (S3
- * prefix + URL segment) is generated here and never changes — rename
- * only rewrites `name` inside pipeline.json, so name and id can drift
- * apart freely.
- */
+/** Creates a pipeline; the generated id is immutable, rename only edits `name`. */
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     name?: string;
@@ -42,9 +37,8 @@ export async function POST(request: Request) {
   if (!template) return NextResponse.json({ error: "invalid_template" }, { status: 422 });
 
   return withS3("POST /api/pipelines", async (client, config) => {
-    // Ids embed a timestamp plus 6 random base36 chars, so a collision
-    // means a same-millisecond create also drew the same suffix; retry a
-    // couple of times and give up loudly rather than clobber.
+    // A collision needs a same-millisecond create to also draw the same
+    // random suffix; retry a few times rather than clobber.
     let slug = "";
     for (let attempt = 0; attempt < 3; attempt++) {
       const candidate = newPipelineId();
@@ -68,9 +62,8 @@ export async function POST(request: Request) {
     const prefix = `${config.pipelinesPrefix}${slug}/`;
 
     for (const [relPath, content] of Object.entries(template.files)) {
-      // Templates author source prefixes relative to the pipeline; the
-      // stored config uses absolute lake keys, so render them here. The
-      // user's display name replaces the template's placeholder name.
+      // Templates author source prefixes relative to the pipeline; stored
+      // configs use absolute lake keys, so render them here.
       const body =
         relPath === "pipeline.json"
           ? { ...absolutizeSourcePrefixes(content as PipelineConfig, prefix), name }

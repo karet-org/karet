@@ -14,10 +14,7 @@ import {
 } from "@/lib/services/config-service";
 import { listAllObjectKeys } from "@/lib/services/s3-helpers";
 
-/**
- * Delete a pipeline by slug, removes every object under
- * `pipelines/<slug>/` across all three data-plane buckets.
- */
+/** Removes every object under `pipelines/<slug>/` in all three buckets. */
 export async function DELETE(
   _request: Request,
   context: { params: Promise<{ slug: string }> },
@@ -62,16 +59,7 @@ export async function DELETE(
   }, `DELETE /api/pipelines/${safeSlug}`);
 }
 
-/**
- * Rename a pipeline's display name. The id (URL segment, S3 prefix) is
- * immutable; this is a single metadata write to `pipeline.json`, so it
- * is instant and atomic — no objects move.
- *
- * 4xx cases:
- *   - 422 invalid_slug : the id is empty after sanitization
- *   - 422 invalid_name : the display name is empty
- *   - 404 not_found    : no pipeline.json exists for the id
- */
+/** Renames the display name only; the id is immutable, so no objects move. */
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ slug: string }> },

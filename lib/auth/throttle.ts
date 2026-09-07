@@ -1,20 +1,14 @@
-// Login throttling. scrypt verification costs ~128 MiB / ~0.5 s, and the
-// login route is necessarily session-exempt, so it needs two guards:
-//
-//   1. Per-IP token bucket (burst ATTEMPT_BURST, one refill per
-//      ATTEMPT_REFILL_MS; reset on successful login).
-//   2. Global cap on in-flight verifications, bounding worst-case memory
-//      no matter how many IPs an attacker rotates through.
-//
-// State is in-memory and per-process; extra replicas loosen the bound by
-// their count, nothing worse.
+// Login throttling: scrypt costs ~128 MiB / ~0.5 s and the login route is
+// session-exempt, so a per-IP bucket plus a global in-flight cap bound memory
+// however many IPs an attacker rotates. State is per-process, which only
+// loosens the bound by the replica count.
 
 const ATTEMPT_BURST = 5;
 const ATTEMPT_REFILL_MS = 15_000;
 /** In-flight scrypt cap: 2 × ~128 MiB worst case is an acceptable bound. */
 const MAX_CONCURRENT_VERIFICATIONS = 2;
-/** Bucket table cap; oldest entries are evicted (attackers rotating IPs
- * hit the global concurrency cap anyway). */
+/** Bucket table cap; oldest entries are evicted (IP-rotating attackers hit the
+ * global concurrency cap anyway). */
 const MAX_TRACKED_IPS = 10_000;
 
 interface Bucket {
@@ -25,10 +19,9 @@ interface Bucket {
 const buckets = new Map<string, Bucket>();
 let inFlight = 0;
 
-/** Extract a client identifier from the request. Behind the ALB/proxy the
- * first `x-forwarded-for` hop is the client; bare compose exposes no
- * address to route handlers, so everything shares one bucket — fine, the
- * legitimate admin and the attacker contend equally there. */
+/** Client identifier: behind the ALB the first `x-forwarded-for` hop. Bare
+ * compose exposes no address, so everything shares one bucket — acceptable,
+ * the admin and the attacker contend equally there. */
 export function clientKey(request: Request): string {
   const xff = request.headers.get("x-forwarded-for");
   if (xff) {
@@ -43,8 +36,8 @@ export type ThrottleDecision =
   | { allowed: false; reason: "rate_limited" | "busy"; retryAfterS: number };
 
 /**
- * Reserve capacity for one verification attempt. On `allowed: true` the
- * caller MUST call `release()` (and may call `reset(key)` on success).
+ * Reserve capacity for one verification attempt. On `allowed: true` the caller
+ * MUST call `release()` (and may call `reset(key)` on success).
  */
 export function acquire(key: string, now = Date.now()): ThrottleDecision {
   if (inFlight >= MAX_CONCURRENT_VERIFICATIONS) {
@@ -54,7 +47,7 @@ export function acquire(key: string, now = Date.now()): ThrottleDecision {
   let bucket = buckets.get(key);
   if (!bucket) {
     if (buckets.size >= MAX_TRACKED_IPS) {
-      // Evict the oldest entry (Map preserves insertion order).
+      // Map preserves insertion order, so this is the oldest entry.
       const oldest = buckets.keys().next().value;
       if (oldest !== undefined) buckets.delete(oldest);
     }

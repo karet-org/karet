@@ -1,5 +1,4 @@
 // Workspace UI settings: one JSON document in the pipelines bucket.
-// Names are cosmetic; starred is a set of pipeline slugs.
 
 import {
   GetObjectCommand,
@@ -86,9 +85,8 @@ export async function putUiSettings(
 }
 
 /**
- * Resolve starred pipeline ids to `{id, name}` pairs for the landing
- * rail. Ids whose pipeline.json is missing or unreadable are dropped,
- * they no longer exist, so the rail shouldn't link to them.
+ * Resolve starred ids to `{id, name}`. Ids whose pipeline.json is unreadable
+ * are dropped: they no longer exist, so the rail shouldn't link to them.
  */
 export async function starredListings(
   client: S3Client,

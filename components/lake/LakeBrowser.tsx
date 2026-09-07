@@ -1,7 +1,6 @@
 "use client";
 
-// Lake bucket browser: prefix navigation and CSV upload. Uploads under
-// a pipeline prefix trigger a debounced run via the store webhook.
+// Uploads under a pipeline prefix trigger a debounced run via the store webhook.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Modal from "@/components/ui/Modal";

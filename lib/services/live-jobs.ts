@@ -1,8 +1,5 @@
-// Redis-backed job enqueue + live-state reads.
-//
-// The write path mirrors the worker's `queue.rs` exactly: one MULTI with
-// the stream XADD (single `payload` JSON field), the live hash, and the
-// per-pipeline index ZADD. The worker owns every subsequent state change;
+// Redis-backed job enqueue + live-state reads. The enqueue MULTI must match the
+// worker's `queue.rs` (XADD single `payload` field, live hash, index ZADD);
 // after enqueue the web app only reads.
 
 import type { JobProgress, JobRecord } from "@/lib/types/jobs";
@@ -18,10 +15,7 @@ export interface JobMessage {
   enqueued_at: number;
 }
 
-/**
- * Enqueue a job onto the stream and create its live hash + index entry,
- * atomically. Returns the initial record for the API response.
- */
+/** Atomically enqueue a job and create its live hash + index entry. */
 export async function enqueueJob(msg: JobMessage): Promise<JobRecord> {
   const redis = await getRedis();
   await redis
@@ -37,8 +31,8 @@ export async function enqueueJob(msg: JobMessage): Promise<JobRecord> {
       clean_run: String(msg.clean_run),
     })
     .zAdd(indexKey(msg.pipeline), { score: msg.enqueued_at, value: msg.job_id })
-    // Safety net matching the worker's enqueue: never-claimed hashes
-    // expire; terminal transitions shorten this to 24h.
+    // Matches the worker's enqueue: never-claimed hashes expire; terminal
+    // transitions shorten this to 24h.
     .expire(liveKey(msg.job_id), 7 * 24 * 60 * 60)
     .publish(eventsChannel(msg.pipeline), msg.job_id)
     .exec();
@@ -118,9 +112,8 @@ function jobIdTimestamp(id: string): number {
 }
 
 /**
- * Order the union of history ids and live ids newest-first, deduped.
- * Pagination runs over this sequence so a job appears on exactly one
- * page and totals are consistent.
+ * Union of history and live ids, newest-first and deduped, so pagination puts
+ * a job on exactly one page and totals stay consistent.
  */
 export function orderedJobIds(historyIds: string[], live: JobRecord[]): string[] {
   const seen = new Set<string>();
@@ -135,9 +128,8 @@ export function orderedJobIds(historyIds: string[], live: JobRecord[]): string[]
 }
 
 /**
- * Choose the record for one id. Live non-terminal always wins (S3 has
- * nothing yet); for terminal jobs the S3 record is richer, so it wins
- * when present. `history` is the fetched S3 record, if any.
+ * Live non-terminal always wins (S3 has nothing yet); for terminal jobs the
+ * richer S3 record wins when present.
  */
 export function pickJobRecord(
   live: JobRecord | undefined,

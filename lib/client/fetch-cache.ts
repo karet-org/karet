@@ -1,6 +1,5 @@
-// Deduped JSON fetch for nav chrome: concurrent callers share one
-// request; a short TTL absorbs StrictMode remounts and cross-component
-// duplicates.
+// Deduped JSON fetch for nav chrome: concurrent callers share one request and a
+// short TTL absorbs StrictMode remounts.
 
 const cache = new Map<string, { at: number; promise: Promise<unknown> }>();
 

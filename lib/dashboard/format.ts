@@ -1,5 +1,3 @@
-// Formatting + coercion helpers shared by every dashboard panel.
-
 /** Coerce an unknown cell to a finite number, or null when it can't. */
 export function toNum(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;

@@ -14,9 +14,8 @@ export async function POST(request: Request) {
   const base = loadS3Config();
   const client = createS3Client(base);
 
-  // The imported pipeline gets a fresh opaque id; `?name=` (typically the
-  // zip's filename) only seeds the display name when the zip's
-  // pipeline.json doesn't carry one.
+  // `?name=` only seeds the display name when the zip's pipeline.json
+  // doesn't carry one; the id itself is always freshly generated.
   const url = new URL(request.url);
   const fallbackName = url.searchParams.get("name")?.trim() ?? "";
 
@@ -35,7 +34,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_zip" }, { status: 422 });
   }
 
-  // Require pipeline.json in the zip
   if (!zip.file("pipeline.json")) {
     return NextResponse.json(
       { error: "missing_pipeline_json", message: "Zip must contain pipeline.json at the root" },
@@ -58,7 +56,6 @@ export async function POST(request: Request) {
     }
   }
 
-  // Derive slug from filename if not provided
   const slug = newPipelineId();
 
   const prefix = `${base.pipelinesPrefix}${slug}/`;
@@ -71,8 +68,8 @@ export async function POST(request: Request) {
       if (totalBytes > MAX_TOTAL_UNCOMPRESSED) {
         return NextResponse.json({ error: "zip_expands_too_large" }, { status: 413 });
       }
-      // Zips exported before display names existed carry no `name`;
-      // seed it so the pipeline never renders as its opaque id.
+      // Older exports carry no `name`; seed one so the pipeline never
+      // renders as its opaque id.
       if (relPath === "pipeline.json") {
         try {
           const cfg = JSON.parse(data.toString("utf-8")) as { name?: string };
@@ -81,8 +78,7 @@ export async function POST(request: Request) {
             data = Buffer.from(JSON.stringify(cfg, null, 2));
           }
         } catch {
-          // Unparseable pipeline.json is stored as-is; validation is the
-          // graph page's job.
+          // Stored as-is; validation is the graph page's job.
         }
       }
       const key = `${prefix}${relPath}`;

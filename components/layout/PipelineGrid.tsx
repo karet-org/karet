@@ -1,7 +1,6 @@
 "use client";
 
-// Landing card grid: client-side sort/filter; stars persist via
-// /api/settings and refresh the rail.
+// Sort/filter happen client-side; stars persist via /api/settings.
 
 import { useMemo, useState } from "react";
 import Link from "next/link";

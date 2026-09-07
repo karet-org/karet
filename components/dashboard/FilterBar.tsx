@@ -15,7 +15,7 @@ interface FilterBarProps {
   emitParams?: string[];
 }
 
-export function FilterBar({ filters, options, params, onChange, emitParams = [] }: FilterBarProps) {
+function FilterBar({ filters, options, params, onChange, emitParams = [] }: FilterBarProps) {
   const activePills = emitParams.filter((p) => params[p] != null);
   if (filters.length === 0 && activePills.length === 0) return null;
 

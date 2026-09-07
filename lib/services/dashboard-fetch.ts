@@ -1,5 +1,4 @@
-// Request-scoped dashboard config fetch, shared by the route layout
-// (top bar identity) and the page so navigation costs one S3 GET.
+// Request-scoped dashboard fetch: layout and page share one S3 GET.
 
 import { cache } from "react";
 import { createS3Client, loadS3Config, pipelineS3Config } from "@/lib/config/s3-client";

@@ -35,7 +35,7 @@ const ICONS: Record<string, ReactElement> = {
   ),
 };
 
-export function KpiPanel({ config, data }: PanelProps<KpiConfig>) {
+function KpiPanel({ config, data }: PanelProps<KpiConfig>) {
   const raw = data.rows[0]?.[config.value];
   let display: string;
   if (raw === undefined || raw === null) {

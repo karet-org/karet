@@ -13,8 +13,7 @@ import { act } from "react";
 import { describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { SourceContainer } from "@/lib/types/config";
-import {
-  SourceContainerEditor,
+import SourceContainerEditor, {
   SOURCE_CONTAINER_EDITOR_ERROR_TESTID,
 } from "../detail/SourceContainerEditor";
 

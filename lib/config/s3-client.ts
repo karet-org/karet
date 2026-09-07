@@ -1,40 +1,29 @@
-// Shared S3 client factory.
-//
-// Reads connection parameters from environment variables and returns an
-// `S3Client` configured for RustFS-compatible, path-style access.
+// Shared S3 client factory: env-derived config for RustFS-compatible path-style access.
 
 import { S3Client, S3ServiceException } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
 
 export interface S3Config {
-  /**
-   * Bucket for ELT control-plane data: pipeline configs, dashboards, job
-   * records. (`karet-pipelines`)
-   */
+  /** ELT control-plane data: pipeline configs, dashboards, job records. */
   pipelinesBucket: string;
-  /** Bucket for raw ingested CSV data. (`karet-lake`) */
+  /** Raw ingested CSV data. */
   lakeBucket: string;
-  /** Bucket for query-ready partitioned Parquet output. (`karet-warehouse`) */
+  /** Query-ready partitioned Parquet output. */
   warehouseBucket: string;
   region: string;
   endpoint?: string;
   forcePathStyle: boolean;
   /**
-   * S3 key for the Pipeline_Config JSON. The base config left by
-   * `loadS3Config()` is a placeholder, always run it through
-   * `pipelineS3Config(base, slug)` before calling `getPipelineConfig` /
-   * `putPipelineConfig`, which is what fills this in with the real
-   * per-pipeline path.
+   * S3 key for the Pipeline_Config JSON. `loadS3Config()` leaves a
+   * placeholder — always run it through `pipelineS3Config(base, slug)` before
+   * calling `getPipelineConfig` / `putPipelineConfig`.
    */
   pipelineConfigKey: string;
   /** Prefix under which dashboard JSON files live. */
   dashboardsPrefix: string;
   /** Prefix under which saved-query JSON files live. */
   queriesPrefix: string;
-  /**
-   * Prefix (in the warehouse bucket) under which analytic-table folders
-   * live. Each table's Parquet lives at `<warehousePrefix><tableId>/`.
-   */
+  /** Warehouse-bucket prefix; each table's Parquet lives at `<warehousePrefix><tableId>/`. */
   warehousePrefix: string;
   /** Prefix under which pipeline folders live. */
   pipelinesPrefix: string;
@@ -65,16 +54,14 @@ export function loadS3Config(): S3Config {
   };
 }
 
-/** All three buckets, for lifecycle ops (delete/rename/export) that span every data class. */
+/** All three buckets, for lifecycle ops (delete/rename/export) spanning every data class. */
 export function allBuckets(config: S3Config): string[] {
   return [config.pipelinesBucket, config.lakeBucket, config.warehouseBucket];
 }
 
 /**
- * Pick the bucket for a key by its data class, inferred from the extension:
- * `.parquet` is warehouse output, `.csv` is raw lake data, everything else
- * (configs, dashboards, jobs) is pipelines. Used by import to unpack a zip
- * whose entries span all three buckets.
+ * Bucket for a key by data class, inferred from the extension: `.parquet` is
+ * warehouse, `.csv` is lake, everything else is pipelines.
  */
 export function bucketForRelPath(config: S3Config, relPath: string): string {
   if (relPath.endsWith(".parquet")) return config.warehouseBucket;
@@ -82,7 +69,6 @@ export function bucketForRelPath(config: S3Config, relPath: string): string {
   return config.pipelinesBucket;
 }
 
-/** Returns an S3Config scoped to a specific pipeline slug. */
 export function pipelineS3Config(base: S3Config, slug: string): S3Config {
   const prefix = `${base.pipelinesPrefix}${slug}/`;
   return {
@@ -94,7 +80,6 @@ export function pipelineS3Config(base: S3Config, slug: string): S3Config {
   };
 }
 
-/** Factory: build a new S3 client from a config (or the environment). */
 export function createS3Client(config: S3Config = loadS3Config()): S3Client {
   return new S3Client({
     region: config.region,
@@ -103,7 +88,6 @@ export function createS3Client(config: S3Config = loadS3Config()): S3Client {
   });
 }
 
-/** Returns true when an error is an S3 NoSuchBucket error. */
 export function isNoSuchBucket(err: unknown): boolean {
   if (err instanceof S3ServiceException) {
     return err.name === "NoSuchBucket";
@@ -111,11 +95,7 @@ export function isNoSuchBucket(err: unknown): boolean {
   return (err as Record<string, unknown>)?.Code === "NoSuchBucket";
 }
 
-/**
- * Wraps an async handler body, catching S3 errors and returning an
- * appropriate JSON response. NoSuchBucket gets a dedicated 502 with a
- * user-friendly message; everything else falls back to 503.
- */
+/** Catch S3 errors and return a JSON response: 502 for NoSuchBucket, 503 otherwise. */
 export async function wrapS3Error<T>(
   fn: () => Promise<T>,
   label: string,
@@ -140,11 +120,8 @@ export async function wrapS3Error<T>(
   }
 }
 
-/**
- * Convenience wrapper around `loadS3Config()` + `createS3Client()` +
- * `wrapS3Error()`. Use from API route handlers that don't need to scope
- * the config to a specific pipeline slug.
- */
+/** `loadS3Config()` + `createS3Client()` + `wrapS3Error()`, for routes that
+ * don't scope the config to a pipeline slug. */
 export function withS3<T>(
   label: string,
   fn: (client: S3Client, config: S3Config) => Promise<T>,

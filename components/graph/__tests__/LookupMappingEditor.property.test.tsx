@@ -14,9 +14,8 @@ import { describe, expect, it } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import fc from "fast-check";
 import type { LookupMapping, LookupRow } from "@/lib/types/config";
-import {
+import LookupMappingEditor, {
   LOOKUP_MAPPING_EDITOR_ERROR_TESTID,
-  LookupMappingEditor,
 } from "../detail/LookupMappingEditor";
 import { validateLookupMapping } from "../detail/validation";
 

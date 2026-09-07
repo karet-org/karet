@@ -1,8 +1,6 @@
 "use client";
 
-// Pipeline sidebar: 220px rail on desktop, drawer behind a 48px bar on
-// mobile. Switcher, tabs, dashboards, Export, and Settings (Rename and
-// Delete live in its popover).
+// Pipeline sidebar: rail on desktop, drawer behind a top bar on mobile.
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -20,7 +18,7 @@ import { cachedJson, invalidateCached } from "@/lib/client/fetch-cache";
 import { notifyDashboardsChanged, useDashboardsIndex } from "@/lib/client/dashboards-index";
 
 /** Mobile top bar height; pages offset content by this below md. */
-export const MOBILE_NAV_HEIGHT_PX = 48;
+const MOBILE_NAV_HEIGHT_PX = 48;
 
 import { pipelineHue } from "@/lib/config/pipeline-hue";
 import { formatRelative } from "@/lib/format/relative-time";
@@ -49,14 +47,12 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
 
   const base = `/p/${pipeline}`;
 
-  // Close the drawer on navigation.
   useEffect(() => {
     setDrawerOpen(false);
   }, [pathname]);
 
 
-  // Display name from the pipeline config. The `pipeline` prop is the
-  // immutable id; the name is cosmetic and editable via the rename modal.
+  // The `pipeline` prop is the immutable id; the name is cosmetic.
   useEffect(() => {
     let cancelled = false;
     setDisplayName(pipeline);
@@ -315,7 +311,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
         })}
       </div>
 
-      {/* Footer: Export and Settings (Rename/Delete in the popover). */}
+      {/* Footer: Export and Settings */}
       <div ref={settingsRef} className="relative mt-auto flex flex-col gap-0.5 border-t border-[color:var(--color-rule-soft)] pt-2">
         {settingsOpen && (
           <div

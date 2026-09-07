@@ -6,7 +6,7 @@ interface ErrorPanelProps {
   message: string;
 }
 
-export function ErrorPanel({ title, message }: ErrorPanelProps) {
+function ErrorPanel({ title, message }: ErrorPanelProps) {
   return (
     <div
       role="alert"

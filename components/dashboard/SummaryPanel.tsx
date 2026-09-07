@@ -7,7 +7,7 @@ import { panelCardClass, type PanelProps } from "./types";
 
 type SummaryConfig = Extract<PanelV2, { kind: "summary" }>;
 
-export function SummaryPanel({ config, data }: PanelProps<SummaryConfig>) {
+function SummaryPanel({ config, data }: PanelProps<SummaryConfig>) {
   return (
     <div data-testid="summary-panel" className={panelCardClass()}>
       <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>

@@ -1,7 +1,5 @@
-// Dashboard v2 data execution: run each panel's SQL (and each dropdown's
-// options_sql) against the warehouse with named filter parameters bound
-// through prepared statements. Parallel with a small cap; per-panel
-// failure isolation; bounded row counts.
+// Dashboard v2 data execution: each panel's SQL (and each dropdown's options_sql)
+// runs against the warehouse with filter values bound as statement parameters.
 
 import type { PipelineConfig } from "@/lib/types/config";
 import type {
@@ -20,13 +18,13 @@ const CONCURRENCY = 4;
 export type ParamValue = string | null;
 export type Params = Record<string, ParamValue>;
 
-export interface PanelResult {
+interface PanelResult {
   columns: string[];
   rows: Record<string, unknown>[];
   truncated: boolean;
 }
 
-export interface PanelError {
+interface PanelError {
   error: string;
 }
 
@@ -118,7 +116,7 @@ export function panelBindings(panel: PanelV2): string[] {
 }
 
 /** Every query must plan (DESCRIBE) and every binding must name a returned column. */
-export async function validateDashboardSql(
+async function validateDashboardSql(
   pipeline: string,
   pipelineConfig: PipelineConfig,
   dashboard: DashboardConfigV2,

@@ -33,11 +33,7 @@ interface PipelineSummary {
   tableCount: number;
   /** ISO timestamp of the most recent job, or null if the pipeline has never run. */
   lastRunAt: string | null;
-  /**
-   * Sort key for "Recently run": the last run, else the config's S3
-   * LastModified — so a just-created pipeline lands at the front of the
-   * grid instead of sinking to the end.
-   */
+  /** "Recently run" sort key: last run, else the config's S3 LastModified. */
   activityAt: string | null;
   status: StatusKind;
   graph: ThumbGraph;
@@ -66,9 +62,8 @@ async function getPipelines(): Promise<PipelineResult> {
           "S3 bucket does not exist. Create it first or check the S3_BUCKET_PIPELINES / S3_BUCKET_LAKE / S3_BUCKET_WAREHOUSE environment variables.",
       };
     }
-    // A transient S3/permission error must not masquerade as "no pipelines",
-    // surface it so the user knows the list failed to load rather than being
-    // genuinely empty.
+    // Surface transient S3/permission errors instead of rendering them
+    // as "no pipelines".
     return {
       pipelines: [],
       loadError: err instanceof Error ? err.message : String(err),
@@ -91,10 +86,8 @@ async function loadSummary(
     ),
   ]);
 
-  // The home-page status only reflects terminal runs. `scheduled` and
-  // `running` jobs collapse into the previous terminal status (or
-  // `idle` if none) so a webhook upload mid-debounce doesn't make the
-  // pipeline flicker between states on the home page.
+  // Only terminal runs count: `scheduled`/`running` collapse into the
+  // previous status so a mid-debounce webhook doesn't flicker the card.
   const status: StatusKind =
     latestTerminalJob === null
       ? "idle"
@@ -142,12 +135,7 @@ async function loadSummary(
   };
 }
 
-/**
- * Walk newest-first through job records and return the first terminal
- * one (`completed` or `failed`). Caps at 5 reads, in practice the
- * latest job is almost always terminal, and we only fall through when
- * a webhook batch is in flight.
- */
+/** Newest-first scan for the first `completed`/`failed` job, capped at 5 reads. */
 async function loadLatestTerminalJob(
   client: S3Client,
   bucket: string,

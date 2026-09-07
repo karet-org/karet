@@ -36,7 +36,7 @@ type SymbolMapPanelConfig = Extract<PanelV2, { kind: "symbol_map" }>;
 
 const DEFAULT_MAX_RADIUS = 18;
 
-export function SymbolMapPanel({ config, data }: PanelProps<SymbolMapPanelConfig>) {
+function SymbolMapPanel({ config, data }: PanelProps<SymbolMapPanelConfig>) {
   const atlas = useWorldAtlas();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<ChartJS<"bubbleMap"> | null>(null);

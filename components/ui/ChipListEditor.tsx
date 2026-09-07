@@ -2,24 +2,19 @@
 
 import { useState, type KeyboardEvent } from "react";
 
-export interface ChipListEditorProps {
-  /** Current list of values (controlled). */
+interface ChipListEditorProps {
   value: string[];
-  /** Full replacement list on every add/remove. */
+  /** Receives the full replacement list on every add/remove. */
   onChange: (next: string[]) => void;
   ariaLabel?: string;
   /** Placeholder for the add-input. */
   placeholder?: string;
-  /** Extra classes for the outer container. */
   className?: string;
 }
 
-/**
- * Edits a list of short strings as removable chips plus an add-input.
- * Enter or comma adds a chip (pasting commas adds several); Backspace on an
- * empty input removes the last; blanks and duplicates are dropped.
- */
-export function ChipListEditor({
+/** Enter or comma adds (pasted commas add several); Backspace on an empty
+ * input removes the last; blanks and duplicates are dropped. */
+function ChipListEditor({
   value,
   onChange,
   ariaLabel,

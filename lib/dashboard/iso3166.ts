@@ -1,8 +1,6 @@
-// Minimal ISO-3166-1 country lookup.
-//
-// Keyed by ISO numeric code (matching the ids in public/world-atlas.json),
-// with alpha-2, alpha-3, and common-name mappings so dashboard data can
-// reference a country in whatever format it arrived in.
+// Minimal ISO-3166-1 country lookup, keyed by ISO numeric code (matching the
+// ids in public/world-atlas.json), with alpha-2/alpha-3/name indexes so data
+// can reference a country in whatever format it arrived in.
 
 export interface CountryEntry {
   /** ISO 3166-1 numeric code, zero-padded to 3 chars. */
@@ -15,10 +13,8 @@ export interface CountryEntry {
   name: string;
 }
 
-// Curated list of the countries that appear in the world-110m atlas. This
-// covers every populated country + most territories and is sufficient for
-// honeypot / threat-intel visualization. Names match the atlas's Natural
-// Earth entries so mapping by numeric id "just works".
+// Countries in the world-110m atlas. Names match its Natural Earth entries so
+// mapping by numeric id "just works".
 const COUNTRIES: CountryEntry[] = [
   { numeric: "004", alpha2: "AF", alpha3: "AFG", name: "Afghanistan" },
   { numeric: "008", alpha2: "AL", alpha3: "ALB", name: "Albania" },
@@ -192,11 +188,9 @@ const COUNTRIES: CountryEntry[] = [
   { numeric: "894", alpha2: "ZM", alpha3: "ZMB", name: "Zambia" },
   { numeric: "716", alpha2: "ZW", alpha3: "ZWE", name: "Zimbabwe" },
   { numeric: "732", alpha2: "EH", alpha3: "ESH", name: "W. Sahara" },
-  // Common English aliases, mapped via the name index below to the
-  // atlas's canonical Natural Earth names above.
 ];
 
-// Build lookup maps once at module load. All keys are uppercased.
+// Lookup maps built once at module load; all keys uppercased.
 const byAlpha2 = new Map<string, CountryEntry>();
 const byAlpha3 = new Map<string, CountryEntry>();
 const byNumeric = new Map<string, CountryEntry>();
@@ -210,8 +204,7 @@ for (const c of COUNTRIES) {
   byName.set(c.name.toUpperCase(), c);
 }
 
-// Common aliases that the Natural Earth atlas labels differently than
-// everyday usage. Add on demand.
+// Everyday names the Natural Earth atlas labels differently. Add on demand.
 const aliases: [string, string][] = [
   ["USA", "840"],
   ["UNITED STATES", "840"],
@@ -248,10 +241,7 @@ for (const [alias, numeric] of aliases) {
   if (e) byName.set(alias.toUpperCase(), e);
 }
 
-/**
- * Resolve any of alpha-2 / alpha-3 / numeric code / common name to a
- * country entry. Case-insensitive, whitespace-trimmed.
- */
+/** Resolve alpha-2 / alpha-3 / numeric / common name to an entry. */
 export function resolveCountry(raw: unknown): CountryEntry | null {
   if (raw == null) return null;
   const key = String(raw).trim().toUpperCase();

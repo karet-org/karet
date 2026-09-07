@@ -1,7 +1,4 @@
-// Node Detail Panel: 300px docked inspector that mounts the structural
-// editor for the selected graph node. Edits flow through the parent via
-// `onEdit` which the graph page uses to rebuild the canvas and mark the
-// config dirty; persistence is handled by the page's Save & Publish button.
+// Edits go to the store and signal `onEdit`; the graph page persists them.
 
 import { useCallback } from "react";
 import type { GraphNode } from "@/lib/graph/build";
@@ -13,40 +10,32 @@ import type {
   Mapping,
   SourceContainer,
 } from "@/lib/types/config";
-import { CloseButton } from "@/components/ui/CloseButton";
-import {
-  AnalyticTableEditor,
-  LookupMappingEditor,
-  MappingEditor,
-  SourceContainerEditor,
-} from "./detail";
+import CloseButton from "@/components/ui/CloseButton";
+import AnalyticTableEditor from "./detail/AnalyticTableEditor";
+import LookupMappingEditor from "./detail/LookupMappingEditor";
+import MappingEditor from "./detail/MappingEditor";
+import SourceContainerEditor from "./detail/SourceContainerEditor";
 
-export interface NodeDetailPanelProps {
-  /** Currently selected node, or null when the panel should close. */
+interface NodeDetailPanelProps {
+  /** Selected node; null closes the panel. */
   node: GraphNode | null;
-  /** Called when the user clicks the close button. */
   onClose?: () => void;
-  /** Called when the user edits an entity. */
   onEdit?: () => void;
 }
 
 type EditableEntity = SourceContainer | LookupMapping | Mapping | AnalyticTable;
 
-/**
- * Distinguish AnalyticTable from the other editable shapes: it has a
- * `schema` but, unlike source containers, no `path_prefix`.
- */
+/** An AnalyticTable has a `schema` but, unlike a source container, no `path_prefix`. */
 function isAnalyticTable(entity: EditableEntity): entity is AnalyticTable {
   return "schema" in entity && !("path_prefix" in entity);
 }
 
-export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps) {
+function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps) {
   const updateEntity = useCallback((next: EditableEntity) => {
     const cfg = useGraphStore.getState().config;
     if (!cfg) return;
 
-    // Skip when the editor re-emits an unchanged entity (common on
-    // input blur after click-with-no-change).
+    // Editors re-emit unchanged entities on blur; skip those.
     const existing =
       cfg.source_containers.find((sc) => sc.id === next.id) ??
       cfg.lookup_mappings.find((lm) => lm.id === next.id) ??
@@ -54,11 +43,8 @@ export function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps)
       cfg.analytic_tables.find((t) => t.id === next.id);
     if (existing && JSON.stringify(existing) === JSON.stringify(next)) return;
 
-    // Cross-entity sync: when an analytic_table's schema changes, push
-    // the same shape into every Mapping that writes to it. Adds become
-    // placeholder mapping columns (`null` expr), renames keep the
-    // authored expr, deletes are dropped. Without this, mappings drift
-    // from their target table and produce empty output for new columns.
+    // Push analytic_table schema changes into every Mapping that writes to
+    // it, otherwise mappings drift and emit empty output for new columns.
     let mappings = cfg.mappings;
     const previousTable = cfg.analytic_tables.find((t) => t.id === next.id);
     if (previousTable && isAnalyticTable(next)) {
