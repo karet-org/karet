@@ -347,10 +347,6 @@ export default function JobsPage() {
                               </span>
                               <span className="mt-1 block truncate text-[11px]">{progressLine(job)}</span>
                             </span>
-                          ) : job.status === "failed" && job.error ? (
-                            <span className="block truncate text-[color:var(--color-rose-deep)]" title={job.error}>
-                              {job.error}
-                            </span>
                           ) : (
                             "-"
                           )}
@@ -403,21 +399,27 @@ export default function JobsPage() {
                                   </>
                                 )}
                               </dl>
-                              {job.error && (
+                              {job.errors && job.errors.length > 0 ? (
+                                // The summary string bakes in errors[0], so
+                                // show only the itemized list when it exists.
+                                <div className="rounded border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] p-2 text-[11px] text-[color:var(--color-rose-deep)]">
+                                  <div className="mb-0.5 font-medium">
+                                    {job.errors.length === 1 ? "Error" : `Errors (${job.errors.length})`}
+                                  </div>
+                                  <ul className="max-h-60 space-y-1 overflow-auto font-mono">
+                                    {job.errors.map((e, i) => (
+                                      <li key={i} className="whitespace-pre-wrap break-words">
+                                        {e}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : job.error ? (
                                 <div className="rounded border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] p-2 text-[11px] text-[color:var(--color-rose-deep)]">
                                   <div className="mb-0.5 font-medium">Error</div>
                                   <p className="whitespace-pre-wrap break-words font-mono">{job.error}</p>
                                 </div>
-                              )}
-                              {job.errors && job.errors.length > 0 && (
-                                <ul className="max-h-60 space-y-1 overflow-auto rounded border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-2 font-mono text-[11px] text-[color:var(--color-ink-2)]">
-                                  {job.errors.map((e, i) => (
-                                    <li key={i} className="border-l-2 border-[color:var(--color-rose-deep)] pl-2">
-                                      {e}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
+                              ) : null}
                             </div>
                           </td>
                         </tr>
