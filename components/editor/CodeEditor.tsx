@@ -10,7 +10,7 @@
 // and any extra keymaps arrive via `extensions`.
 
 import { useEffect, useRef, type MutableRefObject } from "react";
-import { EditorState, type Extension } from "@codemirror/state";
+import { EditorState, StateEffect, type Extension } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers as cmLineNumbers } from "@codemirror/view";
 import {
   defaultKeymap,
@@ -29,6 +29,17 @@ import {
 import { indentUnit, syntaxHighlighting } from "@codemirror/language";
 import { linter, type Diagnostic } from "@codemirror/lint";
 import { editorHighlight, editorTheme } from "./theme";
+
+/** Marker effect: tells the linter its diagnostics changed without a
+ * doc change (e.g. async server validation resolving). */
+export const lintRefresh = StateEffect.define<null>();
+
+/** True when a view update carries the lintRefresh marker. */
+export function carriesLintRefresh(update: {
+  transactions: readonly { effects: readonly StateEffect<unknown>[] }[];
+}): boolean {
+  return update.transactions.some((tr) => tr.effects.some((e) => e.is(lintRefresh)));
+}
 
 export interface CodeEditorProps {
   value: string;
@@ -111,7 +122,15 @@ export default function CodeEditor({
     if (lintSource) {
       // No lint gutter: it reserves a column even when empty, and the
       // wavy underline + hover tooltip already carry the diagnostics.
-      built.push(linter((view) => lintRef.current?.(view) ?? [], { delay: 300 }));
+      // needsRefresh: the plugin only re-runs on doc changes otherwise,
+      // so late-arriving diagnostics (async validation) would wait for
+      // the next keystroke.
+      built.push(
+        linter((view) => lintRef.current?.(view) ?? [], {
+          delay: 300,
+          needsRefresh: carriesLintRefresh,
+        }),
+      );
     }
     built.push(
       editorTheme,
@@ -149,9 +168,8 @@ export default function CodeEditor({
     }
   }, [value]);
 
-  // A no-op transaction retriggers the linter after its delay.
   useEffect(() => {
-    viewRef.current?.dispatch({});
+    viewRef.current?.dispatch({ effects: lintRefresh.of(null) });
   }, [lintDependency]);
 
   return <div ref={hostRef} className={className} data-testid={testId} />;
