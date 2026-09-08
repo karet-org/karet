@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import JSZip from "jszip";
-import { allBuckets, createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import { createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import { listAllObjectKeys, readBodyToBuffer } from "@/lib/services/s3-helpers";
 
 export async function GET(
@@ -18,17 +18,15 @@ export async function GET(
     let totalKeys = 0;
 
     // Collect objects from all three data-plane buckets.
-    for (const bucket of allBuckets(base)) {
-      const keys = await listAllObjectKeys(client, bucket, prefix);
-      for (const key of keys) {
+    const keys = await listAllObjectKeys(client, base.pipelinesBucket, prefix);
+    for (const key of keys) {
         const res = await client.send(
-          new GetObjectCommand({ Bucket: bucket, Key: key }),
+            new GetObjectCommand({ Bucket: base.pipelinesBucket, Key: key }),
         );
         const buffer = await readBodyToBuffer(res.Body);
         zip.file(key.slice(prefix.length), buffer);
-      }
-      totalKeys += keys.length;
     }
+    totalKeys += keys.length;
 
     if (totalKeys === 0) {
       return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
