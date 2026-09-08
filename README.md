@@ -8,8 +8,7 @@ Next.js frontend for the Karet analytics platform. Renders
 configurable dashboards and the React Flow Data Flow Graph editor over an
 ETL pipeline configuration stored in S3.
 
-See the top-level `compose.yml` for the full stack (rustfs +
-worker + web).
+See the top-level `compose.yml` for the full stack.
 
 ## Features
 
@@ -39,13 +38,13 @@ worker + web).
 | `KARET_SESSION_SECRET` | **Required.** HMAC key used to sign user session cookies. Generate with `openssl rand -base64 48`. |
 | `KARET_ADMIN_PASSWORD_HASH` | **Required.** scrypt hash of the admin password. Generate with `npm run hash-password`, which prints both the plain value and the Docker-Compose-escaped form (compose `.env` files interpolate `$`, so each `$` must be doubled there). Changing the password = regenerate + restart. |
 | `KARET_WORKER_TOKEN` | **Required.** Shared bearer token sent on worker `POST /config/validate` calls; must match the worker's value. Generate with `openssl rand -hex 32`. |
-| `REDIS_URL` | **Required.** Valkey/Redis connection string (e.g. `redis://valkey:6379`). Jobs are enqueued onto the stream consumed by the worker fleet; the jobs page merges live queue state + progress over S3 history. See `karet-jobs-redis-design.html`. |
+| `REDIS_URL` | **Required.** Valkey/Redis connection string (e.g. `redis://valkey:6379`). Jobs are enqueued onto the stream consumed by the worker fleet; the jobs page merges live queue state + progress over S3 history. |
 | `DUCKDB_MEMORY_LIMIT` | Optional memory cap for the server-side DuckDB session (default `512MB`). |
 | `S3_CONSOLE_URL` | If set, the UI shows a Settings &rarr; S3 console link. Empty hides the link. |
 | `PORT` | Dev server port (default `3000`) |
 
 Authentication is single-admin, password-only. The credential is
-provisioned via `KARET_ADMIN_PASSWORD_HASH` — there is no in-app setup
+provisioned via `KARET_ADMIN_PASSWORD_HASH`, there is no in-app setup
 or password-change flow, so a wiped bucket can never revert the
 instance to an unauthenticated state.
 
