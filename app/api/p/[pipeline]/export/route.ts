@@ -15,9 +15,8 @@ export async function GET(
 
   return wrapS3Error(async () => {
     const zip = new JSZip();
-    let totalKeys = 0;
 
-    // Collect objects from all three data-plane buckets.
+    // Collect objects from the pipelines buckets.
     const keys = await listAllObjectKeys(client, base.pipelinesBucket, prefix);
     for (const key of keys) {
       const res = await client.send(
@@ -26,9 +25,8 @@ export async function GET(
       const buffer = await readBodyToBuffer(res.Body);
       zip.file(key.slice(prefix.length), buffer);
     }
-    totalKeys += keys.length;
 
-    if (totalKeys === 0) {
+    if (keys.length === 0) {
       return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
     }
 

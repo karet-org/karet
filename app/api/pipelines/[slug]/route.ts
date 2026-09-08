@@ -13,7 +13,7 @@ import {
 } from "@/lib/services/config-service";
 import { listAllObjectKeys } from "@/lib/services/s3-helpers";
 
-/** Removes every object under `pipelines/<slug>/` in all three buckets. */
+/** Removes every object under `pipelines/<slug>/` in the pipelines and warehouse bucket. */
 export async function DELETE(
   _request: Request,
   context: { params: Promise<{ slug: string }> },
