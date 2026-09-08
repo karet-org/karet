@@ -20,11 +20,11 @@ export async function GET(
     // Collect objects from all three data-plane buckets.
     const keys = await listAllObjectKeys(client, base.pipelinesBucket, prefix);
     for (const key of keys) {
-        const res = await client.send(
-            new GetObjectCommand({ Bucket: base.pipelinesBucket, Key: key }),
-        );
-        const buffer = await readBodyToBuffer(res.Body);
-        zip.file(key.slice(prefix.length), buffer);
+      const res = await client.send(
+        new GetObjectCommand({ Bucket: base.pipelinesBucket, Key: key }),
+      );
+      const buffer = await readBodyToBuffer(res.Body);
+      zip.file(key.slice(prefix.length), buffer);
     }
     totalKeys += keys.length;
 
