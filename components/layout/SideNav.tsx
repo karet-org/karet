@@ -470,7 +470,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
               Delete pipeline
             </h2>
             <p className="mt-1 text-xs text-[color:var(--color-ink-3)]">
-              This permanently removes the config, dashboards, raw CSVs, Parquet
+              This permanently removes the config, dashboards, Parquet
               output, and job history for{" "}
               <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono text-[11px]">
                 {displayName}

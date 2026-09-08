@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { DeleteObjectsCommand, type ObjectIdentifier } from "@aws-sdk/client-s3";
 import {
-  allBuckets,
   createS3Client,
   loadS3Config,
   pipelineS3Config,
@@ -14,7 +13,7 @@ import {
 } from "@/lib/services/config-service";
 import { listAllObjectKeys } from "@/lib/services/s3-helpers";
 
-/** Removes every object under `pipelines/<slug>/` in all three buckets. */
+/** Removes every object under `pipelines/<slug>/` in the pipelines and warehouse bucket. */
 export async function DELETE(
   _request: Request,
   context: { params: Promise<{ slug: string }> },
@@ -32,7 +31,7 @@ export async function DELETE(
   return wrapS3Error(async () => {
     let totalDeleted = 0;
 
-    for (const bucket of allBuckets(config)) {
+    for (const bucket of [config.pipelinesBucket, config.warehouseBucket]) {
       const keys = await listAllObjectKeys(client, bucket, prefix);
       if (keys.length === 0) continue;
       const toDelete: ObjectIdentifier[] = keys.map((Key) => ({ Key }));

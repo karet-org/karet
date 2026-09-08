@@ -54,11 +54,6 @@ export function loadS3Config(): S3Config {
   };
 }
 
-/** All three buckets, for lifecycle ops (delete/rename/export) spanning every data class. */
-export function allBuckets(config: S3Config): string[] {
-  return [config.pipelinesBucket, config.lakeBucket, config.warehouseBucket];
-}
-
 /**
  * Bucket for a key by data class, inferred from the extension: `.parquet` is
  * warehouse, `.csv` is lake, everything else is pipelines.
