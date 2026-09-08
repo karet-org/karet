@@ -1,7 +1,6 @@
 # syntax=docker/dockerfile:1.6
 
-# Debian (glibc) base: the `duckdb` native addon ships prebuilt binaries for
-# linux glibc, so this avoids the from-source compile that Alpine/musl forces.
+# Debian (glibc) base: @duckdb/node-bindings ships prebuilt linux-gnu binaries.
 FROM node:20-bookworm-slim AS base
 
 # Install dependencies only when needed
@@ -38,10 +37,8 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# duckdb is externalized, so it isn't traced into the standalone bundle. Its
-# node-pre-gyp loader also pulls several transitive runtime deps; copying the
-# full node_modules is the reliable way to satisfy them (Next merges it with
-# the traced standalone node_modules).
+# @duckdb/node-api is externalized, so it isn't traced into the standalone
+# bundle; copying node_modules satisfies it (Next merges with the traced set).
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 USER nextjs

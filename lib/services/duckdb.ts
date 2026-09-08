@@ -1,32 +1,29 @@
 // Server-side Parquet querying over S3 via DuckDB (httpfs). One in-memory
 // database is shared across requests; queries read straight from S3.
 
-import type * as duckdb from "duckdb";
+import type { DuckDBConnection } from "@duckdb/node-api";
 import { loadS3Config } from "@/lib/config/s3-client";
 
-let db: duckdb.Database | null = null;
-let initializing: Promise<duckdb.Database> | null = null;
-
-function execAsync(d: duckdb.Database, sql: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    d.exec(sql, (err: Error | null) => (err ? reject(err) : resolve()));
-  });
-}
+let conn: DuckDBConnection | null = null;
+let initializing: Promise<DuckDBConnection> | null = null;
 
 /**
- * Lazily open the shared database, point httpfs at S3, and apply the sandbox.
- * The handle is published only after every statement succeeds: user SQL runs on
- * this session, so a half-initialized (unsandboxed) session must never be cached.
+ * Lazily open the shared connection, point httpfs at S3, and apply the
+ * sandbox. The handle is published only after every statement succeeds: user
+ * SQL runs on this session, so a half-initialized (unsandboxed) session must
+ * never be cached.
  */
-function getDb(): Promise<duckdb.Database> {
-  if (db) return Promise.resolve(db);
+function getConn(): Promise<DuckDBConnection> {
+  if (conn) return Promise.resolve(conn);
   if (initializing) return initializing;
 
   initializing = (async () => {
     // Required, not imported, so the native addon only loads on first use
     // (never at build time or during page-data collection).
-    const { Database } = require("duckdb") as typeof duckdb;
-    const candidate = new Database(":memory:");
+    const { DuckDBInstance } =
+      require("@duckdb/node-api") as typeof import("@duckdb/node-api");
+    const instance = await DuckDBInstance.create(":memory:");
+    const candidate = await instance.connect();
 
     const config = loadS3Config();
 
@@ -49,6 +46,11 @@ function getDb(): Promise<duckdb.Database> {
             `SET s3_use_ssl = ${config.endpoint.startsWith("https") ? "true" : "false"}`,
           ]
         : []),
+      // DuckDB >=1.4 lazily initializes persistent secret storage on the
+      // local filesystem at first S3 access; with LocalFileSystem disabled
+      // that init fails and takes every s3:// read down with it. In-memory
+      // secrets only — also keeps credentials off disk.
+      `SET allow_persistent_secrets = false`,
       // Sandbox: user SQL runs on this session, so lock it down after
       // INSTALL/LOAD (which themselves need local-filesystem access).
       // Without this, any SELECT can read_text('/proc/self/environ') or read
@@ -65,10 +67,10 @@ function getDb(): Promise<duckdb.Database> {
     ];
 
     for (const stmt of stmts) {
-      await execAsync(candidate, stmt);
+      await candidate.run(stmt);
     }
 
-    db = candidate;
+    conn = candidate;
     return candidate;
   })().finally(() => {
     initializing = null;
@@ -88,18 +90,13 @@ async function query<T extends Record<string, unknown> = Record<string, unknown>
   sql: string,
   values: (string | null)[] = [],
 ): Promise<T[]> {
-  const database = await getDb();
-  return new Promise((resolve, reject) => {
-    database.all(sql, ...values, (err: Error | null, rows: duckdb.TableData) => {
-      if (err) return reject(err);
-      const safe = (rows ?? []).map((row) => {
-        const out: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(row)) out[k] = toJson(v);
-        return out;
-      });
-      resolve(safe as T[]);
-    });
-  });
+  const connection = await getConn();
+  const reader = await connection.runAndReadAll(sql, values);
+  return reader.getRowObjectsJS().map((row) => {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(row)) out[k] = toJson(v);
+    return out;
+  }) as T[];
 }
 
 /** Escape a value for embedding in a single-quoted SQL string literal. */
