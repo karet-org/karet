@@ -46,8 +46,14 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
   const atlas = useWorldAtlas();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<ChartJS<"choropleth"> | null>(null);
+  // Antarctica (ISO numeric 010) is all empty map area; dropping it lets
+  // the projection fill the panel with inhabited landmass.
+  const features = useMemo(
+    () => atlas?.features.filter((f) => String(f.id) !== "010") ?? null,
+    [atlas],
+  );
   const { chartData, unresolved } = useMemo(() => {
-    if (!atlas) return { chartData: null, unresolved: 0 };
+    if (!atlas || !features) return { chartData: null, unresolved: 0 };
     const buckets = new Map<string, number[]>();
     let unresolved = 0;
     for (const row of data.rows) {
@@ -66,17 +72,17 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
     for (const [k, vs] of buckets) aggregated.set(k, vs.reduce((a, b) => a + b, 0));
     // Build one data point per atlas feature. Features without data get
     // value 0 so the color scale still paints them in a "zero" shade.
-    const points = atlas.features.map((f) => {
+    const points = features.map((f) => {
       const key = f.id != null ? String(f.id).replace(/^0+/, "") : "";
       const value = key ? aggregated.get(key) ?? 0 : 0;
       return { feature: f as CountryFeature, value };
     });
     return { chartData: points, unresolved };
-  }, [atlas, data.rows, config.region, config.value]);
+  }, [atlas, features, data.rows, config.region, config.value]);
 
   // Create / recreate the chart when atlas or data changes.
   useEffect(() => {
-    if (!atlas || !canvasRef.current || !chartData) return;
+    if (!atlas || !features || !canvasRef.current || !chartData) return;
     // Tear down any previous instance before re-creating, Chart.js does
     // not support reassigning `data.labels` + `datasets[0].outline` on an
     // existing choropleth cleanly.
@@ -91,7 +97,7 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
         datasets: [
           {
             label: config.title,
-            outline: atlas.collection.features,
+            outline: features,
             data: chartData,
             borderWidth: 0.5,
             borderColor: "#cbd5e1",
@@ -132,7 +138,7 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
         scales: {
           projection: {
             axis: "x",
-            projection: "naturalEarth1",
+            projection: "equirectangular",
           },
           color: {
             axis: "x",
@@ -150,7 +156,7 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
       chartRef.current?.destroy();
       chartRef.current = null;
     };
-  }, [atlas, chartData, config.title, config.region]);
+  }, [atlas, features, chartData, config.title, config.region]);
 
   return (
     <div className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm">
