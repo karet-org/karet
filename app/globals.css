@@ -167,6 +167,10 @@ button:disabled,
 /* Leaflet map panel: dark theme for controls, ocean, and attribution. */
 .karet-map.leaflet-container {
   background: var(--color-bg);
+  /* Leaflet's panes and controls sit at z-index 400-1000; isolate them so
+     they can't paint over the sticky dashboard top bar (z-20). */
+  isolation: isolate;
+  z-index: 0;
 }
 .karet-map .leaflet-control-zoom a {
   background: var(--color-surface-2);
