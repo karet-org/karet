@@ -163,3 +163,27 @@ button:disabled,
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
 }
+
+/* Leaflet map panel: dark theme for controls, ocean, and attribution. */
+.karet-map {
+  background: transparent;
+}
+.karet-map .leaflet-control-zoom a {
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  border-color: var(--color-rule);
+}
+.karet-map .leaflet-control-zoom a:hover {
+  background: var(--color-rule-soft);
+}
+.karet-map .leaflet-control-attribution {
+  background: rgba(27, 27, 31, 0.7);
+  color: var(--color-ink-3);
+  font-size: 10px;
+}
+.karet-map .leaflet-tooltip {
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  border: 1px solid var(--color-rule);
+  box-shadow: none;
+}

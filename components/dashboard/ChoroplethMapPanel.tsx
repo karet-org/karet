@@ -1,42 +1,20 @@
 "use client";
 
-// Choropleth map using chartjs-chart-geo. Each country is filled with a
-// shade proportional to its aggregated value. Rows are bucketed by
-// ISO-3166 numeric code via resolveCountry() so data in any of
-// alpha-2/alpha-3/numeric/name formats works.
-//
-// Cross-filtering: clicking a country calls `onFilter(column, value)`
-// with the *original* country column value from the dashboard config, so
-// the filter targets the same column the config references.
+// Interactive world choropleth on Leaflet: country polygons as a GeoJSON
+// vector layer (no tile basemap), with pan/zoom, hover highlight, and
+// value tooltips. Rows are bucketed by ISO-3166 numeric code via
+// resolveCountry() so alpha-2/alpha-3/numeric/name data all work.
 
 import { useEffect, useMemo, useRef } from "react";
-import {
-  Chart as ChartJS,
-  Legend,
-  Tooltip,
-  type ChartConfiguration,
-} from "chart.js";
-import {
-  ChoroplethController,
-  GeoFeature,
-  ColorScale,
-  ProjectionScale,
-} from "chartjs-chart-geo";
+import type * as LeafletNS from "leaflet";
 import type { Feature, Geometry } from "geojson";
 import type { PanelV2 } from "@/lib/types/dashboard-v2";
 import { resolveCountry } from "@/lib/dashboard/iso3166";
 import { useWorldAtlas } from "@/lib/dashboard/worldAtlas";
 import { formatValue, toNum } from "@/lib/dashboard/format";
-import { chartAreaProps, type PanelProps } from "./types";
-
-ChartJS.register(
-  ChoroplethController,
-  GeoFeature,
-  ColorScale,
-  ProjectionScale,
-  Tooltip,
-  Legend,
-);
+import { chartAreaProps, panelCardClass } from "./types";
+import type { PanelProps } from "./types";
+import "leaflet/dist/leaflet.css";
 
 type ChoroplethMapPanelConfig = Extract<PanelV2, { kind: "choropleth_map" }>;
 
@@ -44,17 +22,18 @@ type CountryFeature = Feature<Geometry, { name: string }>;
 
 function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfig>) {
   const atlas = useWorldAtlas();
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const chartRef = useRef<ChartJS<"choropleth"> | null>(null);
-  // Antarctica (ISO numeric 010) is all empty map area; dropping it lets
-  // the projection fill the panel with inhabited landmass.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<LeafletNS.Map | null>(null);
+
+  // Antarctica (ISO numeric 010) is empty map area; dropping it keeps the
+  // world fit on inhabited landmass.
   const features = useMemo(
     () => atlas?.features.filter((f) => String(f.id) !== "010") ?? null,
     [atlas],
   );
-  const { chartData, unresolved } = useMemo(() => {
-    if (!atlas || !features) return { chartData: null, unresolved: 0 };
-    const buckets = new Map<string, number[]>();
+
+  const { values, max, unresolved } = useMemo(() => {
+    const values = new Map<string, number>();
     let unresolved = 0;
     for (const row of data.rows) {
       const raw = row[config.region];
@@ -64,102 +43,70 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
         continue;
       }
       const key = entry.numeric.replace(/^0+/, "");
-      const bucket = buckets.get(key) ?? [];
-      bucket.push(toNum(row[config.value]) ?? 0);
-      buckets.set(key, bucket);
+      values.set(key, (values.get(key) ?? 0) + (toNum(row[config.value]) ?? 0));
     }
-    const aggregated = new Map<string, number>();
-    for (const [k, vs] of buckets) aggregated.set(k, vs.reduce((a, b) => a + b, 0));
-    // Build one data point per atlas feature. Features without data get
-    // value 0 so the color scale still paints them in a "zero" shade.
-    const points = features.map((f) => {
-      const key = f.id != null ? String(f.id).replace(/^0+/, "") : "";
-      const value = key ? aggregated.get(key) ?? 0 : 0;
-      return { feature: f as CountryFeature, value };
-    });
-    return { chartData: points, unresolved };
-  }, [atlas, features, data.rows, config.region, config.value]);
+    let max = 0;
+    for (const v of values.values()) if (v > max) max = v;
+    return { values, max, unresolved };
+  }, [data.rows, config.region, config.value]);
 
-  // Create / recreate the chart when atlas or data changes.
   useEffect(() => {
-    if (!atlas || !features || !canvasRef.current || !chartData) return;
-    // Tear down any previous instance before re-creating, Chart.js does
-    // not support reassigning `data.labels` + `datasets[0].outline` on an
-    // existing choropleth cleanly.
-    chartRef.current?.destroy();
+    if (!features || !containerRef.current) return;
+    // Required, not imported: Leaflet touches `window` at module scope.
+    const L = require("leaflet") as typeof LeafletNS;
 
-    const activeNumeric: string | null = null;
+    mapRef.current?.remove();
+    const map = L.map(containerRef.current, {
+      zoomControl: true,
+      attributionControl: true,
+      scrollWheelZoom: true,
+      worldCopyJump: true,
+      minZoom: 1,
+      maxZoom: 7,
+      zoomSnap: 0.25,
+      maxBoundsViscosity: 1,
+    });
+    map.attributionControl.setPrefix(false);
+    map.attributionControl.addAttribution("Natural Earth");
 
-    const chartCfg: ChartConfiguration<"choropleth"> = {
-      type: "choropleth",
-      data: {
-        labels: chartData.map((d) => d.feature.properties?.name ?? ""),
-        datasets: [
-          {
-            label: config.title,
-            outline: features,
-            data: chartData,
-            borderWidth: 0.5,
-            borderColor: "#cbd5e1",
-            // Dim non-active countries when a filter is live.
-            backgroundColor: (ctx) => {
-              const raw = ctx.raw as { feature: CountryFeature; value: number } | undefined;
-              const val = raw?.value ?? 0;
-              const max = chartData.reduce((m, d) => (d.value > m ? d.value : m), 0);
-              if (activeNumeric) {
-                const key = raw?.feature.id != null
-                  ? String(raw.feature.id).replace(/^0+/, "")
-                  : "";
-                if (key === activeNumeric) return colorFor(val, max, 1);
-                return colorFor(val, max, 0.3);
-              }
-              return colorFor(val, max, 1);
-            },
-          },
-        ],
+    const keyOf = (f: CountryFeature) =>
+      f.id != null ? String(f.id).replace(/^0+/, "") : "";
+
+    const layer = L.geoJSON(features as CountryFeature[], {
+      style: (f) => {
+        const v = values.get(keyOf(f as CountryFeature)) ?? 0;
+        return {
+          fillColor: colorFor(v, max),
+          fillOpacity: 1,
+          color: "#3a3b42", // country borders
+          weight: 0.7,
+        };
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        showOutline: true,
-        showGraticule: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (item) => {
-                const raw = item.raw as { feature: CountryFeature; value: number };
-                const name = raw.feature.properties?.name ?? "";
-                return `${name}: ${formatValue(raw.value)}`;
-              },
-            },
-          },
-        },
-        scales: {
-          projection: {
-            axis: "x",
-            projection: "equirectangular",
-          },
-          color: {
-            axis: "x",
-            // Tailwind blue ramp via a custom interpolator. Gray zero fill
-            // is handled by `colorFor` so missing data reads as neutral.
-            interpolate: (t: number) => interpolateBlue(t),
-            quantize: 5,
-            legend: { position: "bottom-right", align: "bottom" },
-          },
-        },
+      onEachFeature: (f, lyr) => {
+        const cf = f as CountryFeature;
+        const v = values.get(keyOf(cf)) ?? 0;
+        lyr.bindTooltip(
+          `${cf.properties?.name ?? ""}: ${formatValue(v)}`,
+          { sticky: true, direction: "top", opacity: 0.95 },
+        );
+        lyr.on("mouseover", () => (lyr as LeafletNS.Path).setStyle({ weight: 1.5, color: "#9ca3af" }));
+        lyr.on("mouseout", () => (lyr as LeafletNS.Path).setStyle({ weight: 0.7, color: "#3a3b42" }));
       },
-    };
-    chartRef.current = new ChartJS(canvasRef.current, chartCfg);
+    }).addTo(map);
+
+    const bounds = layer.getBounds();
+    map.fitBounds(bounds, { padding: [4, 4] });
+    map.setMaxBounds(bounds.pad(0.25));
+
+    mapRef.current = map;
     return () => {
-      chartRef.current?.destroy();
-      chartRef.current = null;
+      map.remove();
+      mapRef.current = null;
     };
-  }, [atlas, features, chartData, config.title, config.region]);
+  }, [features, values, max]);
 
   return (
-    <div className="flex flex-1 flex-col min-w-0 rounded-[13px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-4 shadow-sm">
+    <div className={panelCardClass()}>
       <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
       <div {...chartAreaProps(config)}>
         {!atlas ? (
@@ -167,7 +114,7 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
             Loading map…
           </div>
         ) : (
-          <canvas ref={canvasRef} />
+          <div ref={containerRef} className="karet-map h-full w-full rounded-lg" />
         )}
       </div>
       {unresolved > 0 && (
@@ -179,16 +126,10 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
   );
 }
 
-// Blue ramp, roughly matching Tailwind blue-50 → blue-900 but with
-// alpha-aware output so the caller can dim non-active features.
-function interpolateBlue(t: number): string {
-  return colorFor(t, 1, 1);
-}
-
-function colorFor(value: number, max: number, alpha: number): string {
-  if (value <= 0 || max <= 0) return `rgba(64, 65, 72, ${alpha})`; // gray-200
+// Blue ramp over a neutral zero fill, matching the previous chart colors.
+function colorFor(value: number, max: number): string {
+  if (value <= 0 || max <= 0) return "#404148";
   const t = Math.min(1, Math.sqrt(value / max));
-  // Interpolate from blue-100 (#dbeafe) to blue-900 (#1e3a8a)
   const stops: [number, number, number][] = [
     [219, 234, 254], // blue-100
     [147, 197, 253], // blue-300
@@ -204,7 +145,7 @@ function colorFor(value: number, max: number, alpha: number): string {
   const r = Math.round(r1 + (r2 - r1) * frac);
   const g = Math.round(g1 + (g2 - g1) * frac);
   const b = Math.round(b1 + (b2 - b1) * frac);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 export default ChoroplethMapPanel;
