@@ -62,7 +62,7 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
     mapRef.current?.remove();
     const map = L.map(containerRef.current, {
       zoomControl: false,
-      attributionControl: true,
+      attributionControl: false,
       scrollWheelZoom: true,
       worldCopyJump: true,
       minZoom: 1,
@@ -73,15 +73,13 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
       zoomDelta: 0.25,
       wheelPxPerZoomLevel: 240,
       maxBoundsViscosity: 1,
-      // Canvas renderer, padded well beyond the viewport: the SVG renderer
-      // only paints ~10% past the edges, so dragging showed blank area
-      // until dragend forced a repaint.
-      preferCanvas: true,
-      renderer: L.canvas({ padding: 1 }),
+      // SVG renderer: hover hit-testing is native, where Leaflet's canvas
+      // renderer throttles it to 32ms and the tooltip visibly trails the
+      // cursor. Padded a full viewport because the default 10% margin left
+      // unpainted map visible while dragging.
+      renderer: L.svg({ padding: 1 }),
     });
     L.control.zoom({ position: "topright" }).addTo(map);
-    map.attributionControl.setPrefix(false);
-    map.attributionControl.addAttribution("Natural Earth");
 
     const keyOf = (f: CountryFeature) =>
       f.id != null ? String(f.id).replace(/^0+/, "") : "";
