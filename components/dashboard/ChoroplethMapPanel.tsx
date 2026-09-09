@@ -26,11 +26,15 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
   const mapRef = useRef<LeafletNS.Map | null>(null);
 
   // Antarctica (ISO numeric 010) is empty map area; dropping it keeps the
-  // world fit on inhabited landmass.
-  const features = useMemo(
-    () => atlas?.features.filter((f) => String(f.id) !== "010") ?? null,
-    [atlas],
-  );
+  // world fit on inhabited landmass. Rings that cross the antimeridian
+  // (Russia, Fiji) are shifted into 0..360 lon space, otherwise Leaflet
+  // draws them as streaks across the whole map.
+  const features = useMemo(() => {
+    if (!atlas) return null;
+    return atlas.features
+      .filter((f) => String(f.id) !== "010")
+      .map(unwrapAntimeridian);
+  }, [atlas]);
 
   const { values, max, unresolved } = useMemo(() => {
     const values = new Map<string, number>();
@@ -57,15 +61,25 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
 
     mapRef.current?.remove();
     const map = L.map(containerRef.current, {
-      zoomControl: true,
+      zoomControl: false,
       attributionControl: true,
       scrollWheelZoom: true,
       worldCopyJump: true,
       minZoom: 1,
       maxZoom: 7,
+      // Fine-grained zoom: one wheel notch is a quarter level, not a whole
+      // one (Leaflet's default 60px-per-level is a big jump on a world map).
       zoomSnap: 0.25,
+      zoomDelta: 0.25,
+      wheelPxPerZoomLevel: 240,
       maxBoundsViscosity: 1,
+      // Canvas renderer, padded well beyond the viewport: the SVG renderer
+      // only paints ~10% past the edges, so dragging showed blank area
+      // until dragend forced a repaint.
+      preferCanvas: true,
+      renderer: L.canvas({ padding: 1 }),
     });
+    L.control.zoom({ position: "topright" }).addTo(map);
     map.attributionControl.setPrefix(false);
     map.attributionControl.addAttribution("Natural Earth");
 
@@ -82,17 +96,38 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
           weight: 0.7,
         };
       },
-      onEachFeature: (f, lyr) => {
-        const cf = f as CountryFeature;
-        const v = values.get(keyOf(cf)) ?? 0;
-        lyr.bindTooltip(
-          `${cf.properties?.name ?? ""}: ${formatValue(v)}`,
-          { sticky: true, direction: "top", opacity: 0.95 },
-        );
-        lyr.on("mouseover", () => (lyr as LeafletNS.Path).setStyle({ weight: 1.5, color: "#9ca3af" }));
-        lyr.on("mouseout", () => (lyr as LeafletNS.Path).setStyle({ weight: 0.7, color: "#3a3b42" }));
-      },
     }).addTo(map);
+
+    // One tooltip owned by the map, repositioned and re-filled as the cursor
+    // moves. Per-feature bound tooltips churn open/close on every border
+    // crossing, which left the previous country's text on screen.
+    const tooltip = L.tooltip({ direction: "top", offset: [0, -8], opacity: 0.95 });
+    let hovered: LeafletNS.Path | null = null;
+
+    const clearHover = () => {
+      hovered?.setStyle({ weight: 0.7, color: "#3a3b42" });
+      hovered = null;
+    };
+
+    layer.on("mousemove", (e: LeafletNS.LeafletMouseEvent) => {
+      const lyr = (e.propagatedFrom ?? e.target) as LeafletNS.Path & { feature?: CountryFeature };
+      const cf = lyr.feature;
+      if (!cf) return;
+      if (hovered !== lyr) {
+        clearHover();
+        hovered = lyr;
+        lyr.setStyle({ weight: 1.5, color: "#9ca3af" });
+      }
+      tooltip
+        .setContent(`${cf.properties?.name ?? ""}: ${formatValue(values.get(keyOf(cf)) ?? 0)}`)
+        .setLatLng(e.latlng)
+        .openOn(map);
+    });
+
+    layer.on("mouseout", () => {
+      clearHover();
+      map.closeTooltip(tooltip);
+    });
 
     const bounds = layer.getBounds();
     map.fitBounds(bounds, { padding: [4, 4] });
@@ -124,6 +159,30 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
       )}
     </div>
   );
+}
+
+/**
+ * Shift polygon rings that span the antimeridian into 0..360 longitude
+ * space so Leaflet renders them contiguously instead of as world-wide
+ * horizontal bands.
+ */
+function unwrapAntimeridian(f: CountryFeature): CountryFeature {
+  const fixRing = (ring: number[][]): number[][] => {
+    const lons = ring.map((p) => p[0]);
+    if (Math.max(...lons) - Math.min(...lons) <= 180) return ring;
+    return ring.map(([lon, lat]) => [lon < 0 ? lon + 360 : lon, lat]);
+  };
+  const g = f.geometry;
+  if (g.type === "Polygon") {
+    return { ...f, geometry: { ...g, coordinates: g.coordinates.map(fixRing) } };
+  }
+  if (g.type === "MultiPolygon") {
+    return {
+      ...f,
+      geometry: { ...g, coordinates: g.coordinates.map((poly) => poly.map(fixRing)) },
+    };
+  }
+  return f;
 }
 
 // Blue ramp over a neutral zero fill, matching the previous chart colors.
