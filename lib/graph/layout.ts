@@ -20,7 +20,8 @@ const MIN_NODE_HEIGHT = 96;
 
 // Widths per `min-w-[...]` in the custom node components, plus buffer.
 const SOURCE_WIDTH = 240;
-const LOOKUP_WIDTH = 240;
+const DIMENSION_WIDTH = 240;
+const ROLLUP_WIDTH = 260;
 const MAPPING_WIDTH = 340;
 const TABLE_WIDTH = 240;
 
@@ -31,11 +32,13 @@ function estimateNodeWidth(n: GraphNode): number {
     case "source-container":
       return SOURCE_WIDTH;
     case "dimension":
-      return LOOKUP_WIDTH;
+      return DIMENSION_WIDTH;
     case "mapping":
       return MAPPING_WIDTH;
     case "analytic-table":
       return TABLE_WIDTH;
+    case "rollup":
+      return ROLLUP_WIDTH;
   }
 }
 
@@ -64,6 +67,10 @@ function estimateNodeHeight(n: GraphNode): number {
       rows = Math.max(1, Math.ceil(pillCount / 6));
       break;
     }
+    case "rollup":
+      // One line for the grain pills, then one per aggregate.
+      rows = 1 + data.entity.aggregates.length;
+      break;
   }
   const rowPx = data.kind === "dimension" ? PILL_ROW_PX : LIST_ROW_PX;
   const body = TITLE_PX + LIST_VPAD_PX + rows * rowPx;

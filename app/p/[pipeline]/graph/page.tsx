@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { buildGraph, findNode, type GraphNode } from "@/lib/graph/build";
 import { autoLayout, layoutToConfig } from "@/lib/graph/layout";
+import { validateRollup } from "@/components/graph/detail/validation";
 import { useGraphStore } from "@/lib/graph/store";
 import {
   addNodeToConfig,
@@ -515,6 +516,7 @@ function validateConfigForSave(cfg: PipelineConfig): string[] {
   const kinds: { label: string; entities: { id: string; name?: string }[] }[] = [
     { label: "Source", entities: cfg.source_containers },
     { label: "Dimension", entities: cfg.dimensions },
+    { label: "Rollup", entities: cfg.rollups ?? [] },
     { label: "Mapping", entities: cfg.mappings },
     { label: "Table", entities: cfg.analytic_tables },
   ];
@@ -599,6 +601,21 @@ function validateConfigForSave(cfg: PipelineConfig): string[] {
           .sort()
           .join(", ")})`,
       );
+    }
+  }
+
+  // Rollups: the grain must cover the target's partitioning, and the source
+  // must partition on the same keys, or a run could not recompute a partition
+  // in isolation.
+  for (const r of cfg.rollups ?? []) {
+    const source = cfg.analytic_tables.find((t) => t.id === r.source_table_id);
+    const target = cfg.analytic_tables.find((t) => t.id === r.analytic_table_id);
+    if (!source || !target) {
+      errors.push(`Rollup "${r.name || r.id}" is not connected to two tables`);
+      continue;
+    }
+    for (const e of validateRollup(r, source, target).errors) {
+      errors.push(`Rollup "${r.name || r.id}": ${e}`);
     }
   }
 

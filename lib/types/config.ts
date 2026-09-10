@@ -152,6 +152,55 @@ export interface LayoutPosition {
   y: number;
 }
 
+/** Aggregate functions a rollup may apply. */
+export type AggFn =
+  | "count"
+  | "sum"
+  | "min"
+  | "max"
+  | "avg"
+  | "count_distinct"
+  | "median";
+
+export interface RollupAggregate {
+  /** Output column; `avg` writes `<name>_sum` and `<name>_count`. */
+  name: string;
+  fn: AggFn;
+  /** Column being aggregated; only `count` may omit it. */
+  column?: string;
+  /** Restricts this aggregate to the group's matching rows. */
+  where?: AstNode;
+}
+
+/**
+ * Group-by aggregation from one analytic table into a smaller one. The input
+ * is the source table rather than the run's batch, so a rollup is correct
+ * however many runs a grain spans.
+ */
+export interface Rollup {
+  id: string;
+  name?: string;
+  source_table_id: string;
+  analytic_table_id: string;
+  group_by: string[];
+  aggregates: RollupAggregate[];
+}
+
+/** Columns an aggregate contributes to the target table. */
+export function aggregateOutputs(agg: RollupAggregate): string[] {
+  return agg.fn === "avg" ? [`${agg.name}_sum`, `${agg.name}_count`] : [agg.name];
+}
+
+/** Correct at its own grain, never re-aggregatable upward. */
+export function isGrainLocked(agg: RollupAggregate): boolean {
+  return agg.fn === "count_distinct" || agg.fn === "median";
+}
+
+/** Aggregates that need a column to work on. */
+export function aggregateNeedsColumn(fn: AggFn): boolean {
+  return fn !== "count";
+}
+
 export interface PipelineConfig {
   version: number;
   /** Display name shown in the UI. The S3 prefix / URL id never changes. */
@@ -160,5 +209,6 @@ export interface PipelineConfig {
   dimensions: Dimension[];
   mappings: Mapping[];
   analytic_tables: AnalyticTable[];
+  rollups?: Rollup[];
   layout?: Record<string, LayoutPosition>;
 }

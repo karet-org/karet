@@ -6,6 +6,7 @@ const KIND_COLOR: Record<string, string> = {
   mapping: "var(--color-carrot)",
   table: "var(--color-leaf)",
   dimension: "#6cb2ff",
+  rollup: "var(--color-plum, #b98cff)",
 };
 
 const KIND_ICON: Record<string, React.ReactNode> = {
@@ -19,10 +20,12 @@ const KIND_ICON: Record<string, React.ReactNode> = {
   ),
   dimension: (
     <>
-      <circle cx="7" cy="7" r="4.5" />
-      <path d="m13.5 13.5-3-3" />
+      <rect x="2" y="3" width="12" height="10" rx="1.5" />
+      <path d="M6.5 3v10M2 7h12" />
     </>
   ),
+  // Bars collapsing into one: many rows in, few out.
+  rollup: <path d="M2.5 13V8M6 13V5M9.5 13V9M13 13V3" />,
 };
 
 export default function NodeShell({
@@ -34,7 +37,7 @@ export default function NodeShell({
   handles,
   children,
 }: {
-  kind: "source" | "mapping" | "table" | "dimension";
+  kind: "source" | "mapping" | "table" | "dimension" | "rollup";
   title: string;
   selected?: boolean;
   testId: string;

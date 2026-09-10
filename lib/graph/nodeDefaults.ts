@@ -5,6 +5,7 @@ import type {
   Mapping,
   PipelineConfig,
   SourceContainer,
+  Rollup,
 } from "@/lib/types/config";
 import { dimensionId } from "./build";
 
@@ -47,6 +48,17 @@ function defaultMapping(): Mapping {
   };
 }
 
+function defaultRollup(): Rollup {
+  return {
+    id: uid("rollup"),
+    name: "New Rollup",
+    source_table_id: "",
+    analytic_table_id: "",
+    group_by: [],
+    aggregates: [{ name: "rows", fn: "count" }],
+  };
+}
+
 function defaultAnalyticTable(): AnalyticTable {
   const id = uid("table");
   return {
@@ -56,7 +68,7 @@ function defaultAnalyticTable(): AnalyticTable {
   };
 }
 
-export type NodeKind = "source" | "dimension" | "mapping" | "table";
+export type NodeKind = "source" | "dimension" | "mapping" | "table" | "rollup";
 
 export function addNodeToConfig(cfg: PipelineConfig, kind: NodeKind): PipelineConfig {
   switch (kind) {
@@ -68,6 +80,8 @@ export function addNodeToConfig(cfg: PipelineConfig, kind: NodeKind): PipelineCo
       return { ...cfg, mappings: [...cfg.mappings, defaultMapping()] };
     case "table":
       return { ...cfg, analytic_tables: [...cfg.analytic_tables, defaultAnalyticTable()] };
+    case "rollup":
+      return { ...cfg, rollups: [...(cfg.rollups ?? []), defaultRollup()] };
   }
 }
 

@@ -1,6 +1,6 @@
 // Build a React Flow graph from a `Pipeline_Config`.
 //
-// One node per Source_Container / Lookup_Mapping / Mapping / Analytic_Table,
+// One node per Source_Container / Dimension / Mapping / Analytic_Table / Rollup,
 // plus an edge per config reference: source→mapping, lookup root→mapping (from
 // `dim_ref`s in column exprs; only root dimensions have nodes), mapping→table.
 // Positions come from `cfg.layout[id]`, defaulting to `{ x: 0, y: 0 }`.
@@ -12,6 +12,7 @@ import type {
   Dimension,
   Mapping,
   PipelineConfig,
+  Rollup,
   SourceContainer,
 } from "../types/config";
 
@@ -19,12 +20,14 @@ export type SourceContainerNodeData = { kind: "source-container"; entity: Source
 export type DimensionNodeData = { kind: "dimension"; entity: Dimension };
 export type MappingNodeData = { kind: "mapping"; entity: Mapping };
 export type AnalyticTableNodeData = { kind: "analytic-table"; entity: AnalyticTable };
+export type RollupNodeData = { kind: "rollup"; entity: Rollup };
 
 type GraphNodeData =
   | SourceContainerNodeData
   | DimensionNodeData
   | MappingNodeData
-  | AnalyticTableNodeData;
+  | AnalyticTableNodeData
+  | RollupNodeData;
 
 export type GraphNode = Node<GraphNodeData>;
 export type GraphEdge = Edge;
@@ -40,6 +43,7 @@ export const NODE_TYPE = {
   dimension: "dimension",
   mapping: "mapping",
   analyticTable: "analytic-table",
+  rollup: "rollup",
 } as const;
 
 /**
@@ -145,6 +149,16 @@ export function buildGraph(cfg: PipelineConfig): Graph {
     });
   }
 
+  for (const r of cfg.rollups ?? []) {
+    nodes.push({
+      id: r.id,
+      type: NODE_TYPE.rollup,
+      data: { kind: "rollup", entity: r },
+      position: position(r.id),
+      dragHandle: ".drag-handle",
+    });
+  }
+
   const edges: GraphEdge[] = [];
   const edgeIds = new Set<string>();
 
@@ -162,6 +176,12 @@ export function buildGraph(cfg: PipelineConfig): Graph {
     const lookupRoots = new Set<string>();
     for (const col of m.columns) collectDimIds(col.expr, lookupRoots);
     for (const root of lookupRoots) addEdge(root, m.id);
+  }
+
+  // A rollup reads one table and writes another.
+  for (const r of cfg.rollups ?? []) {
+    addEdge(r.source_table_id, r.id);
+    addEdge(r.id, r.analytic_table_id);
   }
 
   return { nodes, edges };
@@ -189,6 +209,12 @@ export function findNode(
   if (m) return {
     id, type: NODE_TYPE.mapping,
     data: { kind: "mapping", entity: m },
+    position, dragHandle: ".drag-handle",
+  };
+  const r = (cfg.rollups ?? []).find((x) => x.id === id);
+  if (r) return {
+    id, type: NODE_TYPE.rollup,
+    data: { kind: "rollup", entity: r },
     position, dragHandle: ".drag-handle",
   };
   const at = cfg.analytic_tables.find((x) => x.id === id);

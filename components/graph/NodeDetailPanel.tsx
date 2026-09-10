@@ -8,10 +8,12 @@ import type {
   AnalyticTable,
   Dimension,
   Mapping,
+  Rollup,
   SourceContainer,
 } from "@/lib/types/config";
 import CloseButton from "@/components/ui/CloseButton";
 import AnalyticTableEditor from "./detail/AnalyticTableEditor";
+import RollupEditor from "./detail/RollupEditor";
 import DimensionEditor from "./detail/DimensionEditor";
 import MappingEditor from "./detail/MappingEditor";
 import SourceContainerEditor from "./detail/SourceContainerEditor";
@@ -23,7 +25,7 @@ interface NodeDetailPanelProps {
   onEdit?: () => void;
 }
 
-type EditableEntity = SourceContainer | Dimension | Mapping | AnalyticTable;
+type EditableEntity = SourceContainer | Dimension | Mapping | AnalyticTable | Rollup;
 
 /** An AnalyticTable has a `schema` but, unlike a source container, no `path_prefix`. */
 function isAnalyticTable(entity: EditableEntity): entity is AnalyticTable {
@@ -40,7 +42,8 @@ function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps) {
       cfg.source_containers.find((sc) => sc.id === next.id) ??
       cfg.dimensions.find((lm) => lm.id === next.id) ??
       cfg.mappings.find((m) => m.id === next.id) ??
-      cfg.analytic_tables.find((t) => t.id === next.id);
+      cfg.analytic_tables.find((t) => t.id === next.id) ??
+      (cfg.rollups ?? []).find((r) => r.id === next.id);
     if (existing && JSON.stringify(existing) === JSON.stringify(next)) return;
 
     // Push analytic_table schema changes into every Mapping that writes to
@@ -70,6 +73,7 @@ function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps) {
       dimensions: cfg.dimensions.map((lm) => lm.id === next.id ? next as Dimension : lm),
       mappings: mappings.map((m) => m.id === next.id ? next as Mapping : m),
       analytic_tables: cfg.analytic_tables.map((t) => t.id === next.id ? next as AnalyticTable : t),
+      rollups: (cfg.rollups ?? []).map((r) => r.id === next.id ? next as Rollup : r),
     };
     useGraphStore.setState({ config: updated });
     onEdit?.();
@@ -124,6 +128,8 @@ function headerLabel(node: GraphNode): string {
       return "Mapping";
     case "analytic-table":
       return "Analytic table";
+    case "rollup":
+      return "Rollup";
   }
 }
 
@@ -135,6 +141,8 @@ function EditorBody({
   onChange: (next: EditableEntity) => void;
 }) {
   const entity = node.data.entity;
+  // Rollups reference tables by id, so their editor needs the config's tables.
+  const tables = useGraphStore.getState().config?.analytic_tables ?? [];
   switch (node.data.kind) {
     case "source-container":
       return <SourceContainerEditor value={entity as SourceContainer} onChange={onChange} />;
@@ -144,6 +152,8 @@ function EditorBody({
       return <MappingEditor value={entity as Mapping} onChange={onChange} />;
     case "analytic-table":
       return <AnalyticTableEditor value={entity as AnalyticTable} onChange={onChange} />;
+    case "rollup":
+      return <RollupEditor value={entity as Rollup} onChange={onChange} tables={tables} />;
   }
 }
 

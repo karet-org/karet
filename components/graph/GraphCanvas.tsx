@@ -25,7 +25,8 @@ import SourceContainerNode from "./SourceContainerNode";
 import DimensionNode from "./DimensionNode";
 import MappingNode from "./MappingNode";
 import AnalyticTableNode from "./AnalyticTableNode";
-import { IconSource, IconDimension, IconMapping, IconTable, IconTrash, IconPlay,
+import RollupNode from "./RollupNode";
+import { IconSource, IconDimension, IconMapping, IconTable, IconRollup, IconTrash, IconPlay,
 } from "@/components/icons";
 import Modal from "@/components/ui/Modal";
 
@@ -64,10 +65,16 @@ const nodeTypes: NodeTypes = {
   [NODE_TYPE.dimension]: DimensionNode,
   [NODE_TYPE.mapping]: MappingNode,
   [NODE_TYPE.analyticTable]: AnalyticTableNode,
+  [NODE_TYPE.rollup]: RollupNode,
 };
 
 /** Edge kind derived from the source/target node types. */
-type EdgeKind = "source-to-mapping" | "dimension-to-mapping" | "mapping-to-table";
+type EdgeKind =
+  | "source-to-mapping"
+  | "dimension-to-mapping"
+  | "mapping-to-table"
+  | "table-to-rollup"
+  | "rollup-to-table";
 
 function deriveEdgeKind(
   edge: GraphEdge,
@@ -93,6 +100,12 @@ function deriveEdgeKind(
     dst.type === NODE_TYPE.analyticTable
   ) {
     return "mapping-to-table";
+  }
+  if (src.type === NODE_TYPE.analyticTable && dst.type === NODE_TYPE.rollup) {
+    return "table-to-rollup";
+  }
+  if (src.type === NODE_TYPE.rollup && dst.type === NODE_TYPE.analyticTable) {
+    return "rollup-to-table";
   }
   return null;
 }
@@ -130,6 +143,14 @@ function styleEdges(edges: GraphEdge[], nodes: GraphNode[]): Edge[] {
           type: "smoothstep",
           markerEnd: { ...marker, color: "#16a34a" },
           style: { stroke: "#16a34a", strokeWidth: 1.5 },
+        };
+      case "table-to-rollup":
+      case "rollup-to-table":
+        return {
+          ...e,
+          type: "smoothstep",
+          markerEnd: { ...marker, color: "#a78bfa" },
+          style: { stroke: "#a78bfa", strokeWidth: 1.5 },
         };
       default:
         return e;
@@ -242,7 +263,9 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         const dstType = dst.type;
         const valid =
           (srcType === NODE_TYPE.sourceContainer && dstType === NODE_TYPE.mapping) ||
-          (srcType === NODE_TYPE.mapping && dstType === NODE_TYPE.analyticTable);
+          (srcType === NODE_TYPE.mapping && dstType === NODE_TYPE.analyticTable) ||
+          (srcType === NODE_TYPE.analyticTable && dstType === NODE_TYPE.rollup) ||
+          (srcType === NODE_TYPE.rollup && dstType === NODE_TYPE.analyticTable);
         if (!valid) return;
         setInternalEdges((prev) => addEdge(connection, prev));
         onConnectProp?.(connection.source, connection.target);
@@ -439,6 +462,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
                 ["dimension", "Dimension", IconDimension],
                 ["mapping", "Mapping", IconMapping],
                 ["table", "Table", IconTable],
+                ["rollup", "Rollup", IconRollup],
               ] as [NodeKind, string, React.ComponentType<{ size?: number }>][]).map(([kind, label, Icon]) => (
                 <button
                   key={kind}
@@ -473,6 +497,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
             ["dimension", "Add dimension", IconDimension],
             ["mapping", "Add mapping", IconMapping],
             ["table", "Add table", IconTable],
+            ["rollup", "Add rollup", IconRollup],
           ] as [NodeKind, string, React.ComponentType<{ size?: number }>][]).map(
             ([kind, label, Icon]) => (
               <button
