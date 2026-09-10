@@ -28,6 +28,7 @@ export type AstNode =
   | { kind: "and"; left: AstNode; right: AstNode }
   | { kind: "or"; left: AstNode; right: AstNode }
   | { kind: "not"; input: AstNode }
+  | { kind: "from_unix"; input: AstNode; unit?: "s" | "ms" }
   | { kind: "if"; cond: AstNode; then: AstNode; else: AstNode }
   | { kind: "coalesce"; args: AstNode[] }
   | { kind: "parse_date"; input: AstNode; format: string }
@@ -39,6 +40,8 @@ export type AstNode =
 
 export interface ColumnSchema {
   name: string;
+  /** JSON sources: dotted path with optional `[n]`, defaults to `name`. */
+  path?: string;
   type: string; // "string" | "number" | "int64" | "float64" | "date" | "bool"
   nullable?: boolean;
   assertions?: ColumnAssertions;
@@ -51,11 +54,18 @@ interface ColumnAssertions {
   max?: number;
 }
 
+/** Wire format of a source container's files. */
+export type SourceFormat = "csv" | "ndjson" | "json_array";
+
 export interface SourceContainer {
   id: string;
   name: string;
   path_prefix: string;
+  /** Defaults to "csv" when absent. */
+  format?: SourceFormat;
   schema: ColumnSchema[];
+  /** JSON only: records failing this predicate are skipped. */
+  record_filter?: AstNode;
 }
 
 export interface LookupRow {

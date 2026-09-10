@@ -1,7 +1,7 @@
 // `path_prefix` is an absolute lake key prefix; browse lists /api/lake folders.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ColumnSchema, SourceContainer } from "@/lib/types/config";
+import type { ColumnSchema, SourceContainer, SourceFormat } from "@/lib/types/config";
 import { InlineErrorList } from "./editorPrimitives";
 import {
   EditField,
@@ -26,11 +26,20 @@ interface SourceContainerEditorProps {
 
 export const SOURCE_CONTAINER_EDITOR_ERROR_TESTID = "source-container-editor-error";
 
+const formatBlurb: Record<SourceFormat, string> = {
+  csv: "CSV files",
+  ndjson: "JSON-lines files (.json, .jsonl, .ndjson)",
+  json_array: "JSON array files (.json)",
+};
+
 function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerEditorProps) {
   const result = useMemo(() => validateSourceContainer(value), [value]);
   if (onValidate) onValidate(result);
 
   const [editingRow, setEditingRow] = useState<number | null>(null);
+
+  const format: SourceFormat = value.format ?? "csv";
+  const isJson = format !== "csv";
 
   const setColumn = (index: number, patch: Partial<ColumnSchema>) => {
     const schema = value.schema.map((c, i) => (i === index ? { ...c, ...patch } : c));
@@ -63,8 +72,40 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
           onChange={(path_prefix) => onChange({ ...value, path_prefix })}
         />
         <p className="mt-1.5 text-[10.5px] text-[color:var(--color-ink-3)]">
-          Any folder in the data lake; CSV files under it feed this source.
+          Any folder in the data lake; {formatBlurb[format]} under it feed this source.
         </p>
+      </Section>
+
+      <Section label="Format">
+        <select
+          aria-label="source format"
+          className={kvInputClass()}
+          value={format}
+          onChange={(e) => {
+            const next = e.target.value as SourceFormat;
+            if (next === "csv") {
+              // Paths are meaningless for CSV: columns bind to headers.
+              const { record_filter: _drop, ...rest } = value;
+              onChange({
+                ...rest,
+                format: next,
+                schema: value.schema.map(({ path: _p, ...c }) => c),
+              });
+            } else {
+              onChange({ ...value, format: next });
+            }
+          }}
+        >
+          <option value="csv">CSV</option>
+          <option value="ndjson">JSON lines (NDJSON)</option>
+          <option value="json_array">JSON array</option>
+        </select>
+        {isJson && (
+          <p className="mt-1.5 text-[10.5px] text-[color:var(--color-ink-3)]">
+            Columns bind to a path inside each record, e.g.{" "}
+            <code>request.headers.User-Agent[0]</code>. Missing paths read as null.
+          </p>
+        )}
       </Section>
 
       <Section
@@ -102,6 +143,19 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
                         onChange={(e) => setColumn(i, { name: e.target.value })}
                       />
                     </EditField>
+                    {isJson && (
+                      <EditField label="path" className="flex-1">
+                        <input
+                          aria-label={`column ${i} path`}
+                          className={editInputClass("font-mono")}
+                          placeholder={col.name}
+                          value={col.path ?? ""}
+                          onChange={(e) =>
+                            setColumn(i, { path: e.target.value || undefined })
+                          }
+                        />
+                      </EditField>
+                    )}
                     <EditField label="type">
                       <select
                         aria-label={`column ${i} type`}
