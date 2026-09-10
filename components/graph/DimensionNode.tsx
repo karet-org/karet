@@ -36,6 +36,16 @@ function DimensionNode({
       className="min-w-[200px] max-w-[240px]"
       handles={<Handle type="source" position={Position.Right} />}
     >
+      {fileRows && isFileRows(entity.rows) ? (
+        <div className="flex flex-col gap-0.5">
+          <span className="truncate font-mono text-[10.5px] text-[color:var(--color-ink-2)]">
+            {entity.rows.path_prefix}
+          </span>
+          <span className="text-[10px] text-[color:var(--color-ink-3)]">
+            {entity.rows.key} → {entity.rows.values.join(", ")}
+          </span>
+        </div>
+      ) : (
       <ul className="flex flex-wrap gap-1">
         {keywords.map((kw) => (
           <li
@@ -47,6 +57,7 @@ function DimensionNode({
         ))}
         {moreCount > 0 && <li className="px-1 py-0.5 text-[10px]">+{moreCount} more</li>}
       </ul>
+      )}
     </NodeShell>
   );
 }
