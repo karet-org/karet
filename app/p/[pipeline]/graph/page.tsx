@@ -547,7 +547,31 @@ function validateConfigForSave(cfg: PipelineConfig): string[] {
     }
   }
 
-  // Empty/duplicate table columns break SQL queries and Parquet output.
+  // Union: several mappings may feed one table (that is how a multi-source
+  // fact table works), but two writing the same column with different types
+  // produce Parquet that fails at query time.
+  for (const t of cfg.analytic_tables) {
+    const feeding = cfg.mappings.filter((m) => m.analytic_table_id === t.id);
+    if (feeding.length < 2) continue;
+    const declared = new Map(t.schema.map((c) => [c.name, c.type]));
+    const seen = new Map<string, { type: string; mapping: string }>();
+    for (const m of feeding) {
+      for (const col of m.columns) {
+        const type = declared.get(col.name);
+        if (type === undefined) continue;
+        const prior = seen.get(col.name);
+        if (prior && prior.type !== type) {
+          errors.push(
+            `Table "${t.name?.trim() || t.id}": mappings "${prior.mapping}" and "${m.name || m.id}" both write "${col.name}" with different types (${prior.type} vs ${type})`,
+          );
+        } else if (!prior) {
+          seen.set(col.name, { type, mapping: m.name || m.id });
+        }
+      }
+    }
+  }
+
+
   for (const t of cfg.analytic_tables) {
     const label = t.name?.trim() || t.id;
     const seen = new Set<string>();

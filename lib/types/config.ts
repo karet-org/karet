@@ -25,6 +25,9 @@ export type AstNode =
   | { kind: "ge"; left: AstNode; right: AstNode }
   | { kind: "le"; left: AstNode; right: AstNode }
   | { kind: "contains"; input: AstNode; pattern: AstNode }
+  | { kind: "and"; left: AstNode; right: AstNode }
+  | { kind: "or"; left: AstNode; right: AstNode }
+  | { kind: "not"; input: AstNode }
   | { kind: "if"; cond: AstNode; then: AstNode; else: AstNode }
   | { kind: "coalesce"; args: AstNode[] }
   | { kind: "parse_date"; input: AstNode; format: string }
@@ -91,6 +94,8 @@ export interface Mapping {
   source_container_id: string;
   analytic_table_id: string;
   columns: MappingColumn[];
+  /** Row filter evaluated after the columns, so it references their names. */
+  where?: AstNode;
 }
 
 export interface AnalyticTable {
