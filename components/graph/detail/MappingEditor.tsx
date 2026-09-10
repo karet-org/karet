@@ -54,6 +54,37 @@ function MappingEditor({ value, onChange }: MappingEditorProps) {
 
   const shownErrors = validationResult.errors.filter((e) => table || !/analytic table/i.test(e));
 
+  // Filter predicate: text-edited like a column expression, but resolved
+  // against this mapping's output columns since it runs after the projection.
+  const outputColumns = useMemo(() => value.columns.map((c) => c.name), [value.columns]);
+  const [whereText, setWhereText] = useState(() =>
+    value.where ? astExpression(value.where) : "",
+  );
+  const [whereError, setWhereError] = useState<string | null>(null);
+  useEffect(() => {
+    setWhereText(value.where ? astExpression(value.where) : "");
+    setWhereError(null);
+  }, [value.where]);
+
+  const commitWhere = () => {
+    const text = whereText.trim();
+    if (text === "") {
+      setWhereError(null);
+      if (value.where !== undefined) {
+        const { where: _drop, ...rest } = value;
+        onChange(rest);
+      }
+      return;
+    }
+    const parsed = parseExpression(text);
+    if (!parsed.ok) {
+      setWhereError(parsed.error);
+      return;
+    }
+    setWhereError(null);
+    onChange({ ...value, where: parsed.value });
+  };
+
   return (
     <div data-testid="mapping-editor" className="flex flex-col">
       <Section label="Name">
@@ -63,6 +94,29 @@ function MappingEditor({ value, onChange }: MappingEditorProps) {
           value={value.name}
           onChange={(e) => onChange({ ...value, name: e.target.value })}
         />
+      </Section>
+
+      <Section label="Filter">
+        <ExpressionField
+          ariaLabel="row filter"
+          value={whereText}
+          onChange={setWhereText}
+          onCommit={commitWhere}
+          error={whereError}
+          modalTitle="Row filter"
+          sourceColumns={outputColumns}
+          lookupIds={lookupIds}
+          inputClassName={inputClass(
+            `font-mono w-full ${whereError ? "border-[color:var(--color-rose-deep)]" : ""}`,
+          )}
+        />
+        <p className="mt-1 text-[11px] text-[color:var(--color-ink-4)]">
+          Optional. Rows where this is false are dropped. References this mapping&rsquo;s
+          output columns, e.g. <code>and(ge(status, 400), not(contains(path, &quot;/health&quot;)))</code>
+        </p>
+        {whereError && (
+          <p className="mt-1 text-[11px] text-[color:var(--color-rose-deep)]">{whereError}</p>
+        )}
       </Section>
 
       {shownErrors.length > 0 && (

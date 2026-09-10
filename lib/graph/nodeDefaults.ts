@@ -257,6 +257,8 @@ export function scrubLookupReferences(
     case "lt":
     case "ge":
     case "le":
+    case "and":
+    case "or":
       return {
         ...node,
         left: scrubLookupReferences(node.left, lookupId),
@@ -268,6 +270,7 @@ export function scrubLookupReferences(
         ...node,
         args: node.args.map((a) => scrubLookupReferences(a, lookupId)),
       };
+    case "not":
     case "upper":
     case "lower":
     case "trim":
@@ -317,6 +320,8 @@ function astReferencesLookup(node: AstNode, lookupId: string): boolean {
     case "lt":
     case "ge":
     case "le":
+    case "and":
+    case "or":
       return (
         astReferencesLookup(node.left, lookupId) ||
         astReferencesLookup(node.right, lookupId)
@@ -324,6 +329,7 @@ function astReferencesLookup(node: AstNode, lookupId: string): boolean {
     case "concat":
     case "coalesce":
       return node.args.some((a) => astReferencesLookup(a, lookupId));
+    case "not":
     case "upper":
     case "lower":
     case "trim":
@@ -373,6 +379,8 @@ function astReferencesSourceColumn(
     case "lt":
     case "ge":
     case "le":
+    case "and":
+    case "or":
       return (
         astReferencesSourceColumn(node.left, columnNames) ||
         astReferencesSourceColumn(node.right, columnNames)
@@ -380,6 +388,7 @@ function astReferencesSourceColumn(
     case "concat":
     case "coalesce":
       return node.args.some((a) => astReferencesSourceColumn(a, columnNames));
+    case "not":
     case "upper":
     case "lower":
     case "trim":

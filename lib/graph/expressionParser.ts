@@ -226,9 +226,11 @@ class Parser {
         if (args.length < 3) throw new ParseError("if requires (cond, then, else)", this.peek().pos);
         return { kind: "if", cond: args[0], then: args[1], else: args[2] };
       }
+      case "not": return { kind: "not", input: this.requireArg(args, 0, name) };
       // Binary ops also accepted in call form: add(a, b), eq(a, b), ...
       case "add": case "sub": case "mul": case "div":
       case "eq": case "ne": case "gt": case "lt": case "ge": case "le":
+      case "and": case "or":
         return { kind: name, left: this.requireArg(args, 0, name), right: this.requireArg(args, 1, name) } as AstNode;
       default:
         throw new ParseError(`Unknown function '${name}'`, this.peek().pos);

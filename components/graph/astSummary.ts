@@ -64,12 +64,15 @@ function renderAst(node: AstNode, depth: number, truncate: boolean): string {
     case "lt":
     case "ge":
     case "le":
+    case "and":
+    case "or":
       return `${node.kind}(${recurse(node.left, depth, truncate)}, ${recurse(node.right, depth, truncate)})`;
     case "concat":
       // Parser shape: `concat("sep", a, b, ...)`.
       return `concat(${[JSON.stringify(node.sep), ...renderArgs(node.args, depth, truncate)].join(", ")})`;
     case "coalesce":
       return `coalesce(${renderArgs(node.args, depth, truncate).join(", ")})`;
+    case "not":
     case "upper":
     case "lower":
     case "trim":
