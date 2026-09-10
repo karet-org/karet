@@ -9,7 +9,7 @@
 //      whitespace) used to round-trip through bare `col(name)`, which
 //      tokenized as multiple identifiers and failed to parse.
 //
-//   2. Deeply nested expressions (e.g. coalesce(lookup_ref(merchants,
+//   2. Deeply nested expressions (e.g. coalesce(dim_ref(merchants,
 //      upper(trim(col(...))))) ) used to be truncated with `…` by
 //      `astSummary`, fine for graph-node display, fatal when the
 //      same string was fed back to the parser.
@@ -85,13 +85,27 @@ describe("astExpression / parseExpression round-trip", () => {
     if (parsed.ok) expect(parsed.value).toEqual(node);
   });
 
-  it("renders + reparses a deeply-nested coalesce(lookup_ref, fallback)", () => {
+  it("carries the dim_ref value column through render and reparse", () => {
+    const node: AstNode = {
+      kind: "dim_ref",
+      dim_id: "countries",
+      value: "region",
+      input: { kind: "col", name: "cc" },
+    };
+    const text = astExpression(node);
+    expect(text).toBe('dim_ref("countries", cc, "region")');
+    const parsed = parseExpression(text);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.value).toEqual(node);
+  });
+
+  it("renders + reparses a deeply-nested coalesce(dim_ref, fallback)", () => {
     const node: AstNode = {
       kind: "coalesce",
       args: [
         {
-          kind: "lookup_ref",
-          lookup_id: "merchants",
+          kind: "dim_ref",
+          dim_id: "merchants",
           input: {
             kind: "upper",
             input: {

@@ -1,12 +1,12 @@
 import type {
   AnalyticTable,
   AstNode,
-  LookupMapping,
+  Dimension,
   Mapping,
   PipelineConfig,
   SourceContainer,
 } from "@/lib/types/config";
-import { rootLookupId } from "./build";
+import { dimensionId } from "./build";
 
 let counter = 0;
 function uid(prefix: string): string {
@@ -23,14 +23,16 @@ function defaultSourceContainer(): SourceContainer {
   };
 }
 
-function defaultLookupMapping(): LookupMapping {
+function defaultDimension(): Dimension {
   return {
-    id: uid("lookup"),
-    name: "New Lookup",
+    id: uid("dim"),
+    name: "New Dimension",
     match: "keyword_substring",
     case_insensitive: true,
-    rows: [{ input_patterns: ["EXAMPLE"], output: "DEFAULT" }],
-    children: [],
+    rows: {
+      values: ["value"],
+      rows: [{ patterns: ["EXAMPLE"], values: ["DEFAULT"] }],
+    },
   };
 }
 
@@ -54,14 +56,14 @@ function defaultAnalyticTable(): AnalyticTable {
   };
 }
 
-export type NodeKind = "source" | "lookup" | "mapping" | "table";
+export type NodeKind = "source" | "dimension" | "mapping" | "table";
 
 export function addNodeToConfig(cfg: PipelineConfig, kind: NodeKind): PipelineConfig {
   switch (kind) {
     case "source":
       return { ...cfg, source_containers: [...cfg.source_containers, defaultSourceContainer()] };
-    case "lookup":
-      return { ...cfg, lookup_mappings: [...cfg.lookup_mappings, defaultLookupMapping()] };
+    case "dimension":
+      return { ...cfg, dimensions: [...cfg.dimensions, defaultDimension()] };
     case "mapping":
       return { ...cfg, mappings: [...cfg.mappings, defaultMapping()] };
     case "table":
@@ -70,8 +72,8 @@ export function addNodeToConfig(cfg: PipelineConfig, kind: NodeKind): PipelineCo
 }
 
 /**
- * Disconnect an edge by clearing the field that produced it. Lookup edges
- * derive from `lookup_ref` in expressions and can't be disconnected here.
+ * Disconnect an edge by clearing the field that produced it. Dimension edges
+ * derive from `dim_ref` in expressions and can't be disconnected here.
  */
 export function disconnectEdgeInConfig(
   cfg: PipelineConfig,
@@ -176,7 +178,7 @@ export function analyzeNodeDeleteImpact(
   };
 
   const isSource = cfg.source_containers.some((s) => s.id === nodeId);
-  const isLookup = cfg.lookup_mappings.some((l) => l.id === nodeId);
+  const isDimension = cfg.dimensions.some((l) => l.id === nodeId);
   const isMapping = cfg.mappings.some((m) => m.id === nodeId);
   const isTable = cfg.analytic_tables.some((t) => t.id === nodeId);
 
@@ -190,12 +192,12 @@ export function analyzeNodeDeleteImpact(
     }
   }
 
-  // AST-level cascades: deleting a Lookup breaks `lookup_ref`s on its root id;
+  // AST-level cascades: deleting a Dimension breaks `dim_ref`s on its root id;
   // deleting a Source breaks `col` refs, but only in mappings wired to it.
-  if (isLookup) {
+  if (isDimension) {
     for (const m of cfg.mappings) {
       for (const col of m.columns) {
-        if (astReferencesLookup(col.expr, nodeId)) {
+        if (astReferencesDimension(col.expr, nodeId)) {
           impact.brokenExpressions.push({
             mappingId: m.id,
             mappingName: m.name || m.id,
@@ -233,12 +235,12 @@ export function analyzeNodeDeleteImpact(
 }
 
 /**
- * Replace every `lookup_ref` rooted at `lookupId` with a `null` atom so the
+ * Replace every `dim_ref` rooted at `dimId` with a `null` atom so the
  * surviving columns still parse against the worker schema after a delete.
  */
-export function scrubLookupReferences(
+export function scrubDimensionReferences(
   node: AstNode,
-  lookupId: string,
+  dimId: string,
 ): AstNode {
   switch (node.kind) {
     case "col":
@@ -261,14 +263,14 @@ export function scrubLookupReferences(
     case "or":
       return {
         ...node,
-        left: scrubLookupReferences(node.left, lookupId),
-        right: scrubLookupReferences(node.right, lookupId),
+        left: scrubDimensionReferences(node.left, dimId),
+        right: scrubDimensionReferences(node.right, dimId),
       };
     case "concat":
     case "coalesce":
       return {
         ...node,
-        args: node.args.map((a) => scrubLookupReferences(a, lookupId)),
+        args: node.args.map((a) => scrubDimensionReferences(a, dimId)),
       };
     case "not":
     case "from_unix":
@@ -281,29 +283,29 @@ export function scrubLookupReferences(
     case "month":
     case "day":
     case "cast":
-      return { ...node, input: scrubLookupReferences(node.input, lookupId) };
+      return { ...node, input: scrubDimensionReferences(node.input, dimId) };
     case "contains":
       return {
         ...node,
-        input: scrubLookupReferences(node.input, lookupId),
-        pattern: scrubLookupReferences(node.pattern, lookupId),
+        input: scrubDimensionReferences(node.input, dimId),
+        pattern: scrubDimensionReferences(node.pattern, dimId),
       };
     case "if":
       return {
         ...node,
-        cond: scrubLookupReferences(node.cond, lookupId),
-        then: scrubLookupReferences(node.then, lookupId),
-        else: scrubLookupReferences(node.else, lookupId),
+        cond: scrubDimensionReferences(node.cond, dimId),
+        then: scrubDimensionReferences(node.then, dimId),
+        else: scrubDimensionReferences(node.else, dimId),
       };
-    case "lookup_ref":
-      if (rootLookupId(node.lookup_id) === lookupId) {
+    case "dim_ref":
+      if (dimensionId(node.dim_id) === dimId) {
         return { kind: "null" };
       }
-      return { ...node, input: scrubLookupReferences(node.input, lookupId) };
+      return { ...node, input: scrubDimensionReferences(node.input, dimId) };
   }
 }
 
-function astReferencesLookup(node: AstNode, lookupId: string): boolean {
+function astReferencesDimension(node: AstNode, dimId: string): boolean {
   switch (node.kind) {
     case "col":
     case "str":
@@ -324,12 +326,12 @@ function astReferencesLookup(node: AstNode, lookupId: string): boolean {
     case "and":
     case "or":
       return (
-        astReferencesLookup(node.left, lookupId) ||
-        astReferencesLookup(node.right, lookupId)
+        astReferencesDimension(node.left, dimId) ||
+        astReferencesDimension(node.right, dimId)
       );
     case "concat":
     case "coalesce":
-      return node.args.some((a) => astReferencesLookup(a, lookupId));
+      return node.args.some((a) => astReferencesDimension(a, dimId));
     case "not":
     case "from_unix":
     case "upper":
@@ -341,21 +343,21 @@ function astReferencesLookup(node: AstNode, lookupId: string): boolean {
     case "month":
     case "day":
     case "cast":
-      return astReferencesLookup(node.input, lookupId);
+      return astReferencesDimension(node.input, dimId);
     case "contains":
       return (
-        astReferencesLookup(node.input, lookupId) ||
-        astReferencesLookup(node.pattern, lookupId)
+        astReferencesDimension(node.input, dimId) ||
+        astReferencesDimension(node.pattern, dimId)
       );
     case "if":
       return (
-        astReferencesLookup(node.cond, lookupId) ||
-        astReferencesLookup(node.then, lookupId) ||
-        astReferencesLookup(node.else, lookupId)
+        astReferencesDimension(node.cond, dimId) ||
+        astReferencesDimension(node.then, dimId) ||
+        astReferencesDimension(node.else, dimId)
       );
-    case "lookup_ref":
-      if (rootLookupId(node.lookup_id) === lookupId) return true;
-      return astReferencesLookup(node.input, lookupId);
+    case "dim_ref":
+      if (dimensionId(node.dim_id) === dimId) return true;
+      return astReferencesDimension(node.input, dimId);
   }
 }
 
@@ -413,7 +415,7 @@ function astReferencesSourceColumn(
         astReferencesSourceColumn(node.then, columnNames) ||
         astReferencesSourceColumn(node.else, columnNames)
       );
-    case "lookup_ref":
+    case "dim_ref":
       return astReferencesSourceColumn(node.input, columnNames);
   }
 }

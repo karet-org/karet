@@ -36,8 +36,8 @@ interface ExpressionFieldProps {
   modalTitle: string;
   /** Valid `col` references; null/undefined per the mapping editor. */
   sourceColumns: string[] | null | undefined;
-  /** Lookup ids offered inside `lookup_ref(`. */
-  lookupIds: string[];
+  /** Dimension ids offered inside `dim_ref(`. */
+  dimensionIds: string[];
 }
 
 function ExpressionField({
@@ -49,7 +49,7 @@ function ExpressionField({
   inputClassName = "",
   modalTitle,
   sourceColumns,
-  lookupIds,
+  dimensionIds,
 }: ExpressionFieldProps) {
   const [open, setOpen] = useState(false);
 
@@ -62,7 +62,7 @@ function ExpressionField({
     const word = context.matchBefore(/[\w"]*/);
     if (!word && !context.explicit) return null;
     const before = context.state.sliceDoc(0, context.pos);
-    const options = expressionCompletions(before, sourceColumns, lookupIds);
+    const options = expressionCompletions(before, sourceColumns, dimensionIds);
     if (options.length === 0) return null;
     return {
       from: word?.from ?? context.pos,

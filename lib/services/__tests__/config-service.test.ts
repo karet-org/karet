@@ -160,7 +160,7 @@ const SAMPLE_CONFIG: PipelineConfig = {
       schema: [{ name: "date", type: "string" }],
     },
   ],
-  lookup_mappings: [],
+  dimensions: [],
   mappings: [
     {
       id: "visa_to_tx",

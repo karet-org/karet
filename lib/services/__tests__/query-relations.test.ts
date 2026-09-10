@@ -10,7 +10,7 @@ function cfg(name: string, id: string): PipelineConfig {
     version: 1,
     name: "Test Pipeline",
     source_containers: [],
-    lookup_mappings: [],
+    dimensions: [],
     mappings: [],
     analytic_tables: [{ id, name, schema: [] }],
     layout: {},

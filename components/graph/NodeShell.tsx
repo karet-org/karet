@@ -5,7 +5,7 @@ const KIND_COLOR: Record<string, string> = {
   source: "var(--color-amber-deep)",
   mapping: "var(--color-carrot)",
   table: "var(--color-leaf)",
-  lookup: "#6cb2ff",
+  dimension: "#6cb2ff",
 };
 
 const KIND_ICON: Record<string, React.ReactNode> = {
@@ -17,7 +17,7 @@ const KIND_ICON: Record<string, React.ReactNode> = {
       <path d="M2.5 4v8c0 1.2 2.5 2.2 5.5 2.2s5.5-1 5.5-2.2V4" />
     </>
   ),
-  lookup: (
+  dimension: (
     <>
       <circle cx="7" cy="7" r="4.5" />
       <path d="m13.5 13.5-3-3" />
@@ -34,7 +34,7 @@ export default function NodeShell({
   handles,
   children,
 }: {
-  kind: "source" | "mapping" | "table" | "lookup";
+  kind: "source" | "mapping" | "table" | "dimension";
   title: string;
   selected?: boolean;
   testId: string;

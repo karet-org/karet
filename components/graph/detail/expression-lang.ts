@@ -22,7 +22,7 @@ export const EXPRESSION_FUNCTIONS: { label: string; detail: string }[] = [
   { label: "month", detail: "month(date)" },
   { label: "day", detail: "day(date)" },
   { label: "cast", detail: 'cast(x, "int64")' },
-  { label: "lookup_ref", detail: "lookup_ref(id, x)" },
+  { label: "dim_ref", detail: "dim_ref(id, x[, value])" },
   { label: "col", detail: "col(name)" },
 ];
 
@@ -58,7 +58,7 @@ export interface ExpressionCompletionOption {
 /**
  * Completion options for the text before the cursor.
  *
- * - after `lookup_ref(`: lookup ids
+ * - after `dim_ref(`: dimension ids
  * - inside `cast(x, `: the cast type strings
  * - otherwise: functions plus the source columns the expression may
  *   reference (the same set the linter validates against)
@@ -66,10 +66,10 @@ export interface ExpressionCompletionOption {
 export function expressionCompletions(
   before: string,
   sourceColumns: string[] | null | undefined,
-  lookupIds: string[],
+  dimensionIds: string[],
 ): ExpressionCompletionOption[] {
-  if (/lookup_ref\(\s*"?[\w-]*$/.test(before)) {
-    return lookupIds.map((id) => ({ label: id, type: "constant", detail: "lookup" }));
+  if (/dim_ref\(\s*"?[\w-]*$/.test(before)) {
+    return dimensionIds.map((id) => ({ label: id, type: "constant", detail: "dimension" }));
   }
   if (/cast\([^(),]*,\s*"?\w*$/.test(before)) {
     return CAST_TYPES.map((t) => ({

@@ -2,27 +2,27 @@
 //
 // One node per Source_Container / Lookup_Mapping / Mapping / Analytic_Table,
 // plus an edge per config reference: source→mapping, lookup root→mapping (from
-// `lookup_ref`s in column exprs; only root lookups have nodes), mapping→table.
+// `dim_ref`s in column exprs; only root dimensions have nodes), mapping→table.
 // Positions come from `cfg.layout[id]`, defaulting to `{ x: 0, y: 0 }`.
 
 import type { Edge, Node } from "@xyflow/react";
 import type {
   AnalyticTable,
   AstNode,
-  LookupMapping,
+  Dimension,
   Mapping,
   PipelineConfig,
   SourceContainer,
 } from "../types/config";
 
 export type SourceContainerNodeData = { kind: "source-container"; entity: SourceContainer };
-export type LookupMappingNodeData = { kind: "lookup-mapping"; entity: LookupMapping };
+export type DimensionNodeData = { kind: "dimension"; entity: Dimension };
 export type MappingNodeData = { kind: "mapping"; entity: Mapping };
 export type AnalyticTableNodeData = { kind: "analytic-table"; entity: AnalyticTable };
 
 type GraphNodeData =
   | SourceContainerNodeData
-  | LookupMappingNodeData
+  | DimensionNodeData
   | MappingNodeData
   | AnalyticTableNodeData;
 
@@ -37,16 +37,16 @@ export interface Graph {
 /** Node type tags wired to the React Flow custom node registry. */
 export const NODE_TYPE = {
   sourceContainer: "source-container",
-  lookupMapping: "lookup-mapping",
+  dimension: "dimension",
   mapping: "mapping",
   analyticTable: "analytic-table",
 } as const;
 
 /**
- * Collect the root id of every `lookup_ref` in an AST. `lookup_id` is a dotted
+ * Collect the root id of every `dim_ref` in an AST. `dim_id` is a dotted
  * path (`categories.merchants`); only the root has a graph node.
  */
-function collectLookupRootIds(node: AstNode, out: Set<string>): void {
+function collectDimIds(node: AstNode, out: Set<string>): void {
   switch (node.kind) {
     case "col":
     case "str":
@@ -64,12 +64,12 @@ function collectLookupRootIds(node: AstNode, out: Set<string>): void {
     case "lt":
     case "ge":
     case "le":
-      collectLookupRootIds(node.left, out);
-      collectLookupRootIds(node.right, out);
+      collectDimIds(node.left, out);
+      collectDimIds(node.right, out);
       return;
     case "concat":
     case "coalesce":
-      for (const a of node.args) collectLookupRootIds(a, out);
+      for (const a of node.args) collectDimIds(a, out);
       return;
     case "upper":
     case "lower":
@@ -77,30 +77,30 @@ function collectLookupRootIds(node: AstNode, out: Set<string>): void {
     case "substring":
     case "parse_date":
     case "cast":
-      collectLookupRootIds(node.input, out);
+      collectDimIds(node.input, out);
       return;
     case "contains":
-      collectLookupRootIds(node.input, out);
-      collectLookupRootIds(node.pattern, out);
+      collectDimIds(node.input, out);
+      collectDimIds(node.pattern, out);
       return;
     case "if":
-      collectLookupRootIds(node.cond, out);
-      collectLookupRootIds(node.then, out);
-      collectLookupRootIds(node.else, out);
+      collectDimIds(node.cond, out);
+      collectDimIds(node.then, out);
+      collectDimIds(node.else, out);
       return;
-    case "lookup_ref": {
-      const root = rootLookupId(node.lookup_id);
+    case "dim_ref": {
+      const root = dimensionId(node.dim_id);
       out.add(root);
-      collectLookupRootIds(node.input, out);
+      collectDimIds(node.input, out);
       return;
     }
   }
 }
 
-/** Portion of a dotted `lookup_id` before the first dot. */
-export function rootLookupId(lookupId: string): string {
-  const dot = lookupId.indexOf(".");
-  return dot === -1 ? lookupId : lookupId.slice(0, dot);
+/** Portion of a dotted `dim_id` before the first dot. */
+export function dimensionId(dimId: string): string {
+  const dot = dimId.indexOf(".");
+  return dot === -1 ? dimId : dimId.slice(0, dot);
 }
 
 export function buildGraph(cfg: PipelineConfig): Graph {
@@ -117,11 +117,11 @@ export function buildGraph(cfg: PipelineConfig): Graph {
       dragHandle: ".drag-handle",
     });
   }
-  for (const lm of cfg.lookup_mappings) {
+  for (const lm of cfg.dimensions) {
     nodes.push({
       id: lm.id,
-      type: NODE_TYPE.lookupMapping,
-      data: { kind: "lookup-mapping", entity: lm },
+      type: NODE_TYPE.dimension,
+      data: { kind: "dimension", entity: lm },
       position: position(lm.id),
       dragHandle: ".drag-handle",
     });
@@ -160,7 +160,7 @@ export function buildGraph(cfg: PipelineConfig): Graph {
     addEdge(m.id, m.analytic_table_id);
 
     const lookupRoots = new Set<string>();
-    for (const col of m.columns) collectLookupRootIds(col.expr, lookupRoots);
+    for (const col of m.columns) collectDimIds(col.expr, lookupRoots);
     for (const root of lookupRoots) addEdge(root, m.id);
   }
 
@@ -179,10 +179,10 @@ export function findNode(
     data: { kind: "source-container", entity: sc },
     position, dragHandle: ".drag-handle",
   };
-  const lm = cfg.lookup_mappings.find((x) => x.id === id);
+  const lm = cfg.dimensions.find((x) => x.id === id);
   if (lm) return {
-    id, type: NODE_TYPE.lookupMapping,
-    data: { kind: "lookup-mapping", entity: lm },
+    id, type: NODE_TYPE.dimension,
+    data: { kind: "dimension", entity: lm },
     position, dragHandle: ".drag-handle",
   };
   const m = cfg.mappings.find((x) => x.id === id);

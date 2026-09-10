@@ -5,7 +5,7 @@
 //   - source_container → mapping : clears `mapping.source_container_id`
 //   - mapping → analytic_table   : clears `mapping.analytic_table_id`
 //
-// Lookup → mapping edges are derived from `lookup_ref` AST nodes inside
+// Lookup → mapping edges are derived from `dim_ref` AST nodes inside
 // mapping columns and cannot be disconnected by this helper; the config is
 // returned unchanged.
 
@@ -20,14 +20,13 @@ function baseConfig(): PipelineConfig {
     source_containers: [
       { id: "src1", name: "Src", path_prefix: "raw/", schema: [] },
     ],
-    lookup_mappings: [
+    dimensions: [
       {
         id: "lkp1",
-        name: "Lkp",
+        name: "Dim",
         match: "keyword_substring",
         case_insensitive: true,
-        rows: [],
-        children: [],
+        rows: { values: ["v"], rows: [] },
       },
     ],
     mappings: [
@@ -40,8 +39,8 @@ function baseConfig(): PipelineConfig {
           {
             name: "c",
             expr: {
-              kind: "lookup_ref",
-              lookup_id: "lkp1",
+              kind: "dim_ref",
+              dim_id: "lkp1",
               input: { kind: "col", name: "x" },
             },
           },

@@ -1,34 +1,38 @@
-// Lookup_Mapping node with a preview of the first N keywords.
+// Dimension node with a preview of the first N keywords.
 // Design: right handle only.
 
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import type { LookupMappingNodeData } from "@/lib/graph/build";
+import type { DimensionNodeData } from "@/lib/graph/build";
 import NodeShell from "./NodeShell";
+import { inlineDimensionRows, isFileRows } from "@/lib/types/config";
 
 const MAX_KEYWORD_PREVIEW = 5;
 
-function LookupMappingNode({
+function DimensionNode({
   data,
   selected,
-}: NodeProps & { data: LookupMappingNodeData }) {
+}: NodeProps & { data: DimensionNodeData }) {
   const { entity } = data;
+  // File-backed rows live in the lake, so the node previews the folder
+  // instead of patterns it cannot see without a fetch.
+  const fileRows = isFileRows(entity.rows);
+  const rows = inlineDimensionRows(entity.rows);
   const keywords: string[] = [];
-  for (const row of entity.rows) {
-    for (const kw of row.input_patterns) {
+  for (const row of rows) {
+    for (const kw of row.patterns) {
       if (keywords.length >= MAX_KEYWORD_PREVIEW) break;
       keywords.push(kw);
     }
     if (keywords.length >= MAX_KEYWORD_PREVIEW) break;
   }
-  const moreCount =
-    entity.rows.reduce((n, r) => n + r.input_patterns.length, 0) - keywords.length;
+  const moreCount = rows.reduce((n, r) => n + r.patterns.length, 0) - keywords.length;
 
   return (
     <NodeShell
-      kind="lookup"
+      kind="dimension"
       title={entity.name ?? entity.id}
       selected={selected}
-      testId="lookup-mapping-node"
+      testId="dimension-node"
       className="min-w-[200px] max-w-[240px]"
       handles={<Handle type="source" position={Position.Right} />}
     >
@@ -47,4 +51,4 @@ function LookupMappingNode({
   );
 }
 
-export default LookupMappingNode;
+export default DimensionNode;
