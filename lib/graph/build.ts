@@ -108,7 +108,7 @@ export function buildGraph(cfg: PipelineConfig): Graph {
 
   const nodes: GraphNode[] = [];
 
-  for (const sc of cfg.source_containers) {
+  for (const sc of cfg.source_containers ?? []) {
     nodes.push({
       id: sc.id,
       type: NODE_TYPE.sourceContainer,
@@ -117,7 +117,7 @@ export function buildGraph(cfg: PipelineConfig): Graph {
       dragHandle: ".drag-handle",
     });
   }
-  for (const lm of cfg.dimensions) {
+  for (const lm of cfg.dimensions ?? []) {
     nodes.push({
       id: lm.id,
       type: NODE_TYPE.dimension,
@@ -126,7 +126,7 @@ export function buildGraph(cfg: PipelineConfig): Graph {
       dragHandle: ".drag-handle",
     });
   }
-  for (const m of cfg.mappings) {
+  for (const m of cfg.mappings ?? []) {
     nodes.push({
       id: m.id,
       type: NODE_TYPE.mapping,
@@ -135,7 +135,7 @@ export function buildGraph(cfg: PipelineConfig): Graph {
       dragHandle: ".drag-handle",
     });
   }
-  for (const at of cfg.analytic_tables) {
+  for (const at of cfg.analytic_tables ?? []) {
     nodes.push({
       id: at.id,
       type: NODE_TYPE.analyticTable,
@@ -155,7 +155,7 @@ export function buildGraph(cfg: PipelineConfig): Graph {
     edges.push({ id, source, target });
   };
 
-  for (const m of cfg.mappings) {
+  for (const m of cfg.mappings ?? []) {
     addEdge(m.source_container_id, m.id);
     addEdge(m.id, m.analytic_table_id);
 
@@ -173,25 +173,25 @@ export function findNode(
   id: string,
 ): GraphNode | null {
   const position = cfg.layout?.[id] ?? { x: 0, y: 0 };
-  const sc = cfg.source_containers.find((x) => x.id === id);
+  const sc = (cfg.source_containers ?? []).find((x) => x.id === id);
   if (sc) return {
     id, type: NODE_TYPE.sourceContainer,
     data: { kind: "source-container", entity: sc },
     position, dragHandle: ".drag-handle",
   };
-  const lm = cfg.dimensions.find((x) => x.id === id);
+  const lm = (cfg.dimensions ?? []).find((x) => x.id === id);
   if (lm) return {
     id, type: NODE_TYPE.dimension,
     data: { kind: "dimension", entity: lm },
     position, dragHandle: ".drag-handle",
   };
-  const m = cfg.mappings.find((x) => x.id === id);
+  const m = (cfg.mappings ?? []).find((x) => x.id === id);
   if (m) return {
     id, type: NODE_TYPE.mapping,
     data: { kind: "mapping", entity: m },
     position, dragHandle: ".drag-handle",
   };
-  const at = cfg.analytic_tables.find((x) => x.id === id);
+  const at = (cfg.analytic_tables ?? []).find((x) => x.id === id);
   if (at) return {
     id, type: NODE_TYPE.analyticTable,
     data: { kind: "analytic-table", entity: at },
