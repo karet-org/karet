@@ -503,14 +503,7 @@ export default function PipelineGraphPage() {
                 }
               >
                 {/* Label carries the state, so the row never has to shout. */}
-                {isDirty ? (
-                  <>
-                    <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
-                    {saving ? "Saving…" : "Save"}
-                  </>
-                ) : (
-                  "Saved"
-                )}
+                {isDirty ? (saving ? "Saving…" : "Save") : "Saved"}
               </button>
             </>
           }
