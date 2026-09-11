@@ -494,9 +494,7 @@ export default function PipelineGraphPage() {
                   data-testid="save-publish-button"
                   className="flex items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
                 >
-                  {/* The button appearing at all is the unsaved signal; the dot
-                      is a quiet second read, not a banner. */}
-                  <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
+                  {/* The button appearing at all is the unsaved signal. */}
                   {saving ? "Saving…" : "Save"}
                 </button>
               </>
