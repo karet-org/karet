@@ -29,8 +29,7 @@ export const SOURCE_CONTAINER_EDITOR_ERROR_TESTID = "source-container-editor-err
 
 const formatBlurb: Record<SourceFormat, string> = {
   csv: "CSV files",
-  ndjson: "JSON-lines files (.json, .jsonl, .ndjson)",
-  json_array: "JSON array files (.json)",
+  ndjson: "JSON-lines files (.json, .jsonl, .ndjson): one object per line",
 };
 
 function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerEditorProps) {
@@ -99,7 +98,6 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
         >
           <option value="csv">CSV</option>
           <option value="ndjson">JSON lines (NDJSON)</option>
-          <option value="json_array">JSON array</option>
         </select>
         {isJson && (
           <p className="mt-1.5 text-[10.5px] text-[color:var(--color-ink-3)]">
