@@ -72,6 +72,10 @@ function renderAst(node: AstNode, depth: number, truncate: boolean): string {
       return `concat(${[JSON.stringify(node.sep), ...renderArgs(node.args, depth, truncate)].join(", ")})`;
     case "coalesce":
       return `coalesce(${renderArgs(node.args, depth, truncate).join(", ")})`;
+    case "from_unix":
+      return node.unit
+        ? `from_unix(${recurse(node.input, depth, truncate)}, ${JSON.stringify(node.unit)})`
+        : `from_unix(${recurse(node.input, depth, truncate)})`;
     case "not":
     case "upper":
     case "lower":

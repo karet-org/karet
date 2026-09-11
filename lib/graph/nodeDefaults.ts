@@ -271,6 +271,7 @@ export function scrubLookupReferences(
         args: node.args.map((a) => scrubLookupReferences(a, lookupId)),
       };
     case "not":
+    case "from_unix":
     case "upper":
     case "lower":
     case "trim":
@@ -330,6 +331,7 @@ function astReferencesLookup(node: AstNode, lookupId: string): boolean {
     case "coalesce":
       return node.args.some((a) => astReferencesLookup(a, lookupId));
     case "not":
+    case "from_unix":
     case "upper":
     case "lower":
     case "trim":
@@ -389,6 +391,7 @@ function astReferencesSourceColumn(
     case "coalesce":
       return node.args.some((a) => astReferencesSourceColumn(a, columnNames));
     case "not":
+    case "from_unix":
     case "upper":
     case "lower":
     case "trim":

@@ -227,6 +227,16 @@ class Parser {
         return { kind: "if", cond: args[0], then: args[1], else: args[2] };
       }
       case "not": return { kind: "not", input: this.requireArg(args, 0, name) };
+      case "from_unix": {
+        const input = this.requireArg(args, 0, name);
+        const unitArg = args[1];
+        if (unitArg === undefined) return { kind: "from_unix", input };
+        const unit = unitArg.kind === "str" ? unitArg.value : unitArg.kind === "col" ? unitArg.name : "";
+        if (unit !== "s" && unit !== "ms") {
+          throw new ParseError('from_unix unit must be "s" or "ms"', this.peek().pos);
+        }
+        return { kind: "from_unix", input, unit };
+      }
       // Binary ops also accepted in call form: add(a, b), eq(a, b), ...
       case "add": case "sub": case "mul": case "div":
       case "eq": case "ne": case "gt": case "lt": case "ge": case "le":
