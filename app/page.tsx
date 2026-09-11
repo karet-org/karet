@@ -100,7 +100,7 @@ async function loadSummary(
   if (c) {
     const KIND: Record<string, ThumbNode["kind"]> = {
       [NODE_TYPE.sourceContainer]: "source",
-      [NODE_TYPE.lookupMapping]: "lookup",
+      [NODE_TYPE.dimension]: "dimension",
       [NODE_TYPE.mapping]: "mapping",
       [NODE_TYPE.analyticTable]: "table",
     };
@@ -109,7 +109,7 @@ async function loadSummary(
     // Saved layout positions when stored, else a columnar flow.
     const laidOut = built.nodes.filter((n) => c.layout?.[n.id]).length;
     const useLayout = laidOut >= built.nodes.length / 2;
-    const COL: Record<ThumbNode["kind"], number> = { source: 0, lookup: 0, mapping: 1, table: 2 };
+    const COL: Record<ThumbNode["kind"], number> = { source: 0, dimension: 0, mapping: 1, table: 2 };
     const rowCounters = [0, 0, 0];
     graph.nodes = built.nodes.map((n) => {
       const kind = KIND[n.type ?? ""] ?? "mapping";

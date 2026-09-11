@@ -15,8 +15,8 @@ describe("expressionCompletions", () => {
     expect(opts.find((o) => o.label === "Date")?.type).toBe("variable");
   });
 
-  it("offers lookup ids after lookup_ref(", () => {
-    const opts = expressionCompletions("lookup_ref(", ["Date"], ["categories", "merchants"]);
+  it("offers dimension ids after dim_ref(", () => {
+    const opts = expressionCompletions("dim_ref(", ["Date"], ["categories", "merchants"]);
     expect(opts.map((o) => o.label)).toEqual(["categories", "merchants"]);
   });
 
@@ -30,7 +30,7 @@ describe("expressionCompletions", () => {
 
   it("covers every function the parser knows including date parts", () => {
     const labels = EXPRESSION_FUNCTIONS.map((f) => f.label);
-    for (const fn of ["year", "month", "day", "parse_date", "lookup_ref"]) {
+    for (const fn of ["year", "month", "day", "parse_date", "dim_ref"]) {
       expect(labels).toContain(fn);
     }
   });

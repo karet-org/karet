@@ -3,6 +3,7 @@
 import dagre from "dagre";
 import type { LayoutPosition, PipelineConfig } from "../types/config";
 import type { GraphEdge, GraphNode } from "./build";
+import { inlineDimensionRows } from "@/lib/types/config";
 
 const RANK_SEP = 160;
 const NODE_SEP = 80;
@@ -29,7 +30,7 @@ function estimateNodeWidth(n: GraphNode): number {
   switch (n.data.kind) {
     case "source-container":
       return SOURCE_WIDTH;
-    case "lookup-mapping":
+    case "dimension":
       return LOOKUP_WIDTH;
     case "mapping":
       return MAPPING_WIDTH;
@@ -54,17 +55,17 @@ function estimateNodeHeight(n: GraphNode): number {
     case "mapping":
       rows = data.entity.columns.length;
       break;
-    case "lookup-mapping": {
+    case "dimension": {
       // Keyword pills wrap; estimate ~1 line per ~6 pills.
-      const pillCount = data.entity.rows.reduce(
-        (n, r) => n + r.input_patterns.length,
+      const pillCount = inlineDimensionRows(data.entity.rows).reduce(
+        (n, r) => n + r.patterns.length,
         0,
       );
       rows = Math.max(1, Math.ceil(pillCount / 6));
       break;
     }
   }
-  const rowPx = data.kind === "lookup-mapping" ? PILL_ROW_PX : LIST_ROW_PX;
+  const rowPx = data.kind === "dimension" ? PILL_ROW_PX : LIST_ROW_PX;
   const body = TITLE_PX + LIST_VPAD_PX + rows * rowPx;
   return Math.max(MIN_NODE_HEIGHT, HEADER_PX + body);
 }
@@ -103,7 +104,7 @@ export function autoLayout(
     const h = estimateNodeHeight(n);
     // Rank by node type so disconnected nodes still spread horizontally.
     const rank = n.data.kind === "source-container" ? 0
-      : n.data.kind === "lookup-mapping" ? 0
+      : n.data.kind === "dimension" ? 0
       : n.data.kind === "mapping" ? 1
       : 2; // analytic-table
     g.setNode(n.id, { width: w, height: h, rank });
@@ -116,7 +117,7 @@ export function autoLayout(
   g.setEdge("__anchor_0", "__anchor_1");
   g.setEdge("__anchor_1", "__anchor_2");
   for (const n of nodes) {
-    const rank = n.data.kind === "source-container" || n.data.kind === "lookup-mapping" ? 0
+    const rank = n.data.kind === "source-container" || n.data.kind === "dimension" ? 0
       : n.data.kind === "mapping" ? 1 : 2;
     g.setEdge(anchors[rank], n.id, { weight: 0, minlen: 0 });
   }

@@ -34,8 +34,8 @@ function MappingEditor({ value, onChange }: MappingEditorProps) {
     if (!value.source_container_id) return undefined;
     return s.config?.source_containers.find((c) => c.id === value.source_container_id) ?? null;
   });
-  const lookups = useGraphStore((s) => s.config?.lookup_mappings);
-  const lookupIds = useMemo(() => (lookups ?? []).map((l) => l.id), [lookups]);
+  const dimensions = useGraphStore((s) => s.config?.dimensions);
+  const dimensionIds = useMemo(() => (dimensions ?? []).map((l) => l.id), [dimensions]);
   const sourceColumns = useMemo<string[] | null | undefined>(() => {
     if (source === undefined) return undefined;
     if (source === null) return null;
@@ -105,7 +105,7 @@ function MappingEditor({ value, onChange }: MappingEditorProps) {
           error={whereError}
           modalTitle="Row filter"
           sourceColumns={outputColumns}
-          lookupIds={lookupIds}
+          dimensionIds={dimensionIds}
           inputClassName={inputClass(
             `font-mono w-full ${whereError ? "border-[color:var(--color-rose-deep)]" : ""}`,
           )}
@@ -158,7 +158,7 @@ function MappingEditor({ value, onChange }: MappingEditorProps) {
                     value={col}
                     onChange={(next) => setColumn(i, next)}
                     sourceColumns={sourceColumns}
-                    lookupIds={lookupIds}
+                    dimensionIds={dimensionIds}
                   />
                 ))}
               </div>
@@ -222,10 +222,10 @@ interface ColumnExprRowProps {
   value: MappingColumn;
   onChange: (next: MappingColumn) => void;
   sourceColumns: string[] | null | undefined;
-  lookupIds: string[];
+  dimensionIds: string[];
 }
 
-function ColumnExprRow({ value, onChange, sourceColumns, lookupIds }: ColumnExprRowProps) {
+function ColumnExprRow({ value, onChange, sourceColumns, dimensionIds }: ColumnExprRowProps) {
   // Placeholder columns from schema adds carry a bare null expression.
   const unmapped = value.expr.kind === "null";
   const [open, setOpen] = useState(unmapped);
@@ -280,7 +280,7 @@ function ColumnExprRow({ value, onChange, sourceColumns, lookupIds }: ColumnExpr
             error={error}
             modalTitle={`Expression: ${value.name}`}
             sourceColumns={sourceColumns}
-            lookupIds={lookupIds}
+            dimensionIds={dimensionIds}
             inputClassName={inputClass(
               `font-mono w-full ${error ? "border-[color:var(--color-rose-deep)]" : ""}`,
             )}

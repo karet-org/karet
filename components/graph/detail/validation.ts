@@ -2,10 +2,11 @@
 // equals the predicate.
 
 import type {
-  LookupMapping,
+  Dimension,
   Mapping,
   SourceContainer,
 } from "@/lib/types/config";
+import { isFileRows } from "@/lib/types/config";
 
 /** Mirrors the editor dropdown options and the validator's known-type list. */
 export const KNOWN_COLUMN_TYPES = [
@@ -60,18 +61,27 @@ export function validateSourceContainer(
 }
 
 /** Every row needs at least one non-empty input pattern. */
-export function validateLookupMapping(
-  entity: Pick<LookupMapping, "rows">,
+export function validateDimension(
+  entity: Pick<Dimension, "rows">,
 ): ValidationResult {
   const errors: string[] = [];
-  for (let i = 0; i < entity.rows.length; i++) {
-    const row = entity.rows[i];
-    if (!row.input_patterns || row.input_patterns.length === 0) {
-      errors.push(`Row ${i + 1}: input_patterns is empty`);
+  if (entity.rows.values.length === 0) {
+    errors.push("At least one value column is required");
+  }
+  if (isFileRows(entity.rows)) {
+    if (!entity.rows.path_prefix) errors.push("Lake folder is required");
+    if (!entity.rows.key) errors.push("Key column is required");
+    return { errors };
+  }
+  const rows = entity.rows.rows;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row.patterns || row.patterns.length === 0) {
+      errors.push(`Row ${i + 1}: patterns is empty`);
       continue;
     }
-    for (let j = 0; j < row.input_patterns.length; j++) {
-      if (row.input_patterns[j] === "") {
+    for (let j = 0; j < row.patterns.length; j++) {
+      if (row.patterns[j] === "") {
         errors.push(`Row ${i + 1} pattern ${j + 1}: empty pattern`);
       }
     }

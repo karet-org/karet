@@ -22,10 +22,10 @@ import { NODE_TYPE, type GraphEdge, type GraphNode } from "@/lib/graph/build";
 import { autoLayout } from "@/lib/graph/layout";
 import type { NodeKind } from "@/lib/graph/nodeDefaults";
 import SourceContainerNode from "./SourceContainerNode";
-import LookupMappingNode from "./LookupMappingNode";
+import DimensionNode from "./DimensionNode";
 import MappingNode from "./MappingNode";
 import AnalyticTableNode from "./AnalyticTableNode";
-import { IconSource, IconLookup, IconMapping, IconTable, IconTrash, IconPlay,
+import { IconSource, IconDimension, IconMapping, IconTable, IconTrash, IconPlay,
 } from "@/components/icons";
 import Modal from "@/components/ui/Modal";
 
@@ -61,13 +61,13 @@ interface DeleteImpactSummary {
 
 const nodeTypes: NodeTypes = {
   [NODE_TYPE.sourceContainer]: SourceContainerNode,
-  [NODE_TYPE.lookupMapping]: LookupMappingNode,
+  [NODE_TYPE.dimension]: DimensionNode,
   [NODE_TYPE.mapping]: MappingNode,
   [NODE_TYPE.analyticTable]: AnalyticTableNode,
 };
 
 /** Edge kind derived from the source/target node types. */
-type EdgeKind = "source-to-mapping" | "lookup-to-mapping" | "mapping-to-table";
+type EdgeKind = "source-to-mapping" | "dimension-to-mapping" | "mapping-to-table";
 
 function deriveEdgeKind(
   edge: GraphEdge,
@@ -83,10 +83,10 @@ function deriveEdgeKind(
     return "source-to-mapping";
   }
   if (
-    src.type === NODE_TYPE.lookupMapping &&
+    src.type === NODE_TYPE.dimension &&
     dst.type === NODE_TYPE.mapping
   ) {
-    return "lookup-to-mapping";
+    return "dimension-to-mapping";
   }
   if (
     src.type === NODE_TYPE.mapping &&
@@ -112,7 +112,7 @@ function styleEdges(edges: GraphEdge[], nodes: GraphNode[]): Edge[] {
           markerEnd: { ...marker, color: "#6b7280" },
           style: { stroke: "#6b7280", strokeWidth: 1.5 },
         };
-      case "lookup-to-mapping":
+      case "dimension-to-mapping":
         return {
           ...e,
           type: "smoothstep",
@@ -346,7 +346,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
   );
 
   const handleDisconnectEdge = useCallback(() => {
-    if (contextMenu?.edge && contextMenu.edge.kind !== "lookup-to-mapping") {
+    if (contextMenu?.edge && contextMenu.edge.kind !== "dimension-to-mapping") {
       setConfirmDisconnect({
         id: contextMenu.edge.id,
         source: contextMenu.edge.source,
@@ -413,12 +413,12 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
           ) : contextMenu.edge ? (
             <>
               <div className="px-3 py-1 text-[10.5px] font-medium text-[color:var(--color-ink-3)]">Edge</div>
-              {contextMenu.edge.kind === "lookup-to-mapping" ? (
+              {contextMenu.edge.kind === "dimension-to-mapping" ? (
                 <div
                   className="px-3 py-1.5 text-xs text-[color:var(--color-ink-3)]"
-                  title="Lookup edges are derived from the mapping's expressions. Remove the lookup reference in the mapping editor."
+                  title="Dimension edges are derived from the mapping's expressions. Remove the dim_ref in the mapping editor."
                 >
-                  Edit mapping to remove lookup
+                  Edit mapping to remove dim_ref
                 </div>
               ) : (
                 <button
@@ -436,7 +436,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
               <div className="px-3 py-1 text-[10.5px] font-medium text-[color:var(--color-ink-3)]">Add node</div>
               {([
                 ["source", "Source", IconSource],
-                ["lookup", "Lookup", IconLookup],
+                ["dimension", "Dimension", IconDimension],
                 ["mapping", "Mapping", IconMapping],
                 ["table", "Table", IconTable],
               ] as [NodeKind, string, React.ComponentType<{ size?: number }>][]).map(([kind, label, Icon]) => (
@@ -470,7 +470,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         >
           {([
             ["source", "Add source", IconSource],
-            ["lookup", "Add lookup", IconLookup],
+            ["dimension", "Add dimension", IconDimension],
             ["mapping", "Add mapping", IconMapping],
             ["table", "Add table", IconTable],
           ] as [NodeKind, string, React.ComponentType<{ size?: number }>][]).map(

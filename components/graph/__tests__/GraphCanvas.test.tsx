@@ -82,14 +82,14 @@ const nodes: GraphNode[] = [
   },
   {
     id: "lkp1",
-    type: NODE_TYPE.lookupMapping,
+    type: NODE_TYPE.dimension,
     position: { x: 0, y: 150 },
     data: {
-      kind: "lookup-mapping",
+      kind: "dimension",
       entity: {
         id: "lkp1",
         name: "Categories",
-        rows: [{ input_patterns: ["RAMEN"], output: "FOOD" }],
+        rows: { values: ["category"], rows: [{ patterns: ["RAMEN"], values: ["FOOD"] }] },
       },
     },
   },
@@ -142,14 +142,14 @@ describe("GraphCanvas", () => {
     // Headers show the entity name plus a lowercase kind tag.
     const text = container.textContent ?? "";
     expect(text).toContain("source");
-    expect(text).toContain("lookup");
+    expect(text).toContain("dimension");
     expect(text).toContain("mapping");
     expect(text).toContain("table");
 
     // Each custom node component should have mounted.
     expect(container.querySelector('[data-testid="source-container-node"]'))
       .not.toBeNull();
-    expect(container.querySelector('[data-testid="lookup-mapping-node"]'))
+    expect(container.querySelector('[data-testid="dimension-node"]'))
       .not.toBeNull();
     expect(container.querySelector('[data-testid="mapping-node"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="analytic-table-node"]'))

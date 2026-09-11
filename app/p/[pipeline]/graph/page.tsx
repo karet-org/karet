@@ -9,7 +9,7 @@ import {
   addNodeToConfig,
   analyzeNodeDeleteImpact,
   disconnectEdgeInConfig,
-  scrubLookupReferences,
+  scrubDimensionReferences,
   type NodeKind,
 } from "@/lib/graph/nodeDefaults";
 import type { PipelineConfig } from "@/lib/types/config";
@@ -298,7 +298,7 @@ export default function PipelineGraphPage() {
     if (!cfg) return;
     const updated = addNodeToConfig(cfg, kind);
     const list = kind === "source" ? updated.source_containers
-      : kind === "lookup" ? updated.lookup_mappings
+      : kind === "dimension" ? updated.dimensions
       : kind === "mapping" ? updated.mappings
       : updated.analytic_tables;
     const newId = list[list.length - 1]?.id;
@@ -342,17 +342,17 @@ export default function PipelineGraphPage() {
       }
     }
 
-    // Scrub `lookup_ref`s to a deleted Lookup so the config still parses
-    // and the worker won't reject the save with "unknown lookup id".
-    const isLookup = cfg.lookup_mappings.some((l) => l.id === nodeId);
-    if (isLookup) {
+    // Scrub `dim_ref`s to a deleted Dimension so the config still parses
+    // and the worker won't reject the save with "unknown dimension id".
+    const isDimension = cfg.dimensions.some((l) => l.id === nodeId);
+    if (isDimension) {
       working = {
         ...working,
         mappings: working.mappings.map((m) => ({
           ...m,
           columns: m.columns.map((c) => ({
             ...c,
-            expr: scrubLookupReferences(c.expr, nodeId),
+            expr: scrubDimensionReferences(c.expr, nodeId),
           })),
         })),
       };
@@ -361,7 +361,7 @@ export default function PipelineGraphPage() {
     const updated: PipelineConfig = {
       ...working,
       source_containers: working.source_containers.filter((s) => s.id !== nodeId),
-      lookup_mappings: working.lookup_mappings.filter((l) => l.id !== nodeId),
+      dimensions: working.dimensions.filter((l) => l.id !== nodeId),
       mappings: working.mappings.filter((m) => m.id !== nodeId),
       analytic_tables: working.analytic_tables.filter((t) => t.id !== nodeId),
     };
@@ -373,8 +373,8 @@ export default function PipelineGraphPage() {
     applyDraft(updated);
   }, [applyDraft, clear]);
 
-  // Clears the config field that produced the edge. Lookup→mapping edges
-  // come from AST `lookup_ref`s, so GraphCanvas hides the menu item there.
+  // Clears the config field that produced the edge. Dimension→mapping edges
+  // come from AST `dim_ref`s, so GraphCanvas hides the menu item there.
   const handleDisconnectEdge = useCallback(
     ({ source, target }: { id: string; source: string; target: string }) => {
       const cfg = useGraphStore.getState().config;
@@ -514,7 +514,7 @@ function validateConfigForSave(cfg: PipelineConfig): string[] {
   // Name scopes are per-kind: a Source and a Table may share a name.
   const kinds: { label: string; entities: { id: string; name?: string }[] }[] = [
     { label: "Source", entities: cfg.source_containers },
-    { label: "Lookup", entities: cfg.lookup_mappings },
+    { label: "Dimension", entities: cfg.dimensions },
     { label: "Mapping", entities: cfg.mappings },
     { label: "Table", entities: cfg.analytic_tables },
   ];
