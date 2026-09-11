@@ -459,48 +459,60 @@ export default function PipelineGraphPage() {
           }}
           onDisconnectEdge={handleDisconnectEdge}
           actions={
-            isDirty ? (
-              <>
-                {validationErrors.length > 0 && (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowIssues((v) => !v)}
-                      data-testid="validation-issues-toggle"
-                      className="rounded-md px-2 py-1.5 text-xs font-medium text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-surface-2)]"
-                    >
-                      {validationErrors.length} issue{validationErrors.length === 1 ? "" : "s"}
-                    </button>
-                    {showIssues && (
-                      <div className="absolute right-0 top-9 w-max max-w-sm rounded-lg border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-2 shadow-lg">
-                        <ul className="list-inside list-disc text-xs text-[color:var(--color-ink-2)]">
-                          {validationErrors.map((e, i) => <li key={i}>{e}</li>)}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
+            <>
+              {isDirty && validationErrors.length > 0 && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowIssues((v) => !v)}
+                    data-testid="validation-issues-toggle"
+                    className="rounded-md px-2 py-1.5 text-xs font-medium text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-surface-2)]"
+                  >
+                    {validationErrors.length} issue{validationErrors.length === 1 ? "" : "s"}
+                  </button>
+                  {showIssues && (
+                    <div className="absolute right-0 top-9 w-max max-w-sm rounded-lg border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-2 shadow-lg">
+                      <ul className="list-inside list-disc text-xs text-[color:var(--color-ink-2)]">
+                        {validationErrors.map((e, i) => <li key={i}>{e}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Both controls are always mounted: an edit changes how they
+                  look, never whether they exist, so nothing appears over the
+                  canvas mid-edit. */}
+              <button
+                type="button"
+                onClick={handleRevert}
+                disabled={!isDirty}
+                data-testid="revert-button"
+                className="rounded-md px-2 py-1.5 text-xs font-medium text-[color:var(--color-ink-3)] enabled:hover:bg-[color:var(--color-surface-2)] enabled:hover:text-[color:var(--color-ink-2)] disabled:opacity-40"
+              >
+                Revert
+              </button>
+              <button
+                type="button"
+                onClick={handlePublish}
+                disabled={!isDirty || saving}
+                data-testid="save-publish-button"
+                className={
+                  isDirty
+                    ? "flex items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+                    : "flex items-center gap-1.5 rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-ink-3)]"
+                }
+              >
+                {/* Label carries the state, so the row never has to shout. */}
+                {isDirty ? (
+                  <>
+                    <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
+                    {saving ? "Saving…" : "Save"}
+                  </>
+                ) : (
+                  "Saved"
                 )}
-                <button
-                  type="button"
-                  onClick={handleRevert}
-                  className="rounded-md px-2 py-1.5 text-xs font-medium text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink-2)]"
-                >
-                  Revert
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePublish}
-                  disabled={saving}
-                  data-testid="save-publish-button"
-                  className="flex items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
-                >
-                  {/* The button appearing at all is the unsaved signal; the dot
-                      is a quiet second read, not a banner. */}
-                  <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
-                  {saving ? "Saving…" : "Save"}
-                </button>
-              </>
-            ) : null
+              </button>
+            </>
           }
         />
       </div>
