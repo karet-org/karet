@@ -55,7 +55,7 @@ interface ColumnAssertions {
 }
 
 /** Wire format of a source container's files. */
-export type SourceFormat = "csv" | "ndjson" | "json_array";
+export type SourceFormat = "csv" | "ndjson";
 
 export interface SourceContainer {
   id: string;
