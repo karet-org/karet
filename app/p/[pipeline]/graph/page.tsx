@@ -477,9 +477,12 @@ export default function PipelineGraphPage() {
                 disabled={!isDirty || saving}
                 data-testid="save-publish-button"
                 className={
-                  isDirty
-                    ? "flex items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
-                    : "flex items-center gap-1.5 rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-ink-3)]"
+                  // Width is fixed for the longest label, so switching state
+                  // never nudges the controls beside it.
+                  "flex w-[5.25rem] items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium shadow-sm " +
+                  (isDirty
+                    ? "bg-[color:var(--color-carrot)] text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+                    : "border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] text-[color:var(--color-ink-3)] shadow-none")
                 }
               >
                 {/* Label carries the state, so the row never has to shout. */}
