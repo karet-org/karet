@@ -499,14 +499,22 @@ export default function PipelineGraphPage() {
                 className={
                   // Width is fixed for the longest label, so switching state
                   // never nudges the controls beside it.
-                  "flex w-[5.25rem] items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium shadow-sm " +
+                  "flex w-[5.75rem] items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium shadow-sm " +
                   (isDirty
                     ? "bg-[color:var(--color-carrot)] text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
                     : "border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] text-[color:var(--color-ink-3)] shadow-none")
                 }
               >
-                {/* Label carries the state, so the row never has to shout. */}
-                {isDirty ? (saving ? "Saving…" : "Save") : "Saved"}
+                {/* The dot marks the unsaved state; the label says what the
+                    click does. Width is fixed, so neither moves the row. */}
+                {isDirty ? (
+                  <>
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/70" />
+                    {saving ? "Saving…" : "Save"}
+                  </>
+                ) : (
+                  "Saved"
+                )}
               </button>
             </>
           }
