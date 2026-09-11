@@ -2,8 +2,9 @@
 // path -> content) written under `pipelines/<slug>/` in S3.
 
 import type { AstNode, PipelineConfig } from "@/lib/types/config";
+import { TRAFFIC_TEMPLATE_FILES } from "./traffic";
 
-export type TemplateId = "blank" | "spending";
+export type TemplateId = "blank" | "spending" | "traffic";
 
 export interface Template {
   id: TemplateId;
@@ -525,6 +526,13 @@ layout:
 `;
 
 export const TEMPLATES: Record<TemplateId, Template> = {
+  traffic: {
+    id: "traffic",
+    name: "Traffic Analytics",
+    description:
+      "Caddy JSON logs plus a CDN CSV export into one requests table: row filter, inline and file-backed dimensions, partitioning and dedup. Seeded with sample data.",
+    ...TRAFFIC_TEMPLATE_FILES,
+  },
   blank: {
     id: "blank",
     name: "Blank",

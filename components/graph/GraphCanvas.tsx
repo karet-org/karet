@@ -51,6 +51,8 @@ interface GraphCanvasProps {
   onDisconnectEdge?: (edge: { id: string; source: string; target: string }) => void;
   /** Omit to hide the toolbar's run button. */
   onRun?: () => void;
+  /** Rendered in the top-right control row, left of Auto layout. */
+  actions?: React.ReactNode;
 }
 
 interface DeleteImpactSummary {
@@ -138,7 +140,7 @@ function styleEdges(edges: GraphEdge[], nodes: GraphNode[]): Edge[] {
 }
 
 const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas(
-  { nodes, edges, onNodeClick, onPaneClick, onLayout, onNodeDragStop, onAddNode, onConnect: onConnectProp, onDeleteNode, analyzeDeleteImpact, onDisconnectEdge, onRun },
+  { nodes, edges, onNodeClick, onPaneClick, onLayout, onNodeDragStop, onAddNode, onConnect: onConnectProp, onDeleteNode, analyzeDeleteImpact, onDisconnectEdge, onRun, actions },
   ref,
 ) {
   const [internalNodes, setInternalNodes] = useState<GraphNode[]>(nodes);
@@ -454,14 +456,20 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={handleAutoLayout}
-        data-testid="auto-layout-button"
-        className="absolute right-3 top-3 z-10 rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-ink-2)] shadow-sm hover:bg-[color:var(--color-surface-2)]"
-      >
-        Auto layout
-      </button>
+      {/* One control row: page-level actions sit beside the canvas's own, so
+          an unsaved edit changes what a button says rather than throwing an
+          alert over the graph. */}
+      <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+        {actions}
+        <button
+          type="button"
+          onClick={handleAutoLayout}
+          data-testid="auto-layout-button"
+          className="rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-ink-2)] shadow-sm hover:bg-[color:var(--color-surface-2)]"
+        >
+          Auto layout
+        </button>
+      </div>
 
       {onAddNode && (
         <div

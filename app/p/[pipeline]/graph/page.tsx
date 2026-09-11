@@ -26,6 +26,8 @@ export default function PipelineGraphPage() {
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Validation detail is opt-in: a count in the control row, the list on tap.
+  const [showIssues, setShowIssues] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   // Destination stashed by the click interceptor; the modal either
   // navigates to it or discards it.
@@ -436,28 +438,59 @@ export default function PipelineGraphPage() {
             return analyzeNodeDeleteImpact(cfg, nodeId);
           }}
           onDisconnectEdge={handleDisconnectEdge}
-        />
-        {isDirty && (
-          // Top-center: keeps the bottom toolbar usable while dirty.
-          <div className="absolute left-1/2 top-4 z-20 flex -translate-x-1/2 flex-col items-center gap-2">
-            {validationErrors.length > 0 && (
-              <div className="w-max max-w-lg rounded-lg border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-2 shadow-lg">
-                <div className="text-xs font-semibold text-[color:var(--color-rose-deep)]">Validation failed:</div>
-                <ul className="mt-1 list-inside list-disc text-xs text-[color:var(--color-rose-deep)]">
-                  {validationErrors.map((e, i) => <li key={i}>{e}</li>)}
-                </ul>
-              </div>
-            )}
-            <div className="flex items-center gap-3 rounded-full border border-[color:var(--color-carrot)] bg-[color:var(--color-surface)] px-4 py-2 shadow-lg">
-              <span className="h-2 w-2 rounded-full bg-[color:var(--color-carrot)]" />
-              <span className="text-xs font-medium text-[color:var(--color-ink-2)]">Unsaved changes</span>
-              <button type="button" onClick={handleRevert} className="rounded border border-[color:var(--color-rule)] px-3 py-1 text-xs text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]">Revert</button>
-              <button type="button" onClick={handlePublish} disabled={saving} className="rounded bg-[color:var(--color-carrot)] px-3 py-1 text-xs font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50">
-                {saving ? "Saving…" : "Save & Publish"}
+          actions={
+            <>
+              {isDirty && validationErrors.length > 0 && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowIssues((v) => !v)}
+                    data-testid="validation-issues-toggle"
+                    className="rounded-md px-2 py-1.5 text-xs font-medium text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-surface-2)]"
+                  >
+                    {validationErrors.length} issue{validationErrors.length === 1 ? "" : "s"}
+                  </button>
+                  {showIssues && (
+                    <div className="absolute right-0 top-9 w-max max-w-sm rounded-lg border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-2 shadow-lg">
+                      <ul className="list-inside list-disc text-xs text-[color:var(--color-ink-2)]">
+                        {validationErrors.map((e, i) => <li key={i}>{e}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Both controls are always mounted: an edit changes how they
+                  look, never whether they exist, so nothing appears over the
+                  canvas mid-edit. */}
+              <button
+                type="button"
+                onClick={handleRevert}
+                disabled={!isDirty}
+                data-testid="revert-button"
+                className="rounded-md px-2 py-1.5 text-xs font-medium text-[color:var(--color-ink-3)] enabled:hover:bg-[color:var(--color-surface-2)] enabled:hover:text-[color:var(--color-ink-2)] disabled:opacity-40"
+              >
+                Revert
               </button>
-            </div>
-          </div>
-        )}
+              <button
+                type="button"
+                onClick={handlePublish}
+                disabled={!isDirty || saving}
+                data-testid="save-publish-button"
+                className={
+                  // Width is fixed for the longest label, so switching state
+                  // never nudges the controls beside it.
+                  "flex w-[5.25rem] items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium shadow-sm " +
+                  (isDirty
+                    ? "bg-[color:var(--color-carrot)] text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+                    : "border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] text-[color:var(--color-ink-3)] shadow-none")
+                }
+              >
+                {/* Label carries the state, so the row never has to shout. */}
+                {isDirty ? (saving ? "Saving…" : "Save") : "Saved"}
+              </button>
+            </>
+          }
+        />
       </div>
       <NodeDetailPanel node={selectedNodeValue} onClose={clear} onEdit={() => {
         const cfg = useGraphStore.getState().config;

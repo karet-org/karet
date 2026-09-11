@@ -49,3 +49,6 @@ next-env.d.ts
 
 # sentry
 .sentryclirc
+
+# Scratch output from local template dumps.
+.artifacts/

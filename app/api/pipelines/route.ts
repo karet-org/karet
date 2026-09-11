@@ -4,6 +4,7 @@ import { bucketForRelPath, withS3 } from "@/lib/config/s3-client";
 import { newId } from "@/lib/config/id";
 import { listPipelinesWithNames } from "@/lib/services/config-service";
 import { TEMPLATES, type TemplateId } from "@/lib/templates";
+import { isFileRows } from "@/lib/types/config";
 import type { PipelineConfig } from "@/lib/types/config";
 
 export async function GET() {
@@ -20,6 +21,12 @@ function absolutizeSourcePrefixes(cfg: PipelineConfig, prefix: string): Pipeline
       ...sc,
       path_prefix: `${prefix}${sc.path_prefix}`,
     })),
+    // File-backed dimensions read the lake by prefix too.
+    dimensions: cfg.dimensions.map((d) =>
+      isFileRows(d.rows)
+        ? { ...d, rows: { ...d.rows, path_prefix: `${prefix}${d.rows.path_prefix}` } }
+        : d,
+    ),
   };
 }
 
@@ -87,7 +94,9 @@ export async function POST(request: Request) {
             Body: content,
             ContentType: relPath.endsWith(".csv")
               ? "text/csv"
-              : "application/octet-stream",
+              : relPath.endsWith(".ndjson") || relPath.endsWith(".jsonl")
+                ? "application/x-ndjson"
+                : "application/octet-stream",
           }),
         );
       }
