@@ -10,8 +10,6 @@
 //   - Dimension       inline substring (multi-value, passthrough), inline
 //                     substring (null miss), file-backed exact (literal miss)
 //   - Analytic table  hive partitioning plus dedup keys
-//   - Rollup          count, conditional count, sum, avg as a sum/count pair,
-//                     count_distinct and median
 
 import type { AstNode, PipelineConfig } from "@/lib/types/config";
 
@@ -265,83 +263,6 @@ const trafficPipeline: PipelineConfig = {
       // Re-uploading a log slice must not double-count it.
       dedup_keys: ["date", "client_ip", "path", "status", "duration_ms"],
     },
-    {
-      id: "requests_daily",
-      name: "Requests Daily",
-      schema: [
-        { name: "month", type: "string" },
-        { name: "date", type: "date" },
-        { name: "service", type: "string" },
-        { name: "requests", type: "int64" },
-        { name: "errors", type: "int64" },
-        { name: "crawler_hits", type: "int64" },
-        { name: "bytes", type: "int64" },
-        { name: "visitors", type: "int64" },
-        { name: "duration_sum", type: "float64" },
-        { name: "duration_count", type: "int64" },
-        { name: "p50_duration_ms", type: "float64" },
-      ],
-      partition_keys: ["month"],
-    },
-    {
-      id: "requests_by_region",
-      name: "Requests By Region",
-      schema: [
-        { name: "month", type: "string" },
-        { name: "region", type: "string" },
-        { name: "country_name", type: "string" },
-        { name: "requests", type: "int64" },
-        { name: "bytes", type: "int64" },
-      ],
-      partition_keys: ["month"],
-    },
-  ],
-  rollups: [
-    {
-      id: "daily_traffic",
-      name: "Daily Traffic",
-      source_table_id: "requests",
-      analytic_table_id: "requests_daily",
-      // Includes `month`, the target's partition key, so a run recomputes
-      // only the partitions its new rows touch.
-      group_by: ["month", "date", "service"],
-      aggregates: [
-        { name: "requests", fn: "count" },
-        {
-          name: "errors",
-          fn: "count",
-          where: { kind: "ge", left: { kind: "col", name: "status" }, right: { kind: "num", value: 500 } },
-        },
-        {
-          // A crawler row carries a label; everything else is null, and a
-          // null-safe comparison keeps those out of the count.
-          name: "crawler_hits",
-          fn: "count",
-          where: {
-            kind: "ne",
-            left: { kind: "coalesce", args: [{ kind: "col", name: "crawler" }, { kind: "str", value: "" }] },
-            right: { kind: "str", value: "" },
-          },
-        },
-        { name: "bytes", fn: "sum", column: "bytes" },
-        // Grain-locked: daily uniques cannot be summed into monthly uniques.
-        { name: "visitors", fn: "count_distinct", column: "client_ip" },
-        // Stored as a pair, so a monthly rollup can still average correctly.
-        { name: "duration", fn: "avg", column: "duration_ms" },
-        { name: "p50_duration_ms", fn: "median", column: "duration_ms" },
-      ],
-    },
-    {
-      id: "region_traffic",
-      name: "Region Traffic",
-      source_table_id: "requests",
-      analytic_table_id: "requests_by_region",
-      group_by: ["month", "region", "country_name"],
-      aggregates: [
-        { name: "requests", fn: "count" },
-        { name: "bytes", fn: "sum", column: "bytes" },
-      ],
-    },
   ],
 };
 
@@ -414,14 +335,14 @@ filters:
     kind: dropdown
     label: Service
     options_sql: |
-      SELECT DISTINCT service FROM requests_daily
+      SELECT DISTINCT service FROM requests
       WHERE service IS NOT NULL ORDER BY 1
 
 panels:
   - kind: kpi
     title: Requests
     query: |
-      SELECT sum(requests) AS n FROM requests_daily
+      SELECT count(*) AS n FROM requests
       WHERE service = coalesce($service, service)
     value: n
     icon: chart
@@ -430,8 +351,8 @@ panels:
   - kind: kpi
     title: Server Errors
     query: |
-      SELECT sum(errors) AS n FROM requests_daily
-      WHERE service = coalesce($service, service)
+      SELECT count(*) AS n FROM requests
+      WHERE status >= 500 AND service = coalesce($service, service)
     value: n
     icon: chart
     grid: { span: 2 }
@@ -439,8 +360,7 @@ panels:
   - kind: kpi
     title: Mean Duration (ms)
     query: |
-      SELECT round(sum(duration_sum) / nullif(sum(duration_count), 0), 1) AS ms
-      FROM requests_daily
+      SELECT round(avg(duration_ms), 1) AS ms FROM requests
       WHERE service = coalesce($service, service)
     value: ms
     icon: chart
@@ -449,7 +369,7 @@ panels:
   - kind: line
     title: Requests Per Day
     query: |
-      SELECT date, sum(requests) AS requests FROM requests_daily
+      SELECT date, count(*) AS requests FROM requests
       WHERE service = coalesce($service, service)
       GROUP BY 1 ORDER BY 1
     x: date
@@ -459,8 +379,8 @@ panels:
   - kind: bar
     title: Crawler Hits Per Day
     query: |
-      SELECT date, sum(crawler_hits) AS crawlers FROM requests_daily
-      WHERE service = coalesce($service, service)
+      SELECT date, count(*) AS crawlers FROM requests
+      WHERE crawler IS NOT NULL AND service = coalesce($service, service)
       GROUP BY 1 ORDER BY 1
     x: date
     y: crawlers
@@ -469,7 +389,7 @@ panels:
   - kind: bar
     title: Bytes By Region
     query: |
-      SELECT region, sum(bytes) AS bytes FROM requests_by_region
+      SELECT region, sum(bytes) AS bytes FROM requests
       GROUP BY 1 ORDER BY bytes DESC
     x: region
     y: bytes

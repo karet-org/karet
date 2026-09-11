@@ -23,7 +23,7 @@ const TEMPLATES: { id: TemplateId; name: string; description: string }[] = [
     id: "traffic",
     name: "Traffic analytics",
     description:
-      "Web logs from a JSON source and a CSV export, with dimensions, a row filter and daily rollups. Seeded with sample data.",
+      "Web logs from a JSON source and a CSV export, with dimensions and a row filter. Seeded with sample data.",
   },
 ];
 

@@ -530,7 +530,7 @@ export const TEMPLATES: Record<TemplateId, Template> = {
     id: "traffic",
     name: "Traffic Analytics",
     description:
-      "Caddy JSON logs plus a CDN CSV export into one requests table: row filter, inline and file-backed dimensions, and daily/region rollups. Seeded with sample data.",
+      "Caddy JSON logs plus a CDN CSV export into one requests table: row filter, inline and file-backed dimensions, partitioning and dedup. Seeded with sample data.",
     ...TRAFFIC_TEMPLATE_FILES,
   },
   blank: {

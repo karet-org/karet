@@ -7,7 +7,7 @@ import { TEMPLATES } from "@/lib/templates";
 import { trafficPipeline } from "@/lib/templates/traffic";
 import { isFileRows } from "@/lib/types/config";
 import { buildGraph } from "@/lib/graph/build";
-import { validateDimension, validateRollup } from "@/components/graph/detail/validation";
+import { validateDimension } from "@/components/graph/detail/validation";
 
 const template = TEMPLATES.traffic;
 
@@ -18,7 +18,6 @@ describe("traffic template", () => {
       "csv",
     ]);
     expect(trafficPipeline.dimensions).toHaveLength(3);
-    expect(trafficPipeline.rollups).toHaveLength(2);
     // Union: two mappings into one table.
     const targets = trafficPipeline.mappings.map((m) => m.analytic_table_id);
     expect(new Set(targets).size).toBe(1);
@@ -43,28 +42,9 @@ describe("traffic template", () => {
     expect(isFileRows(countries.rows)).toBe(true);
   });
 
-  it("covers every aggregate function across its rollups", () => {
-    const fns = new Set(
-      (trafficPipeline.rollups ?? []).flatMap((r) => r.aggregates.map((a) => a.fn)),
-    );
-    expect([...fns].sort()).toEqual(["avg", "count", "count_distinct", "median", "sum"]);
-    // At least one conditional aggregate.
-    const conditional = (trafficPipeline.rollups ?? [])
-      .flatMap((r) => r.aggregates)
-      .filter((a) => a.where);
-    expect(conditional.length).toBeGreaterThanOrEqual(2);
-  });
-
   it("passes the per-entity validators the inspector uses", () => {
     for (const dimension of trafficPipeline.dimensions) {
       expect(validateDimension(dimension).errors).toEqual([]);
-    }
-    for (const rollup of trafficPipeline.rollups ?? []) {
-      const source = trafficPipeline.analytic_tables.find((t) => t.id === rollup.source_table_id);
-      const target = trafficPipeline.analytic_tables.find(
-        (t) => t.id === rollup.analytic_table_id,
-      );
-      expect(validateRollup(rollup, source, target).errors).toEqual([]);
     }
   });
 
@@ -169,8 +149,8 @@ describe("traffic template", () => {
 
   it("builds a graph with an edge for every reference", () => {
     const { nodes, edges } = buildGraph(trafficPipeline);
-    // 2 sources + 3 dimensions + 2 mappings + 3 tables + 2 rollups.
-    expect(nodes).toHaveLength(12);
+    // 2 sources + 3 dimensions + 2 mappings + 1 table.
+    expect(nodes).toHaveLength(8);
     expect(edges.map((e) => e.id)).toEqual(
       expect.arrayContaining([
         "caddy_access_raw->caddy_mapping",
@@ -178,10 +158,7 @@ describe("traffic template", () => {
         "countries->caddy_mapping",
         "crawlers->edge_mapping",
         "caddy_mapping->requests",
-        "requests->daily_traffic",
-        "daily_traffic->requests_daily",
-        "requests->region_traffic",
-        "region_traffic->requests_by_region",
+        "edge_mapping->requests",
       ]),
     );
   });
