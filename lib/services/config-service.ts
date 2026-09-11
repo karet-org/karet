@@ -11,6 +11,7 @@ import {
   S3ServiceException,
 } from "@aws-sdk/client-s3";
 import { type S3Config } from "../config/s3-client";
+import { normalizePipelineConfig } from "../config/migrate";
 import type { PipelineConfig } from "../types/config";
 import type { SavedQuery } from "../types/query";
 import { listAllObjectKeys, readBodyToBuffer } from "./s3-helpers";
@@ -136,7 +137,9 @@ export async function getPipelineConfig(
       }),
     );
     const body = await streamToString(response.Body);
-    const parsed = JSON.parse(body) as PipelineConfig;
+    // Pre-Dimension / pre-Rollup configs are upgraded here, so nothing
+    // downstream has to know about the old shape.
+    const parsed = normalizePipelineConfig(JSON.parse(body));
     return {
       config: parsed,
       body,
