@@ -438,8 +438,9 @@ export default function PipelineGraphPage() {
           onDisconnectEdge={handleDisconnectEdge}
         />
         {isDirty && (
-          // Top-center: keeps the bottom toolbar usable while dirty.
-          <div className="absolute left-1/2 top-4 z-20 flex -translate-x-1/2 flex-col items-center gap-2">
+          // Top-right, tucked under the Auto layout button: out of the way of
+          // the graph itself, and clear of the bottom toolbar.
+          <div className="absolute right-3 top-14 z-20 flex flex-col items-end gap-2">
             {validationErrors.length > 0 && (
               <div className="w-max max-w-lg rounded-lg border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-2 shadow-lg">
                 <div className="text-xs font-semibold text-[color:var(--color-rose-deep)]">Validation failed:</div>
