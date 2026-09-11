@@ -493,9 +493,9 @@ export default function PipelineGraphPage() {
                   disabled={saving}
                   data-testid="save-publish-button"
                   // Fixed width: "Save" and "Saving…" must not resize the row.
-                  className="flex w-[5.25rem] items-center justify-center rounded-md bg-[color:var(--color-carrot)] px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+                  className="flex w-[5.75rem] items-center justify-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
                 >
-                  {/* The button appearing at all is the unsaved signal. */}
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/70" />
                   {saving ? "Saving…" : "Save"}
                 </button>
               </>
