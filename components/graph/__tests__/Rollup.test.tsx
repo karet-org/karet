@@ -5,6 +5,7 @@
 // partition on those keys too.
 
 import React from "react";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { AnalyticTable, PipelineConfig, Rollup } from "@/lib/types/config";
@@ -75,6 +76,26 @@ describe("rollup graph model", () => {
     expect(next.rollups).toHaveLength(1);
     expect(next.rollups?.[0].aggregates[0].fn).toBe("count");
     expect(next.rollups?.[0].group_by).toEqual([]);
+  });
+});
+
+describe("table node handles", () => {
+  it("offers a source handle so a rollup can be wired from a table", () => {
+    // Without one, React Flow has no anchor for a `table -> rollup` edge:
+    // the edge cannot be drawn and a stored one does not render.
+    const source = readFileSync("components/graph/AnalyticTableNode.tsx", "utf8");
+    expect(source).toContain('type="target"');
+    expect(source).toContain('type="source"');
+  });
+
+  it("allows both rollup directions in the canvas connection rules", () => {
+    const canvas = readFileSync("components/graph/GraphCanvas.tsx", "utf8");
+    const rules = canvas.match(/NODE_TYPE\.analyticTable && dst\.type === NODE_TYPE\.rollup/g);
+    const reverse = canvas.match(/NODE_TYPE\.rollup && dst\.type === NODE_TYPE\.analyticTable/g);
+    // Once in handleConnect (which writes) and once in isValidConnection
+    // (which gates the drag), or the UI and the config disagree.
+    expect(rules?.length).toBe(2);
+    expect(reverse?.length).toBe(2);
   });
 });
 

@@ -16,7 +16,13 @@ function AnalyticTableNode({
       selected={selected}
       testId="analytic-table-node"
       className="min-w-[200px]"
-      handles={<Handle type="target" position={Position.Left} />}
+      handles={
+        <>
+          <Handle type="target" position={Position.Left} />
+          {/* A Rollup reads a table, so a table is also an edge source. */}
+          <Handle type="source" position={Position.Right} />
+        </>
+      }
     >
       <ul className="space-y-0.5">
         {entity.schema.map((col, i) => (

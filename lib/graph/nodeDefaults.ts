@@ -119,6 +119,32 @@ export function disconnectEdgeInConfig(
       ),
     };
   }
+
+  const rollups = cfg.rollups ?? [];
+  const isTable = cfg.analytic_tables.some((t) => t.id === source);
+  const targetIsRollup = rollups.some((r) => r.id === target);
+  const isRollup = rollups.some((r) => r.id === source);
+
+  if (isTable && targetIsRollup) {
+    return {
+      ...cfg,
+      rollups: rollups.map((r) =>
+        r.id === target && r.source_table_id === source
+          ? { ...r, source_table_id: "" }
+          : r,
+      ),
+    };
+  }
+  if (isRollup && targetIsTable) {
+    return {
+      ...cfg,
+      rollups: rollups.map((r) =>
+        r.id === source && r.analytic_table_id === target
+          ? { ...r, analytic_table_id: "" }
+          : r,
+      ),
+    };
+  }
   return cfg;
 }
 

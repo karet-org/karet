@@ -314,8 +314,11 @@ export default function PipelineGraphPage() {
     if (!cfg) return;
     const isSource = cfg.source_containers.some((s) => s.id === sourceId);
     const isMapping = cfg.mappings.some((m) => m.id === sourceId);
+    const isTable = cfg.analytic_tables.some((t) => t.id === sourceId);
+    const isRollup = (cfg.rollups ?? []).some((r) => r.id === sourceId);
     const targetIsMapping = cfg.mappings.some((m) => m.id === targetId);
     const targetIsTable = cfg.analytic_tables.some((t) => t.id === targetId);
+    const targetIsRollup = (cfg.rollups ?? []).some((r) => r.id === targetId);
 
     let updated = cfg;
     if (isSource && targetIsMapping) {
@@ -323,6 +326,22 @@ export default function PipelineGraphPage() {
     } else if (isMapping && targetIsTable) {
       const table = cfg.analytic_tables.find((t) => t.id === targetId);
       updated = { ...cfg, mappings: cfg.mappings.map((m) => m.id === sourceId ? syncMappingToTable(m, targetId, table) : m) };
+    } else if (isTable && targetIsRollup) {
+      // A rollup reads one table…
+      updated = {
+        ...cfg,
+        rollups: (cfg.rollups ?? []).map((r) =>
+          r.id === targetId ? { ...r, source_table_id: sourceId } : r,
+        ),
+      };
+    } else if (isRollup && targetIsTable) {
+      // …and writes another.
+      updated = {
+        ...cfg,
+        rollups: (cfg.rollups ?? []).map((r) =>
+          r.id === sourceId ? { ...r, analytic_table_id: targetId } : r,
+        ),
+      };
     } else return;
     applyDraft(updated);
   }, [applyDraft]);

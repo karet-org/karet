@@ -281,7 +281,9 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
       if (!src || !dst) return false;
       return (
         (src.type === NODE_TYPE.sourceContainer && dst.type === NODE_TYPE.mapping) ||
-        (src.type === NODE_TYPE.mapping && dst.type === NODE_TYPE.analyticTable)
+        (src.type === NODE_TYPE.mapping && dst.type === NODE_TYPE.analyticTable) ||
+        (src.type === NODE_TYPE.analyticTable && dst.type === NODE_TYPE.rollup) ||
+        (src.type === NODE_TYPE.rollup && dst.type === NODE_TYPE.analyticTable)
       );
     },
     [internalNodes],

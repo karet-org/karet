@@ -112,3 +112,43 @@ describe("disconnectEdgeInConfig", () => {
     expect(m2.source_container_id).toBe("src1");
   });
 });
+
+describe("disconnectEdgeInConfig, rollup edges", () => {
+  const cfg = {
+    version: 1,
+    name: "p",
+    source_containers: [],
+    dimensions: [],
+    mappings: [],
+    analytic_tables: [
+      { id: "raw", name: "Raw", schema: [], partition_keys: ["month"] },
+      { id: "daily", name: "Daily", schema: [], partition_keys: ["month"] },
+    ],
+    rollups: [
+      {
+        id: "r",
+        name: "R",
+        source_table_id: "raw",
+        analytic_table_id: "daily",
+        group_by: ["month"],
+        aggregates: [{ name: "n", fn: "count" as const }],
+      },
+    ],
+  };
+
+  it("clears the source table when the incoming edge is removed", () => {
+    const next = disconnectEdgeInConfig(cfg, "raw", "r");
+    expect(next.rollups?.[0].source_table_id).toBe("");
+    expect(next.rollups?.[0].analytic_table_id).toBe("daily");
+  });
+
+  it("clears the target table when the outgoing edge is removed", () => {
+    const next = disconnectEdgeInConfig(cfg, "r", "daily");
+    expect(next.rollups?.[0].analytic_table_id).toBe("");
+    expect(next.rollups?.[0].source_table_id).toBe("raw");
+  });
+
+  it("leaves the config alone for an edge that does not exist", () => {
+    expect(disconnectEdgeInConfig(cfg, "daily", "r")).toEqual(cfg);
+  });
+});
