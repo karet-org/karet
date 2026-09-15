@@ -86,11 +86,11 @@ function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps) {
     >
       <header className="flex items-center justify-between gap-2 border-b border-[color:var(--color-rule-soft)] px-4 pb-2.5 pt-3">
         <div className="min-w-0">
-          <div className="text-[11px] tracking-[0.3px] text-[color:var(--color-ink-3)]">
+          <div className="text-[11.5px] tracking-[0.3px] text-[color:var(--color-ink-3)]">
             {headerLabel(node)}
           </div>
           <h2
-            className="mt-px truncate text-[13px] font-semibold text-[color:var(--color-ink)]"
+            className="mt-px truncate text-[14.5px] font-semibold text-[color:var(--color-ink)]"
             title={node.id}
           >
             {node.data.entity.name || node.id}

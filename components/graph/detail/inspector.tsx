@@ -26,7 +26,7 @@ export function Section({
           : "mb-3.5 border-b border-[color:var(--color-rule-soft)] pb-3.5"
       }
     >
-      <div className="mb-2 flex items-center justify-between text-[11px] tracking-[0.3px] text-[color:var(--color-ink-3)]">
+      <div className="mb-2 flex items-center justify-between text-[12.5px] font-medium tracking-[0.2px] text-[color:var(--color-ink-2)]">
         <span className="flex items-center gap-1.5">{label}</span>
         {action}
       </div>
