@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { buildGraph, findNode, type GraphNode } from "@/lib/graph/build";
 import { autoLayout, layoutToConfig } from "@/lib/graph/layout";
+import { configFingerprint } from "@/lib/graph/configDiff";
 import { useGraphStore } from "@/lib/graph/store";
 import {
   addNodeToConfig,
@@ -24,7 +25,9 @@ export default function PipelineGraphPage() {
   const router = useRouter();
   const [status, setStatus] = useState<LoadState>("loading");
   const [errorMsg, setErrorMsg] = useState<string>("");
-  const [isDirty, setIsDirty] = useState(false);
+  // Fingerprint of the last saved config; dirtiness is derived by comparing
+  // the working config against it, so undoing an edit clears it.
+  const [savedFingerprint, setSavedFingerprint] = useState("");
   const [saving, setSaving] = useState(false);
   // Validation detail is opt-in: a count in the control row, the list on tap.
   const [showIssues, setShowIssues] = useState(false);
@@ -48,8 +51,14 @@ export default function PipelineGraphPage() {
     edges: ReturnType<typeof buildGraph>["edges"];
   } | null>(null);
 
-  const markDirty = useCallback(() => setIsDirty(true), []);
-  const clearDirty = useCallback(() => setIsDirty(false), []);
+  const isDirty = useMemo(
+    () => config != null && savedFingerprint !== "" && configFingerprint(config) !== savedFingerprint,
+    [config, savedFingerprint],
+  );
+  const clearDirty = useCallback(() => {
+    const cfg = useGraphStore.getState().config;
+    setSavedFingerprint(configFingerprint(cfg));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +77,7 @@ export default function PipelineGraphPage() {
         const parsed = (await res.json()) as PipelineConfig;
         if (!cancelled) {
           savedConfigRef.current = parsed;
+          setSavedFingerprint(configFingerprint(parsed));
           setConfig(parsed, etag);
           const built = buildGraph(parsed);
           const hasLayout = parsed.layout && Object.keys(parsed.layout).length > 0;
@@ -164,15 +174,13 @@ export default function PipelineGraphPage() {
     useGraphStore.setState({ config: cfg });
     const built = buildGraph(cfg);
     canvasRef.current?.updateGraph(built.nodes, built.edges);
-    markDirty();
-  }, [markDirty]);
+  }, []);
 
   const handleLayoutChange = useCallback((nodes: GraphNode[]) => {
     const cfg = useGraphStore.getState().config;
     if (!cfg) return;
     useGraphStore.setState({ config: layoutToConfig(cfg, nodes) });
-    markDirty();
-  }, [markDirty]);
+  }, []);
 
   const handlePublish = useCallback(async () => {
     const cfg = useGraphStore.getState().config;
@@ -259,6 +267,7 @@ export default function PipelineGraphPage() {
 
       const data = await res.json().catch(() => ({}));
       savedConfigRef.current = cfg;
+      setSavedFingerprint(configFingerprint(cfg));
       useGraphStore.setState({ config: cfg, etag: data.etag ?? null });
       clearDirty();
     } finally {
@@ -497,7 +506,6 @@ export default function PipelineGraphPage() {
         if (cfg) {
           const built = buildGraph(cfg);
           canvasRef.current?.updateGraph(built.nodes, built.edges);
-          markDirty();
         }
       }} />
 
