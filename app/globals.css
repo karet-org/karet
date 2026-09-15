@@ -176,3 +176,37 @@ button:disabled,
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
 }
+
+/* Edge handles.
+   Two states, not three: at rest a dot in the node's own border colour, and on
+   node hover every handle on that node grows and brightens — inlets included,
+   so a connection reads as one system rather than an exit and a grey speck.
+   Saturated colour is held back for an active drag, so the chrome never
+   outshines the column names beside it.
+
+   React Flow's stylesheet loads after this one, so its `.react-flow__handle`
+   rule wins any property it also sets; colours therefore go through its
+   variables and the size override carries an extra class. Positioning uses
+   `transform: translate(...)`, so growth animates `scale`. */
+.react-flow {
+  --xy-handle-background-color: var(--color-surface-2);
+  --xy-handle-border-color: var(--color-rule);
+}
+.react-flow .react-flow__handle {
+  width: 9px;
+  height: 9px;
+  transition:
+    scale 0.12s ease,
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+/* Hovering the node is the cue; a 9 px dot is too small to be one itself. */
+.react-flow .react-flow__node:hover .react-flow__handle {
+  scale: 1.45;
+  border-color: var(--color-ink-3);
+}
+.react-flow .react-flow__handle.connectingfrom {
+  scale: 1.45;
+  background-color: var(--color-carrot);
+  border-color: var(--color-carrot);
+}
