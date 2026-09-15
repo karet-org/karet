@@ -92,8 +92,8 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
             }
           }}
         >
-          <option value="csv">CSV — .csv</option>
-          <option value="ndjson">JSON lines — .json, .jsonl, .ndjson</option>
+          <option value="csv">CSV (.csv)</option>
+          <option value="ndjson">JSON lines (.json, .jsonl, .ndjson)</option>
         </select>
       </Section>
 
