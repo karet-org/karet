@@ -111,6 +111,19 @@ button:disabled,
   border-bottom: 1px solid var(--color-rule-soft);
   color: var(--color-ink-2);
 }
+
+/* Clamp for query-result cells. A URL-encoded path or a JSON blob would
+   otherwise stretch its column and inflate every row's height; the wrapper
+   keeps the table's automatic column sizing intact, unlike a max-width on the
+   cell itself. Full value lives on the cell's title. */
+.cell-clamp {
+  display: inline-block;
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
 .data-table td:first-child {
   color: var(--color-ink);
 }
