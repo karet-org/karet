@@ -27,11 +27,6 @@ interface SourceContainerEditorProps {
 
 export const SOURCE_CONTAINER_EDITOR_ERROR_TESTID = "source-container-editor-error";
 
-const formatBlurb: Record<SourceFormat, string> = {
-  csv: "CSV files",
-  ndjson: "JSON-lines files (.json, .jsonl, .ndjson): one object per line",
-};
-
 function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerEditorProps) {
   const result = useMemo(() => validateSourceContainer(value), [value]);
   if (onValidate) onValidate(result);
@@ -72,7 +67,8 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
           onChange={(path_prefix) => onChange({ ...value, path_prefix })}
         />
         <p className="mt-1.5 text-[10.5px] text-[color:var(--color-ink-3)]">
-          Any folder in the data lake; {formatBlurb[format]} under it feed this source.
+          Any folder in the data lake. Files under it matching the format below feed
+          this source.
         </p>
       </Section>
 
@@ -96,15 +92,9 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
             }
           }}
         >
-          <option value="csv">CSV</option>
-          <option value="ndjson">JSON lines (NDJSON)</option>
+          <option value="csv">CSV — .csv</option>
+          <option value="ndjson">JSON lines — .json, .jsonl, .ndjson</option>
         </select>
-        {isJson && (
-          <p className="mt-1.5 text-[10.5px] text-[color:var(--color-ink-3)]">
-            Columns bind to a path inside each record, e.g.{" "}
-            <code>request.headers.User-Agent[0]</code>. Missing paths read as null.
-          </p>
-        )}
       </Section>
 
       <Section
@@ -147,7 +137,10 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
                         <input
                           aria-label={`column ${i} path`}
                           className={editInputClass("font-mono")}
-                          placeholder={col.name}
+                          // Doubles as the syntax hint: dotted keys, [n] for
+                          // array indices. Empty means the column name.
+                          placeholder={col.name || "request.headers.User-Agent[0]"}
+                          title="Path inside each record, e.g. request.headers.User-Agent[0]. Missing paths read as null."
                           value={col.path ?? ""}
                           onChange={(e) =>
                             setColumn(i, { path: e.target.value || undefined })
