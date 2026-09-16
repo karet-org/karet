@@ -177,28 +177,6 @@ button:disabled,
   .skeleton { animation: none; }
 }
 
-/* Leaflet map panel: dark theme for controls, ocean, and attribution. */
-.karet-map.leaflet-container {
-  background: var(--color-bg);
-  /* Leaflet's panes and controls sit at z-index 400-1000; isolate them so
-     they can't paint over the sticky dashboard top bar (z-20). */
-  isolation: isolate;
-  z-index: 0;
-}
-.karet-map .leaflet-control-zoom a {
-  background: var(--color-surface-2);
-  color: var(--color-ink);
-  border-color: var(--color-rule);
-}
-.karet-map .leaflet-control-zoom a:hover {
-  background: var(--color-rule-soft);
-}
-.karet-map .leaflet-tooltip {
-  background: var(--color-surface-2);
-  color: var(--color-ink);
-  border: 1px solid var(--color-rule);
-  box-shadow: none;
-
 /* Edge handles. Three facts, all measured in the rendered DOM: React Flow
    anchors an edge on the handle box's *outer* edge, so the box is nudged inward
    until that edge sits on the node's border; the dot is a pseudo-element centred
@@ -213,7 +191,7 @@ button:disabled,
   height: 9px;
   background: transparent;
   border: none;
-  /* Puts the box's outer edge on the node's border. */
+  /* Outer edge of the box onto the node's border (see 1). */
   transform: translate(0, -50%);
 }
 .react-flow .react-flow__handle::before {
@@ -284,4 +262,27 @@ button:disabled,
 }
 .react-flow__node.rf-connect-blocked {
   opacity: 0.35;
+}
+
+/* Leaflet map panel: dark theme for controls, ocean, and attribution. */
+.karet-map.leaflet-container {
+  background: var(--color-bg);
+  /* Leaflet's panes and controls sit at z-index 400-1000; isolate them so
+     they can't paint over the sticky dashboard top bar (z-20). */
+  isolation: isolate;
+  z-index: 0;
+}
+.karet-map .leaflet-control-zoom a {
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  border-color: var(--color-rule);
+}
+.karet-map .leaflet-control-zoom a:hover {
+  background: var(--color-rule-soft);
+}
+.karet-map .leaflet-tooltip {
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  border: 1px solid var(--color-rule);
+  box-shadow: none;
 }
