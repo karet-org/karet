@@ -148,11 +148,26 @@ export function buildGraph(cfg: PipelineConfig): Graph {
   const edges: GraphEdge[] = [];
   const edgeIds = new Set<string>();
 
-  const addEdge = (source: string, target: string): void => {
+  /** `derived` edges come from expressions, not from a config field, so there
+   *  is nothing for a user to disconnect: they are inert in the canvas. */
+  const addEdge = (source: string, target: string, derived = false): void => {
     const id = `${source}->${target}`;
     if (edgeIds.has(id)) return;
     edgeIds.add(id);
-    edges.push({ id, source, target });
+    edges.push(
+      derived
+        ? {
+            id,
+            source,
+            target,
+            selectable: false,
+            focusable: false,
+            deletable: false,
+            reconnectable: false,
+            interactionWidth: 0,
+          }
+        : { id, source, target },
+    );
   };
 
   for (const m of cfg.mappings ?? []) {
@@ -161,7 +176,9 @@ export function buildGraph(cfg: PipelineConfig): Graph {
 
     const lookupRoots = new Set<string>();
     for (const col of m.columns) collectDimIds(col.expr, lookupRoots);
-    for (const root of lookupRoots) addEdge(root, m.id);
+    // A dim_ref in an expression put this edge here; only editing the
+    // expression can remove it.
+    for (const root of lookupRoots) addEdge(root, m.id, true);
   }
 
   return { nodes, edges };

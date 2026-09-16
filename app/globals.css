@@ -178,27 +178,43 @@ button:disabled,
 }
 
 /* Edge handles.
-   Two states, not three: at rest a dot in the node's own border colour; when
-   the cursor is near the dot it grows and brightens. The cue is proximity to
-   the handle rather than to the node, so an invisible padded ring around each
-   handle does the hit-testing — a node is 300 px wide and hovering its far
-   corner should not light up a port.
+   React Flow anchors an edge on the handle box's *outer* edge, not its centre —
+   measured, not assumed. So the box stays where React Flow puts it and serves
+   only as the hit area, while the visible dot is drawn by a pseudo-element
+   centred on that edge. Painting the box itself left every line starting 4.5 px
+   beside its dot, which the default 6 px handle happened to hide.
 
-   React Flow's stylesheet loads after this one, so its `.react-flow__handle`
-   rule wins any property it also sets; colours therefore go through its
-   variables and the size override carries an extra class. Positioning uses
-   `transform: translate(...)`, so growth animates `scale`. */
-.react-flow {
-  --xy-handle-background-color: var(--color-surface-2);
-  --xy-handle-border-color: var(--color-rule);
-}
+   Two states: at rest the dot takes the node's border colour; when the cursor
+   is near it — a padded invisible ring does that hit-testing, so a 300 px node
+   does not light up its ports from the far corner — it grows and brightens.
+   Saturated colour is held back for an active drag. */
 .react-flow .react-flow__handle {
   width: 9px;
   height: 9px;
+  background: transparent;
+  border: none;
+}
+.react-flow .react-flow__handle::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: var(--color-surface-2);
+  border: 1.5px solid var(--color-rule);
   transition:
     scale 0.12s ease,
     background-color 0.12s ease,
     border-color 0.12s ease;
+}
+.react-flow .react-flow__handle-right::before {
+  right: 0;
+  transform: translate(50%, -50%);
+}
+.react-flow .react-flow__handle-left::before {
+  left: 0;
+  transform: translate(-50%, -50%);
 }
 /* Invisible reach around the dot: hit area, never decoration. */
 .react-flow .react-flow__handle::after {
@@ -207,11 +223,11 @@ button:disabled,
   inset: -10px;
   border-radius: 50%;
 }
-.react-flow .react-flow__handle:hover {
+.react-flow .react-flow__handle:hover::before {
   scale: 1.45;
   border-color: var(--color-ink-3);
 }
-.react-flow .react-flow__handle.connectingfrom {
+.react-flow .react-flow__handle.connectingfrom::before {
   scale: 1.45;
   background-color: var(--color-carrot);
   border-color: var(--color-carrot);
@@ -223,7 +239,7 @@ button:disabled,
   border-color: var(--color-leaf) !important;
   box-shadow: 0 0 0 3px var(--color-leaf-soft) !important;
 }
-.react-flow__node.rf-connect-target .react-flow__handle {
+.react-flow__node.rf-connect-target .react-flow__handle::before {
   scale: 1.45;
   background-color: var(--color-leaf);
   border-color: var(--color-leaf);

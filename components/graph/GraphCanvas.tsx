@@ -344,6 +344,9 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         { id: edge.id, source: edge.source, target: edge.target },
         nodesById,
       );
+      // Derived edges have no config field behind them, so there is nothing to
+      // offer: fall through to the canvas menu instead of a dead one.
+      if (kind === "dimension-to-mapping") return;
       setContextMenu({
         x: event.clientX - bounds.left,
         y: event.clientY - bounds.top,
