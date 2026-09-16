@@ -1,16 +1,9 @@
-// Is the working config actually different from the saved one?
-//
-// A boolean "dirty" flag latches on the first edit and never comes back, so
-// typing a character and deleting it, or dragging a node and dragging it back,
-// leaves the pipeline looking unsaved when nothing has changed. Comparing
-// values instead means the answer follows the config.
-//
-// Two wrinkles make a plain `JSON.stringify` comparison wrong:
-//   - key order. Editors rebuild objects with spreads, so dropping and
-//     re-adding a field (`mapping.where`) moves it to the end of the object
-//     without changing meaning.
-//   - layout floats. React Flow reports positions as floats, and a drag that
-//     ends where it started can differ in the last decimal.
+// Fingerprint of a config, for deciding whether it differs from the saved one.
+// A boolean dirty flag latches on the first edit and never clears, so undoing
+// an edit left the pipeline looking unsaved. Two wrinkles rule out a plain
+// `JSON.stringify`: editors rebuild objects with spreads, so re-adding a field
+// reorders keys without changing meaning, and React Flow reports node positions
+// as floats that drift in the last decimal.
 
 import type { PipelineConfig } from "@/lib/types/config";
 
@@ -35,13 +28,4 @@ function canonical(value: unknown, key?: string): unknown {
 export function configFingerprint(cfg: PipelineConfig | null | undefined): string {
   if (!cfg) return "";
   return JSON.stringify(canonical(cfg));
-}
-
-/** True when `current` differs from `saved` in any way that would be written. */
-export function configsDiffer(
-  current: PipelineConfig | null | undefined,
-  saved: PipelineConfig | null | undefined,
-): boolean {
-  if (!current || !saved) return false;
-  return configFingerprint(current) !== configFingerprint(saved);
 }

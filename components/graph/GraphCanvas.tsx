@@ -68,9 +68,9 @@ const nodeTypes: NodeTypes = {
   [NODE_TYPE.analyticTable]: AnalyticTableNode,
 };
 
-/** The only pairs a user may draw. Dimension edges come from expressions, so
- *  they are derived rather than drawn. Shared by the drag validator, the
- *  config writer and the in-drag highlighting, which must agree. */
+/** The only pairs a user may draw; dimension edges are derived, not drawn.
+ *  Shared by the drag validator, the config writer and the mid-drag
+ *  highlighting, which must agree. */
 function connectablePair(source: string | undefined, target: string | undefined): boolean {
   return (
     (source === NODE_TYPE.sourceContainer && target === NODE_TYPE.mapping) ||
@@ -261,11 +261,9 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
     [onConnectProp, internalNodes],
   );
 
-  // Node a connection is being dragged from, so the graph can say which nodes
-  // it could legally land on while the drag is in flight.
+  // Node a connection is being dragged from, for the target highlighting.
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
-  // Set when React Flow itself completes a connection, so the release handler
-  // below knows whether it still has work to do.
+  // Set when React Flow lands a connection itself.
   const connectionLandedRef = useRef(false);
 
   const isValidConnection = useCallback(
@@ -381,9 +379,8 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
     setConfirmDisconnect(null);
   }, [confirmDisconnect, onDisconnectEdge]);
 
-  // Releasing anywhere over a legal node connects: aiming at a 9 px inlet is
-  // the fiddly half of the gesture, and React Flow's snap radius only covers a
-  // near miss. Runs only when React Flow did not already land the connection.
+  // Releasing anywhere over a legal node connects; React Flow's snap radius only
+  // covers a near miss. Runs only if React Flow did not already land it.
   const handleConnectEnd = useCallback(
     (event: MouseEvent | TouchEvent) => {
       const from = connectingFrom;
@@ -410,9 +407,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
     [connectingFrom, internalNodes, onConnectProp],
   );
 
-  // While dragging from a node, legal targets are called out and the rest
-  // recede, so the connection rules are visible instead of being discovered by
-  // a drop that silently does nothing.
+  // Legal targets are called out mid-drag; everything else recedes.
   const annotatedNodes = useMemo(() => {
     if (!connectingFrom) return internalNodes;
     const src = internalNodes.find((n) => n.id === connectingFrom);

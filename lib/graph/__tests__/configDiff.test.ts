@@ -5,7 +5,11 @@
 
 import { describe, expect, it } from "vitest";
 import type { PipelineConfig } from "@/lib/types/config";
-import { configFingerprint, configsDiffer } from "@/lib/graph/configDiff";
+import { configFingerprint } from "@/lib/graph/configDiff";
+
+/** The page compares fingerprints; these tests read better with a wrapper. */
+const differs = (a: PipelineConfig | null, b: PipelineConfig | null) =>
+  configFingerprint(a) !== configFingerprint(b);
 
 const BASE: PipelineConfig = {
   version: 1,
@@ -31,21 +35,21 @@ const clone = (cfg: PipelineConfig): PipelineConfig => JSON.parse(JSON.stringify
 
 describe("configsDiffer", () => {
   it("sees no change in an identical config", () => {
-    expect(configsDiffer(BASE, clone(BASE))).toBe(false);
+    expect(differs(BASE, clone(BASE))).toBe(false);
   });
 
   it("sees a real edit", () => {
     const next = clone(BASE);
     next.mappings[0].name = "Renamed";
-    expect(configsDiffer(next, BASE)).toBe(true);
+    expect(differs(next, BASE)).toBe(true);
   });
 
   it("sees no change once an edit is undone", () => {
     const edited = clone(BASE);
     edited.mappings[0].name = "Renamed";
-    expect(configsDiffer(edited, BASE)).toBe(true);
+    expect(differs(edited, BASE)).toBe(true);
     edited.mappings[0].name = "M";
-    expect(configsDiffer(edited, BASE)).toBe(false);
+    expect(differs(edited, BASE)).toBe(false);
   });
 
   it("ignores key order, so adding and removing a field is not a change", () => {
@@ -56,33 +60,34 @@ describe("configsDiffer", () => {
       ...withFilter.mappings[0],
       where: { kind: "bool", value: true },
     };
-    expect(configsDiffer(withFilter, BASE)).toBe(true);
+    expect(differs(withFilter, BASE)).toBe(true);
 
     const { where: _drop, ...rest } = withFilter.mappings[0];
     const undone = clone(BASE);
     undone.mappings[0] = rest as PipelineConfig["mappings"][number];
-    expect(configsDiffer(undone, BASE)).toBe(false);
+    expect(differs(undone, BASE)).toBe(false);
   });
 
   it("ignores sub-pixel drift in node positions", () => {
     const nudged = clone(BASE);
     nudged.layout = { m: { x: 10.0004, y: 19.9998 } };
-    expect(configsDiffer(nudged, BASE)).toBe(false);
+    expect(differs(nudged, BASE)).toBe(false);
 
     const moved = clone(BASE);
     moved.layout = { m: { x: 40, y: 20 } };
-    expect(configsDiffer(moved, BASE)).toBe(true);
+    expect(differs(moved, BASE)).toBe(true);
   });
 
   it("treats an absent field and an undefined one as the same", () => {
     const withUndefined = clone(BASE) as PipelineConfig & { rollups?: undefined };
     withUndefined.rollups = undefined;
-    expect(configsDiffer(withUndefined, BASE)).toBe(false);
+    expect(differs(withUndefined, BASE)).toBe(false);
   });
 
-  it("has no opinion before a config is loaded", () => {
-    expect(configsDiffer(null, BASE)).toBe(false);
-    expect(configsDiffer(BASE, null)).toBe(false);
+  it("returns an empty fingerprint before a config is loaded", () => {
+    // The graph page treats an empty saved fingerprint as "not yet loaded", so
+    // it never reports a fresh pipeline as unsaved.
     expect(configFingerprint(null)).toBe("");
+    expect(configFingerprint(undefined)).toBe("");
   });
 });

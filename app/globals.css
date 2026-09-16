@@ -177,23 +177,15 @@ button:disabled,
   .skeleton { animation: none; }
 }
 
-/* Edge handles.
-   Three things this has to get right, all verified by measuring the rendered
-   DOM rather than by eye:
+/* Edge handles. Three facts, all measured in the rendered DOM: React Flow
+   anchors an edge on the handle box's *outer* edge, so the box is nudged inward
+   until that edge sits on the node's border; the dot is a pseudo-element centred
+   on it, straddling the border where a line should meet a card; and the dot is
+   placed with offsets, never a transform, since `scale` composes after
+   `transform` and would scale the offset too.
 
-   1. React Flow anchors an edge on the handle box's *outer* edge, not its
-      centre. So the box is nudged inward until that edge lands on the node's
-      border, which is where a line should meet a card.
-   2. The visible dot is a pseudo-element centred on that same edge, so it
-      straddles the border and the line begins at its centre.
-   3. The dot is positioned with offsets, never a transform. Combining `scale`
-      with a `transform: translate(...)` scales the translation too, which
-      slides the dot sideways as it grows.
-
-   Two states: at rest the dot takes the node's border colour; near the cursor
-   it grows and brightens — an invisible padded ring does that hit-testing, so a
-   300 px node does not light up its ports from the far corner. Saturated colour
-   is held back for an active drag. */
+   Two states: quiet at rest, grown and brightened near the cursor. Saturated
+   colour is held back for an active drag. */
 .react-flow .react-flow__handle {
   width: 9px;
   height: 9px;
@@ -223,7 +215,7 @@ button:disabled,
 .react-flow .react-flow__handle-left::before {
   left: -4.5px;
 }
-/* Invisible reach around the dot: hit area, never decoration. */
+/* Invisible reach: the cue is proximity to the dot, not to the whole node. */
 .react-flow .react-flow__handle::after {
   content: "";
   position: absolute;
@@ -240,11 +232,8 @@ button:disabled,
   border-color: var(--color-carrot);
 }
 
-/* An inlet cannot start a connection, so showing a dot for it at rest — or
-   growing one on hover — promises an interaction that does not exist. The dot
-   appears only while a connection is in flight and this node is a legal
-   target, which is the one moment it means something. Incoming edges are
-   terminated by their arrowhead, not by a dot. */
+/* An inlet cannot start a connection, so its dot shows only while a drag is in
+   flight and this node is a legal target. Incoming edges end in an arrowhead. */
 .react-flow .react-flow__handle-left::before {
   opacity: 0;
   transition: opacity 0.12s ease;
@@ -253,22 +242,19 @@ button:disabled,
   opacity: 1;
 }
 
-/* The live connection line paints above the nodes, so it crossed the outlet it
-   started from. Lifting just the node being dragged from puts its dot back on
-   top of the line's first few pixels. */
+/* The live line paints above nodes: lift the source node so its dot stays on
+   top of the line's first pixels. */
 .react-flow__node:has(.react-flow__handle.connectingfrom) {
   z-index: 1002 !important;
 }
 
-/* Mid-drag feedback: legal targets are called out, the rest recede, so the
-   rules are visible rather than discovered by a drop that does nothing. */
+/* Mid-drag: legal targets are called out, the rest recede, so the rules are
+   visible rather than found by a drop that does nothing. */
 .react-flow__node.rf-connect-target > * {
   border-color: var(--color-leaf) !important;
   box-shadow: 0 0 0 3px var(--color-leaf-soft) !important;
 }
-/* Only the inlet can receive the connection, so only the inlet is called out.
-   Tinting every handle on the node lit up its outlet too, which cannot accept
-   anything. */
+/* Only the inlet can receive, so only the inlet is tinted. */
 .react-flow__node.rf-connect-target .react-flow__handle-left::before {
   scale: 1.45;
   background-color: var(--color-leaf);

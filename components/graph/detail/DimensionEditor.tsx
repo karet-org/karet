@@ -15,7 +15,6 @@ import { InlineErrorList } from "./editorPrimitives";
 import LakeFolderField from "./LakeFolderField";
 import {
   EditField,
-  InspRow,
   kvInputClass,
   editInputClass,
   LabelButton,

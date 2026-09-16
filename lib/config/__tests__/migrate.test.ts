@@ -3,7 +3,7 @@
 // dimensions and its `lookup_ref`s pointing at them.
 
 import { describe, expect, it } from "vitest";
-import { needsUpgrade, normalizePipelineConfig } from "@/lib/config/migrate";
+import { normalizePipelineConfig } from "@/lib/config/migrate";
 import { buildGraph } from "@/lib/graph/build";
 import { isFileRows } from "@/lib/types/config";
 
@@ -75,11 +75,6 @@ const LEGACY = {
 };
 
 describe("normalizePipelineConfig", () => {
-  it("recognises which configs need upgrading", () => {
-    expect(needsUpgrade(LEGACY)).toBe(true);
-    expect(needsUpgrade(normalizePipelineConfig(LEGACY))).toBe(false);
-  });
-
   it("converts lookups to dimensions one for one", () => {
     const cfg = normalizePipelineConfig(LEGACY);
     expect((cfg as unknown as Record<string, unknown>).lookup_mappings).toBeUndefined();

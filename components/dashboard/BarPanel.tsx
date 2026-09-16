@@ -16,7 +16,6 @@ import { Bar } from "react-chartjs-2";
 import type { PanelV2 } from "@/lib/types/dashboard-v2";
 import { CHART_ACCENT, CHART_PALETTE } from "@/lib/dashboard/palette";
 import type { Params } from "@/lib/services/dashboard-data";
-import { toNum } from "@/lib/dashboard/format";
 import { pivotSeries } from "./series";
 import { chartAreaProps, panelCardClass, type PanelProps } from "./types";
 

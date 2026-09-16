@@ -1,13 +1,8 @@
-// Bring a stored config up to the current shape on read.
-//
-// Configs written before Dimensions replaced Lookups carry `lookup_mappings`
-// and `lookup_ref` expressions, and configs written before Rollups have no
-// `rollups` at all. Reading is where that gap is cheapest to close: the rest
-// of the app then only ever sees the current shape, and the upgrade persists
-// the next time the pipeline is saved.
-//
-// The mapping matches `scripts/migrate-lookups-to-dimensions.mjs`, which does
-// the same job in bulk for configs the UI will not open.
+// Bring a stored config up to the current shape on read: configs written before
+// Dimensions replaced Lookups carry `lookup_mappings` and `lookup_ref`, and
+// `buildGraph` would throw on the first one. Upgrading here means nothing
+// downstream knows about the old shape, and the upgrade persists on next save.
+// Mirrors `scripts/migrate-lookups-to-dimensions.mjs`, which does this in bulk.
 
 import type { AstNode, Dimension, PipelineConfig } from "@/lib/types/config";
 
@@ -91,16 +86,6 @@ function upgradeExpr(node: AstNode): AstNode {
     }
   }
   return out as unknown as AstNode;
-}
-
-/**
- * True when `raw` uses a shape this module rewrites, so callers can tell an
- * upgraded config from one that was already current.
- */
-export function needsUpgrade(raw: unknown): boolean {
-  if (!raw || typeof raw !== "object") return false;
-  const cfg = raw as Record<string, unknown>;
-  return "lookup_mappings" in cfg || !Array.isArray(cfg.dimensions);
 }
 
 /** Upgrade a stored config to the current shape. Idempotent. */

@@ -1,6 +1,6 @@
 // `path_prefix` is an absolute lake key prefix; browse lists /api/lake folders.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import type { ColumnSchema, SourceContainer, SourceFormat } from "@/lib/types/config";
 import { InlineErrorList } from "./editorPrimitives";
 import LakeFolderField from "./LakeFolderField";
