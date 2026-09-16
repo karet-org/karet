@@ -414,22 +414,15 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
   // recede, so the connection rules are visible instead of being discovered by
   // a drop that silently does nothing.
   const annotatedNodes = useMemo(() => {
-    // A node whose inlet is already connected hides that dot, so the edge's
-    // arrowhead is the terminator rather than something under a dot.
-    const inbound = new Set(internalEdges.map((e) => e.target));
-    const withInbound = internalNodes.map((n) =>
-      inbound.has(n.id) ? { ...n, className: "rf-inbound" } : n,
-    );
-    if (!connectingFrom) return withInbound;
-    const src = withInbound.find((n) => n.id === connectingFrom);
-    if (!src) return withInbound;
-    return withInbound.map((n) => {
+    if (!connectingFrom) return internalNodes;
+    const src = internalNodes.find((n) => n.id === connectingFrom);
+    if (!src) return internalNodes;
+    return internalNodes.map((n) => {
       if (n.id === connectingFrom) return n;
       const ok = connectablePair(src.type, n.type);
-      const state = ok ? "rf-connect-target" : "rf-connect-blocked";
-      return { ...n, className: [n.className, state].filter(Boolean).join(" ") };
+      return { ...n, className: ok ? "rf-connect-target" : "rf-connect-blocked" };
     });
-  }, [internalNodes, internalEdges, connectingFrom]);
+  }, [internalNodes, connectingFrom]);
 
   return (
     <div ref={wrapperRef} className="relative h-full w-full" onContextMenu={(e) => e.preventDefault()}>
