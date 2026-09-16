@@ -8,10 +8,10 @@ const cfg: PipelineConfig = {
   source_containers: [
     { id: "src1", name: "Src 1", path_prefix: "raw/", schema: [] },
   ],
-  lookup_mappings: [
+  dimensions: [
     {
-      id: "lk1", name: "Lookup", match: "exact", case_insensitive: false,
-      rows: [], children: [],
+      id: "lk1", name: "Dimension", match: "exact", case_insensitive: false,
+      rows: { values: ["v"], rows: [] },
     },
   ],
   mappings: [
@@ -37,7 +37,7 @@ describe("findNode", () => {
   });
 
   it("returns the lookup mapping node by id", () => {
-    expect(findNode(cfg, "lk1")?.type).toBe(NODE_TYPE.lookupMapping);
+    expect(findNode(cfg, "lk1")?.type).toBe(NODE_TYPE.dimension);
   });
 
   it("returns the mapping node by id", () => {

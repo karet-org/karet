@@ -291,7 +291,9 @@ export default function DataPage() {
                 <thead className="sticky top-0 bg-[color:var(--color-surface)]">
                   <tr>
                     {resultCols.map((h) => (
-                      <th key={h}>{h}</th>
+                      <th key={h} title={h}>
+                        <span className="cell-clamp">{h}</span>
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -299,7 +301,9 @@ export default function DataPage() {
                   {result.slice(0, 200).map((row, i) => (
                     <tr key={i}>
                       {resultCols.map((h) => (
-                        <td key={h}>{String(row[h] ?? "")}</td>
+                        <td key={h} title={String(row[h] ?? "")}>
+                          <span className="cell-clamp">{String(row[h] ?? "")}</span>
+                        </td>
                       ))}
                     </tr>
                   ))}

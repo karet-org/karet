@@ -4,7 +4,6 @@
 import type { PipelineConfig } from "@/lib/types/config";
 import type {
   DashboardConfigV2,
-  DashboardFilterV2,
   PanelV2,
 } from "@/lib/types/dashboard-v2";
 import { extractParams } from "@/lib/types/dashboard-v2";

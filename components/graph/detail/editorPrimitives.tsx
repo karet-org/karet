@@ -1,6 +1,5 @@
 // Shared small primitives used across the structural editors.
 
-import type { ReactNode } from "react";
 
 export interface InlineErrorListProps {
   errors: string[];

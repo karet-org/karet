@@ -34,8 +34,8 @@ function MappingEditor({ value, onChange }: MappingEditorProps) {
     if (!value.source_container_id) return undefined;
     return s.config?.source_containers.find((c) => c.id === value.source_container_id) ?? null;
   });
-  const lookups = useGraphStore((s) => s.config?.lookup_mappings);
-  const lookupIds = useMemo(() => (lookups ?? []).map((l) => l.id), [lookups]);
+  const dimensions = useGraphStore((s) => s.config?.dimensions);
+  const dimensionIds = useMemo(() => (dimensions ?? []).map((l) => l.id), [dimensions]);
   const sourceColumns = useMemo<string[] | null | undefined>(() => {
     if (source === undefined) return undefined;
     if (source === null) return null;
@@ -53,6 +53,54 @@ function MappingEditor({ value, onChange }: MappingEditorProps) {
   );
 
   const shownErrors = validationResult.errors.filter((e) => table || !/analytic table/i.test(e));
+
+  // Filter predicate: text-edited like a column expression, but resolved
+  // against this mapping's output columns since it runs after the projection.
+  const outputColumns = useMemo(() => value.columns.map((c) => c.name), [value.columns]);
+  const [whereText, setWhereText] = useState(() =>
+    value.where ? astExpression(value.where) : "",
+  );
+  const [whereError, setWhereError] = useState<string | null>(null);
+  // Off unless this mapping already filters, so the panel stays quiet for the
+  // common case of no filter at all.
+  const [filterOn, setFilterOn] = useState(value.where !== undefined);
+  useEffect(() => {
+    setWhereText(value.where ? astExpression(value.where) : "");
+    setWhereError(null);
+    if (value.where !== undefined) setFilterOn(true);
+  }, [value.where]);
+
+  // Turning the filter off drops the predicate: a hidden filter that still
+  // ran would be the worst of both worlds.
+  const toggleFilter = (on: boolean) => {
+    setFilterOn(on);
+    if (on) return;
+    setWhereText("");
+    setWhereError(null);
+    if (value.where !== undefined) {
+      const { where: _drop, ...rest } = value;
+      onChange(rest);
+    }
+  };
+
+  const commitWhere = () => {
+    const text = whereText.trim();
+    if (text === "") {
+      setWhereError(null);
+      if (value.where !== undefined) {
+        const { where: _drop, ...rest } = value;
+        onChange(rest);
+      }
+      return;
+    }
+    const parsed = parseExpression(text);
+    if (!parsed.ok) {
+      setWhereError(parsed.error);
+      return;
+    }
+    setWhereError(null);
+    onChange({ ...value, where: parsed.value });
+  };
 
   return (
     <div data-testid="mapping-editor" className="flex flex-col">
@@ -93,7 +141,7 @@ function MappingEditor({ value, onChange }: MappingEditorProps) {
             )}
           </Section>
 
-          <Section label={`Columns (${value.columns.length})`} last>
+          <Section label={`Columns (${value.columns.length})`}>
             {value.columns.length === 0 ? (
               <p className="text-xs text-[color:var(--color-ink-3)]">No columns</p>
             ) : (
@@ -104,7 +152,7 @@ function MappingEditor({ value, onChange }: MappingEditorProps) {
                     value={col}
                     onChange={(next) => setColumn(i, next)}
                     sourceColumns={sourceColumns}
-                    lookupIds={lookupIds}
+                    dimensionIds={dimensionIds}
                   />
                 ))}
               </div>
@@ -117,6 +165,54 @@ function MappingEditor({ value, onChange }: MappingEditorProps) {
           </Section>
         </>
       )}
+
+      {/* Last: the predicate runs after the column expressions, and reads the
+          columns above it. Rendered outside the connected-table branch so an
+          existing filter never becomes invisible. */}
+      <Section
+        label="Filter"
+        last
+        action={
+          <button
+            type="button"
+            role="switch"
+            aria-checked={filterOn}
+            aria-label="enable row filter"
+            data-testid="mapping-filter-toggle"
+            onClick={() => toggleFilter(!filterOn)}
+            className={`relative h-4 w-7 rounded-full transition-colors ${
+              filterOn
+                ? "bg-[color:var(--color-carrot)]"
+                : "bg-[color:var(--color-surface-2)] border border-[color:var(--color-rule)]"
+            }`}
+          >
+            <span
+              className={`absolute top-[2px] h-3 w-3 rounded-full bg-white transition-[left] ${
+                filterOn ? "left-[14px]" : "left-[2px]"
+              }`}
+            />
+          </button>
+        }
+      >
+        {!filterOn ? null : (
+        <ExpressionField
+          ariaLabel="row filter"
+          value={whereText}
+          onChange={setWhereText}
+          onCommit={commitWhere}
+          error={whereError}
+          modalTitle="Row filter"
+          sourceColumns={outputColumns}
+          dimensionIds={dimensionIds}
+          inputClassName={inputClass(
+            `font-mono w-full ${whereError ? "border-[color:var(--color-rose-deep)]" : ""}`,
+          )}
+        />
+        )}
+        {filterOn && whereError && (
+          <p className="mt-1 text-[11px] text-[color:var(--color-rose-deep)]">{whereError}</p>
+        )}
+      </Section>
     </div>
   );
 }
@@ -168,10 +264,10 @@ interface ColumnExprRowProps {
   value: MappingColumn;
   onChange: (next: MappingColumn) => void;
   sourceColumns: string[] | null | undefined;
-  lookupIds: string[];
+  dimensionIds: string[];
 }
 
-function ColumnExprRow({ value, onChange, sourceColumns, lookupIds }: ColumnExprRowProps) {
+function ColumnExprRow({ value, onChange, sourceColumns, dimensionIds }: ColumnExprRowProps) {
   // Placeholder columns from schema adds carry a bare null expression.
   const unmapped = value.expr.kind === "null";
   const [open, setOpen] = useState(unmapped);
@@ -226,7 +322,7 @@ function ColumnExprRow({ value, onChange, sourceColumns, lookupIds }: ColumnExpr
             error={error}
             modalTitle={`Expression: ${value.name}`}
             sourceColumns={sourceColumns}
-            lookupIds={lookupIds}
+            dimensionIds={dimensionIds}
             inputClassName={inputClass(
               `font-mono w-full ${error ? "border-[color:var(--color-rose-deep)]" : ""}`,
             )}

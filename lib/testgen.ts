@@ -9,8 +9,8 @@ import type {
   CastType,
   ColumnSchema,
   LayoutPosition,
-  LookupMapping,
-  LookupRow,
+  Dimension,
+  InlineDimensionRow,
   Mapping,
   MappingColumn,
   PipelineConfig,
@@ -147,8 +147,13 @@ export const arbAstNode: fc.Arbitrary<AstNode> = fc.letrec<{
       .tuple(tie("node"), fc.stringMatching(/^[%A-Za-z0-9_/-]{1,10}$/))
       .map<AstNode>(([input, format]) => ({ kind: "parse_date", input, format })),
     fc
-      .tuple(arbId, tie("node"))
-      .map<AstNode>(([lookup_id, input]) => ({ kind: "lookup_ref", lookup_id, input })),
+      .tuple(arbId, tie("node"), fc.option(arbName, { nil: undefined }))
+      .map<AstNode>(([dim_id, input, value]) => ({
+        kind: "dim_ref",
+        dim_id,
+        input,
+        ...(value ? { value } : {}),
+      })),
 
     // Cast
     fc
@@ -178,24 +183,27 @@ const arbSourceContainer: fc.Arbitrary<SourceContainer> = fc.record({
   schema: arbAnalyticTableSchema,
 });
 
-/** A single {@link LookupRow}: 1..=3 patterns. */
-const arbLookupRow: fc.Arbitrary<LookupRow> = fc.record(
+/** A single {@link InlineDimensionRow}: 1..=3 patterns. */
+const arbDimensionRow: fc.Arbitrary<InlineDimensionRow> = fc.record(
   {
-    input_patterns: fc.array(arbName, { minLength: 1, maxLength: 3 }),
-    output: arbName,
+    patterns: fc.array(arbName, { minLength: 1, maxLength: 3 }),
+    values: fc.array(arbName, { minLength: 1, maxLength: 1 }),
     priority: fc.option(fc.integer({ min: -10, max: 10 }), { nil: undefined }),
   },
-  { requiredKeys: ["input_patterns", "output"] },
+  { requiredKeys: ["patterns", "values"] },
 );
 
-/** Flat {@link LookupMapping}; like the Rust generator, `children` is omitted. */
-const arbLookupMapping: fc.Arbitrary<LookupMapping> = fc.record(
+/** Inline {@link Dimension} with a single value column. */
+const arbDimension: fc.Arbitrary<Dimension> = fc.record(
   {
     id: arbId,
     name: fc.option(arbName, { nil: undefined }),
-    match: fc.option(fc.constant("keyword_substring"), { nil: undefined }),
+    match: fc.option(fc.constant("keyword_substring" as const), { nil: undefined }),
     case_insensitive: fc.option(fc.boolean(), { nil: undefined }),
-    rows: fc.array(arbLookupRow, { minLength: 1, maxLength: 5 }),
+    rows: fc.record({
+      values: fc.constant(["value"]),
+      rows: fc.array(arbDimensionRow, { minLength: 1, maxLength: 5 }),
+    }),
   },
   { requiredKeys: ["id", "rows"] },
 );
@@ -265,7 +273,7 @@ function uniquifyEntityIds(cfg: PipelineConfig): PipelineConfig {
       ...sc,
       id: rename(sc.id),
     })),
-    lookup_mappings: cfg.lookup_mappings.map((lm) => ({
+    dimensions: cfg.dimensions.map((lm) => ({
       ...lm,
       id: rename(lm.id),
     })),
@@ -290,7 +298,7 @@ export const arbPipelineConfig: fc.Arbitrary<PipelineConfig> = fc
         minLength: 1,
         maxLength: 3,
       }),
-      lookup_mappings: fc.array(arbLookupMapping, {
+      dimensions: fc.array(arbDimension, {
         minLength: 0,
         maxLength: 3,
       }),
@@ -312,7 +320,7 @@ export const arbPipelineConfig: fc.Arbitrary<PipelineConfig> = fc
         "version",
         "name",
         "source_containers",
-        "lookup_mappings",
+        "dimensions",
         "mappings",
         "analytic_tables",
       ],

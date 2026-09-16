@@ -206,12 +206,15 @@ class Parser {
         if (!fmt || fmt.kind !== "str") throw new ParseError("parse_date requires a format string", this.peek().pos);
         return { kind: "parse_date", input, format: fmt.value };
       }
-      case "lookup_ref": {
-        if (args.length < 2) throw new ParseError("lookup_ref requires (lookup_id, input)", this.peek().pos);
-        const idArg = args[0];
-        // lookup_id can be a bare identifier or string
-        const lookupId = idArg.kind === "str" ? idArg.value : idArg.kind === "col" ? idArg.name : String((idArg as { value?: unknown }).value ?? "");
-        return { kind: "lookup_ref", lookup_id: lookupId, input: args[1] };
+      case "dim_ref": {
+        if (args.length < 2) {
+          throw new ParseError("dim_ref requires (dim_id, input) with an optional value column", this.peek().pos);
+        }
+        // Ids and value columns may be written bare or quoted.
+        const asName = (a: AstNode | undefined): string =>
+          a === undefined ? "" : a.kind === "str" ? a.value : a.kind === "col" ? a.name : String((a as { value?: unknown }).value ?? "");
+        const value = args.length > 2 ? asName(args[2]) : undefined;
+        return { kind: "dim_ref", dim_id: asName(args[0]), input: args[1], ...(value ? { value } : {}) };
       }
       case "cast": {
         const input = this.requireArg(args, 0, name);
@@ -226,9 +229,21 @@ class Parser {
         if (args.length < 3) throw new ParseError("if requires (cond, then, else)", this.peek().pos);
         return { kind: "if", cond: args[0], then: args[1], else: args[2] };
       }
+      case "not": return { kind: "not", input: this.requireArg(args, 0, name) };
+      case "from_unix": {
+        const input = this.requireArg(args, 0, name);
+        const unitArg = args[1];
+        if (unitArg === undefined) return { kind: "from_unix", input };
+        const unit = unitArg.kind === "str" ? unitArg.value : unitArg.kind === "col" ? unitArg.name : "";
+        if (unit !== "s" && unit !== "ms") {
+          throw new ParseError('from_unix unit must be "s" or "ms"', this.peek().pos);
+        }
+        return { kind: "from_unix", input, unit };
+      }
       // Binary ops also accepted in call form: add(a, b), eq(a, b), ...
       case "add": case "sub": case "mul": case "div":
       case "eq": case "ne": case "gt": case "lt": case "ge": case "le":
+      case "and": case "or":
         return { kind: name, left: this.requireArg(args, 0, name), right: this.requireArg(args, 1, name) } as AstNode;
       default:
         throw new ParseError(`Unknown function '${name}'`, this.peek().pos);

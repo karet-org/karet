@@ -42,7 +42,9 @@ function TablePanel({ config, data }: PanelProps<TableConfig>) {
             {pageRows.map((row, i) => (
               <tr key={start + i}>
                 {columns.map((c) => (
-                  <td key={c}>{formatCell(row[c])}</td>
+                  <td key={c} title={formatCell(row[c])}>
+                    <span className="cell-clamp">{formatCell(row[c])}</span>
+                  </td>
                 ))}
               </tr>
             ))}

@@ -4,7 +4,7 @@
 export interface ThumbNode {
   x: number;
   y: number;
-  kind: "source" | "lookup" | "mapping" | "table";
+  kind: "source" | "dimension" | "mapping" | "table";
 }
 
 export interface ThumbGraph {
@@ -21,7 +21,7 @@ const PAD = 26;
 
 const STROKE: Record<ThumbNode["kind"], string> = {
   source: "var(--color-amber-deep)",
-  lookup: "#6cb2ff",
+  dimension: "#6cb2ff",
   mapping: "var(--color-carrot)",
   table: "var(--color-leaf)",
 };
