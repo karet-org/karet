@@ -266,7 +266,10 @@ button:disabled,
   border-color: var(--color-leaf) !important;
   box-shadow: 0 0 0 3px var(--color-leaf-soft) !important;
 }
-.react-flow__node.rf-connect-target .react-flow__handle::before {
+/* Only the inlet can receive the connection, so only the inlet is called out.
+   Tinting every handle on the node lit up its outlet too, which cannot accept
+   anything. */
+.react-flow__node.rf-connect-target .react-flow__handle-left::before {
   scale: 1.45;
   background-color: var(--color-leaf);
   border-color: var(--color-leaf);
