@@ -34,7 +34,12 @@ function DimensionNode({
       selected={selected}
       testId="dimension-node"
       className="min-w-[200px] max-w-[240px]"
-      handles={<Handle type="source" position={Position.Right} />}
+      handles={
+        // A dimension's edges are derived from `dim_ref` in an expression, so
+        // this handle exists only as an anchor for them to attach to: not
+        // connectable, so it takes no pointer events and cannot start a drag.
+        <Handle type="source" position={Position.Right} isConnectable={false} />
+      }
     >
       {fileRows && isFileRows(entity.rows) ? (
         <div className="flex flex-col gap-0.5">

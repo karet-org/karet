@@ -178,21 +178,29 @@ button:disabled,
 }
 
 /* Edge handles.
-   React Flow anchors an edge on the handle box's *outer* edge, not its centre —
-   measured, not assumed. So the box stays where React Flow puts it and serves
-   only as the hit area, while the visible dot is drawn by a pseudo-element
-   centred on that edge. Painting the box itself left every line starting 4.5 px
-   beside its dot, which the default 6 px handle happened to hide.
+   Three things this has to get right, all verified by measuring the rendered
+   DOM rather than by eye:
 
-   Two states: at rest the dot takes the node's border colour; when the cursor
-   is near it — a padded invisible ring does that hit-testing, so a 300 px node
-   does not light up its ports from the far corner — it grows and brightens.
-   Saturated colour is held back for an active drag. */
+   1. React Flow anchors an edge on the handle box's *outer* edge, not its
+      centre. So the box is nudged inward until that edge lands on the node's
+      border, which is where a line should meet a card.
+   2. The visible dot is a pseudo-element centred on that same edge, so it
+      straddles the border and the line begins at its centre.
+   3. The dot is positioned with offsets, never a transform. Combining `scale`
+      with a `transform: translate(...)` scales the translation too, which
+      slides the dot sideways as it grows.
+
+   Two states: at rest the dot takes the node's border colour; near the cursor
+   it grows and brightens — an invisible padded ring does that hit-testing, so a
+   300 px node does not light up its ports from the far corner. Saturated colour
+   is held back for an active drag. */
 .react-flow .react-flow__handle {
   width: 9px;
   height: 9px;
   background: transparent;
   border: none;
+  /* Outer edge of the box onto the node's border (see 1). */
+  transform: translate(0, -50%);
 }
 .react-flow .react-flow__handle::before {
   content: "";
@@ -200,6 +208,7 @@ button:disabled,
   top: 50%;
   width: 9px;
   height: 9px;
+  margin-top: -4.5px;
   border-radius: 50%;
   background-color: var(--color-surface-2);
   border: 1.5px solid var(--color-rule);
@@ -209,12 +218,10 @@ button:disabled,
     border-color 0.12s ease;
 }
 .react-flow .react-flow__handle-right::before {
-  right: 0;
-  transform: translate(50%, -50%);
+  right: -4.5px;
 }
 .react-flow .react-flow__handle-left::before {
-  left: 0;
-  transform: translate(-50%, -50%);
+  left: -4.5px;
 }
 /* Invisible reach around the dot: hit area, never decoration. */
 .react-flow .react-flow__handle::after {
