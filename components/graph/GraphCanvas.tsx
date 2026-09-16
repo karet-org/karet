@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   Background,
   Controls,
@@ -67,6 +67,16 @@ const nodeTypes: NodeTypes = {
   [NODE_TYPE.mapping]: MappingNode,
   [NODE_TYPE.analyticTable]: AnalyticTableNode,
 };
+
+/** The only pairs a user may draw. Dimension edges come from expressions, so
+ *  they are derived rather than drawn. Shared by the drag validator, the
+ *  config writer and the in-drag highlighting, which must agree. */
+function connectablePair(source: string | undefined, target: string | undefined): boolean {
+  return (
+    (source === NODE_TYPE.sourceContainer && target === NODE_TYPE.mapping) ||
+    (source === NODE_TYPE.mapping && target === NODE_TYPE.analyticTable)
+  );
+}
 
 /** Edge kind derived from the source/target node types. */
 type EdgeKind = "source-to-mapping" | "dimension-to-mapping" | "mapping-to-table";
@@ -242,10 +252,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         if (!src || !dst) return;
         const srcType = src.type;
         const dstType = dst.type;
-        const valid =
-          (srcType === NODE_TYPE.sourceContainer && dstType === NODE_TYPE.mapping) ||
-          (srcType === NODE_TYPE.mapping && dstType === NODE_TYPE.analyticTable);
-        if (!valid) return;
+        if (!connectablePair(srcType, dstType)) return;
         setInternalEdges((prev) => addEdge(connection, prev));
         onConnectProp?.(connection.source, connection.target);
       }
@@ -253,15 +260,16 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
     [onConnectProp, internalNodes],
   );
 
+  // Node a connection is being dragged from, so the graph can say which nodes
+  // it could legally land on while the drag is in flight.
+  const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
+
   const isValidConnection = useCallback(
     (connection: Connection | Edge) => {
       const src = internalNodes.find((n) => n.id === connection.source);
       const dst = internalNodes.find((n) => n.id === connection.target);
       if (!src || !dst) return false;
-      return (
-        (src.type === NODE_TYPE.sourceContainer && dst.type === NODE_TYPE.mapping) ||
-        (src.type === NODE_TYPE.mapping && dst.type === NODE_TYPE.analyticTable)
-      );
+      return connectablePair(src.type, dst.type);
     },
     [internalNodes],
   );
@@ -366,10 +374,24 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
     setConfirmDisconnect(null);
   }, [confirmDisconnect, onDisconnectEdge]);
 
+  // While dragging from a node, legal targets are called out and the rest
+  // recede, so the connection rules are visible instead of being discovered by
+  // a drop that silently does nothing.
+  const annotatedNodes = useMemo(() => {
+    if (!connectingFrom) return internalNodes;
+    const src = internalNodes.find((n) => n.id === connectingFrom);
+    if (!src) return internalNodes;
+    return internalNodes.map((n) => {
+      if (n.id === connectingFrom) return n;
+      const ok = connectablePair(src.type, n.type);
+      return { ...n, className: ok ? "rf-connect-target" : "rf-connect-blocked" };
+    });
+  }, [internalNodes, connectingFrom]);
+
   return (
     <div ref={wrapperRef} className="relative h-full w-full" onContextMenu={(e) => e.preventDefault()}>
       <ReactFlow
-        nodes={internalNodes}
+        nodes={annotatedNodes}
         edges={internalEdges}
         nodeTypes={nodeTypes}
         onNodesChange={handleNodesChange}
@@ -377,7 +399,12 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         onPaneClick={handlePaneClick}
         onNodeDragStop={handleNodeDragStop}
         onConnect={handleConnect}
+        onConnectStart={(_, { nodeId }) => setConnectingFrom(nodeId ?? null)}
+        onConnectEnd={() => setConnectingFrom(null)}
         isValidConnection={isValidConnection}
+        // Generous snap radius: landing near a node counts, rather than
+        // demanding a hit on its 9 px inlet.
+        connectionRadius={44}
         onInit={(instance) => {
           screenToFlowRef.current = instance.screenToFlowPosition;
           instance.fitView();

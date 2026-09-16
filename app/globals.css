@@ -178,11 +178,11 @@ button:disabled,
 }
 
 /* Edge handles.
-   Two states, not three: at rest a dot in the node's own border colour, and on
-   node hover every handle on that node grows and brightens — inlets included,
-   so a connection reads as one system rather than an exit and a grey speck.
-   Saturated colour is held back for an active drag, so the chrome never
-   outshines the column names beside it.
+   Two states, not three: at rest a dot in the node's own border colour; when
+   the cursor is near the dot it grows and brightens. The cue is proximity to
+   the handle rather than to the node, so an invisible padded ring around each
+   handle does the hit-testing — a node is 300 px wide and hovering its far
+   corner should not light up a port.
 
    React Flow's stylesheet loads after this one, so its `.react-flow__handle`
    rule wins any property it also sets; colours therefore go through its
@@ -200,8 +200,14 @@ button:disabled,
     background-color 0.12s ease,
     border-color 0.12s ease;
 }
-/* Hovering the node is the cue; a 9 px dot is too small to be one itself. */
-.react-flow .react-flow__node:hover .react-flow__handle {
+/* Invisible reach around the dot: hit area, never decoration. */
+.react-flow .react-flow__handle::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+}
+.react-flow .react-flow__handle:hover {
   scale: 1.45;
   border-color: var(--color-ink-3);
 }
@@ -209,4 +215,19 @@ button:disabled,
   scale: 1.45;
   background-color: var(--color-carrot);
   border-color: var(--color-carrot);
+}
+
+/* Mid-drag feedback: legal targets are called out, the rest recede, so the
+   rules are visible rather than discovered by a drop that does nothing. */
+.react-flow__node.rf-connect-target > * {
+  border-color: var(--color-leaf) !important;
+  box-shadow: 0 0 0 3px var(--color-leaf-soft) !important;
+}
+.react-flow__node.rf-connect-target .react-flow__handle {
+  scale: 1.45;
+  background-color: var(--color-leaf);
+  border-color: var(--color-leaf);
+}
+.react-flow__node.rf-connect-blocked {
+  opacity: 0.35;
 }
