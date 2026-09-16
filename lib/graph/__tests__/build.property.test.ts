@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import type { AstNode, Mapping, PipelineConfig } from "../../types/config";
 import { arbPipelineConfig } from "../../testgen";
-import { buildGraph, NODE_TYPE, rootLookupId } from "../build";
+import { buildGraph, NODE_TYPE, dimensionId } from "../build";
 
 /** Collect root lookup ids referenced by a mapping (dedup across columns). */
 function mappingLookupRoots(m: Mapping): Set<string> {
@@ -57,8 +57,8 @@ function mappingLookupRoots(m: Mapping): Set<string> {
         walk(node.then);
         walk(node.else);
         return;
-      case "lookup_ref":
-        roots.add(rootLookupId(node.lookup_id));
+      case "dim_ref":
+        roots.add(dimensionId(node.dim_id));
         walk(node.input);
         return;
     }
@@ -86,7 +86,7 @@ describe("Graph rendering contains a node per config entity", () => {
 
         const totalExpected =
           cfg.source_containers.length +
-          cfg.lookup_mappings.length +
+          cfg.dimensions.length +
           cfg.mappings.length +
           cfg.analytic_tables.length;
         expect(nodes.length).toBe(totalExpected);
@@ -98,10 +98,10 @@ describe("Graph rendering contains a node per config entity", () => {
           expect(node, `missing source-container node ${sc.id}`).toBeDefined();
           expect(node!.type).toBe(NODE_TYPE.sourceContainer);
         }
-        for (const lm of cfg.lookup_mappings) {
+        for (const lm of cfg.dimensions) {
           const node = byId.get(lm.id);
           expect(node, `missing lookup-mapping node ${lm.id}`).toBeDefined();
-          expect(node!.type).toBe(NODE_TYPE.lookupMapping);
+          expect(node!.type).toBe(NODE_TYPE.dimension);
         }
         for (const m of cfg.mappings) {
           const node = byId.get(m.id);

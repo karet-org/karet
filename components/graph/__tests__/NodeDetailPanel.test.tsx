@@ -28,7 +28,7 @@ const mapping: Mapping = {
 
 const NODE_TYPE_TAG = {
   sourceContainer: NODE_TYPE.sourceContainer,
-  lookupMapping: NODE_TYPE.lookupMapping,
+  dimension: NODE_TYPE.dimension,
   mapping: NODE_TYPE.mapping,
   analyticTable: NODE_TYPE.analyticTable,
 } as const;
@@ -81,7 +81,7 @@ describe("NodeDetailPanel", () => {
         version: 1,
         name: "Test Pipeline",
         source_containers: [sourceContainer],
-        lookup_mappings: [],
+        dimensions: [],
         mappings: [mapping],
         analytic_tables: [
           {

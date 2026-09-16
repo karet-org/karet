@@ -6,13 +6,13 @@ import { useGraphStore } from "@/lib/graph/store";
 import { syncMappingColumnsToSchema } from "@/lib/graph/nodeDefaults";
 import type {
   AnalyticTable,
-  LookupMapping,
+  Dimension,
   Mapping,
   SourceContainer,
 } from "@/lib/types/config";
 import CloseButton from "@/components/ui/CloseButton";
 import AnalyticTableEditor from "./detail/AnalyticTableEditor";
-import LookupMappingEditor from "./detail/LookupMappingEditor";
+import DimensionEditor from "./detail/DimensionEditor";
 import MappingEditor from "./detail/MappingEditor";
 import SourceContainerEditor from "./detail/SourceContainerEditor";
 
@@ -23,7 +23,7 @@ interface NodeDetailPanelProps {
   onEdit?: () => void;
 }
 
-type EditableEntity = SourceContainer | LookupMapping | Mapping | AnalyticTable;
+type EditableEntity = SourceContainer | Dimension | Mapping | AnalyticTable;
 
 /** An AnalyticTable has a `schema` but, unlike a source container, no `path_prefix`. */
 function isAnalyticTable(entity: EditableEntity): entity is AnalyticTable {
@@ -38,7 +38,7 @@ function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps) {
     // Editors re-emit unchanged entities on blur; skip those.
     const existing =
       cfg.source_containers.find((sc) => sc.id === next.id) ??
-      cfg.lookup_mappings.find((lm) => lm.id === next.id) ??
+      cfg.dimensions.find((lm) => lm.id === next.id) ??
       cfg.mappings.find((m) => m.id === next.id) ??
       cfg.analytic_tables.find((t) => t.id === next.id);
     if (existing && JSON.stringify(existing) === JSON.stringify(next)) return;
@@ -67,7 +67,7 @@ function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps) {
     const updated = {
       ...cfg,
       source_containers: cfg.source_containers.map((sc) => sc.id === next.id ? next as SourceContainer : sc),
-      lookup_mappings: cfg.lookup_mappings.map((lm) => lm.id === next.id ? next as LookupMapping : lm),
+      dimensions: cfg.dimensions.map((lm) => lm.id === next.id ? next as Dimension : lm),
       mappings: mappings.map((m) => m.id === next.id ? next as Mapping : m),
       analytic_tables: cfg.analytic_tables.map((t) => t.id === next.id ? next as AnalyticTable : t),
     };
@@ -86,11 +86,11 @@ function NodeDetailPanel({ node, onClose, onEdit }: NodeDetailPanelProps) {
     >
       <header className="flex items-center justify-between gap-2 border-b border-[color:var(--color-rule-soft)] px-4 pb-2.5 pt-3">
         <div className="min-w-0">
-          <div className="text-[11px] tracking-[0.3px] text-[color:var(--color-ink-3)]">
+          <div className="text-[11.5px] tracking-[0.3px] text-[color:var(--color-ink-3)]">
             {headerLabel(node)}
           </div>
           <h2
-            className="mt-px truncate text-[13px] font-semibold text-[color:var(--color-ink)]"
+            className="mt-px truncate text-[14.5px] font-semibold text-[color:var(--color-ink)]"
             title={node.id}
           >
             {node.data.entity.name || node.id}
@@ -118,8 +118,8 @@ function headerLabel(node: GraphNode): string {
   switch (node.data.kind) {
     case "source-container":
       return "Source container";
-    case "lookup-mapping":
-      return "Lookup";
+    case "dimension":
+      return "Dimension";
     case "mapping":
       return "Mapping";
     case "analytic-table":
@@ -138,8 +138,8 @@ function EditorBody({
   switch (node.data.kind) {
     case "source-container":
       return <SourceContainerEditor value={entity as SourceContainer} onChange={onChange} />;
-    case "lookup-mapping":
-      return <LookupMappingEditor value={entity as LookupMapping} onChange={onChange} />;
+    case "dimension":
+      return <DimensionEditor value={entity as Dimension} onChange={onChange} />;
     case "mapping":
       return <MappingEditor value={entity as Mapping} onChange={onChange} />;
     case "analytic-table":

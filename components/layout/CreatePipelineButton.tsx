@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Modal from "@/components/ui/Modal";
 import { IconPlus } from "@/components/icons";
 
-type TemplateId = "blank" | "spending";
+type TemplateId = "blank" | "spending" | "traffic";
 
 const TEMPLATES: { id: TemplateId; name: string; description: string }[] = [
   {
@@ -18,6 +18,12 @@ const TEMPLATES: { id: TemplateId; name: string; description: string }[] = [
     name: "Spending tracker",
     description:
       "A personal-finance starter with a transactions table and an overview dashboard.",
+  },
+  {
+    id: "traffic",
+    name: "Traffic analytics",
+    description:
+      "Web logs from a JSON source and a CSV export, with dimensions and a row filter. Seeded with sample data.",
   },
 ];
 

@@ -31,6 +31,7 @@ export function KaretLogo({ className, size = 22 }: IconProps) {
 export const IconSource = (p: IconProps) => <Svg {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M9 4v16" /></Svg>;
 export const IconLookup = (p: IconProps) => <Svg {...p}><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></Svg>;
 export const IconMapping = (p: IconProps) => <Svg {...p}><path d="M4 7h10l-3-3m3 3-3 3M20 17H10l3-3m-3 3 3 3" /></Svg>;
+export const IconDimension = (p: IconProps) => <Svg {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M10 4v16M3 9h18" /></Svg>;
 export const IconTable = (p: IconProps) => <Svg {...p}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M3 15h18M9 3v18M15 3v18" /></Svg>;
 
 export const IconTrash = (p: IconProps) => <Svg {...p}><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14" /></Svg>;

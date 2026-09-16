@@ -2,8 +2,9 @@
 // path -> content) written under `pipelines/<slug>/` in S3.
 
 import type { AstNode, PipelineConfig } from "@/lib/types/config";
+import { TRAFFIC_TEMPLATE_FILES } from "./traffic";
 
-export type TemplateId = "blank" | "spending";
+export type TemplateId = "blank" | "spending" | "traffic";
 
 export interface Template {
   id: TemplateId;
@@ -19,7 +20,7 @@ const blankPipeline: PipelineConfig = {
   version: 1,
   name: "Blank",
   source_containers: [],
-  lookup_mappings: [],
+  dimensions: [],
   mappings: [],
   analytic_tables: [],
 };
@@ -61,35 +62,37 @@ const spendingPipeline: PipelineConfig = {
       ],
     },
   ],
-  lookup_mappings: [
+  dimensions: [
     {
       id: "categories",
       name: "Categories",
       match: "keyword_substring",
       case_insensitive: true,
-      rows: [
-        { input_patterns: ["RENT", "PG&E", "COMCAST", "FIDO"], output: "BILLS" },
+      on_miss: { literal: "OTHER" },
+      rows: {
+        values: ["category"],
+        rows: [
+        { patterns: ["RENT", "PG&E", "COMCAST", "FIDO"], values: ["BILLS"] },
         {
-          input_patterns: [
+          patterns: [
             "STARBUCKS", "CAFE", "TIM HORTONS", "RAMEN", "RA MEN",
             "SUSHI", "CHIPOTLE", "MCDONALD", "A&W", "POPEYES",
           ],
-          output: "FOOD",
+          values: ["FOOD"],
         },
         {
-          input_patterns: ["UBER", "LYFT", "SHELL", "CHEVRON", "COMPASS"],
-          output: "TRANSPORT",
+          patterns: ["UBER", "LYFT", "SHELL", "CHEVRON", "COMPASS"],
+          values: ["TRANSPORT"],
         },
-        { input_patterns: ["AMAZON", "TARGET", "WALMART"], output: "SHOPPING" },
-        { input_patterns: ["NETFLIX", "SPOTIFY", "HULU", "STEAM"], output: "ENTERTAINMENT" },
+        { patterns: ["AMAZON", "TARGET", "WALMART"], values: ["SHOPPING"] },
+        { patterns: ["NETFLIX", "SPOTIFY", "HULU", "STEAM"], values: ["ENTERTAINMENT"] },
         // Bank-internal rows; the dashboard's `where` clause excludes these.
-        { input_patterns: ["CUSTOMER TRANSFER", "PAYMENT THANK YOU", "WITHDRAWAL"], output: "TRANSFER" },
+        { patterns: ["CUSTOMER TRANSFER", "PAYMENT THANK YOU", "WITHDRAWAL"], values: ["TRANSFER"] },
         // INCOME outranks SHOPPING so "AMAZON PAYROLL DEPOSIT" isn't SHOPPING.
-        { input_patterns: ["DEPOSIT", "PAYROLL", "TAX REFUND"], output: "INCOME", priority: 10 },
-        { input_patterns: ["INVESTMENT"], output: "INVESTMENT" },
-      ],
-      children: [],
-      catch_all: { output: "OTHER" },
+        { patterns: ["DEPOSIT", "PAYROLL", "TAX REFUND"], values: ["INCOME"], priority: 10 },
+        { patterns: ["INVESTMENT"], values: ["INVESTMENT"] },
+        ],
+      },
     },
     {
       id: "merchants",
@@ -98,20 +101,22 @@ const spendingPipeline: PipelineConfig = {
       case_insensitive: true,
       // Unlisted merchants fall through to the cleaned description via the
       // `coalesce` in the merchant column below.
-      rows: [
-        { input_patterns: ["STARBUCKS"], output: "Starbucks" },
-        { input_patterns: ["TIM HORTONS"], output: "Tim Hortons" },
-        { input_patterns: ["MCDONALD"], output: "McDonald's" },
-        { input_patterns: ["CHIPOTLE"], output: "Chipotle" },
-        { input_patterns: ["UBER"], output: "Uber" },
-        { input_patterns: ["LYFT"], output: "Lyft" },
-        { input_patterns: ["AMAZON"], output: "Amazon" },
-        { input_patterns: ["TARGET"], output: "Target" },
-        { input_patterns: ["WALMART"], output: "Walmart" },
-        { input_patterns: ["NETFLIX"], output: "Netflix" },
-        { input_patterns: ["SPOTIFY"], output: "Spotify" },
-      ],
-      children: [],
+      rows: {
+        values: ["merchant"],
+        rows: [
+        { patterns: ["STARBUCKS"], values: ["Starbucks"] },
+        { patterns: ["TIM HORTONS"], values: ["Tim Hortons"] },
+        { patterns: ["MCDONALD"], values: ["McDonald's"] },
+        { patterns: ["CHIPOTLE"], values: ["Chipotle"] },
+        { patterns: ["UBER"], values: ["Uber"] },
+        { patterns: ["LYFT"], values: ["Lyft"] },
+        { patterns: ["AMAZON"], values: ["Amazon"] },
+        { patterns: ["TARGET"], values: ["Target"] },
+        { patterns: ["WALMART"], values: ["Walmart"] },
+        { patterns: ["NETFLIX"], values: ["Netflix"] },
+        { patterns: ["SPOTIFY"], values: ["Spotify"] },
+        ],
+      },
     },
   ],
   mappings: [
@@ -128,7 +133,7 @@ const spendingPipeline: PipelineConfig = {
           expr: {
             kind: "coalesce",
             args: [
-              { kind: "lookup_ref", lookup_id: "merchants", input: CLEANED_DESCRIPTION },
+              { kind: "dim_ref", dim_id: "merchants", input: CLEANED_DESCRIPTION },
               CLEANED_DESCRIPTION,
             ],
           },
@@ -137,7 +142,7 @@ const spendingPipeline: PipelineConfig = {
         { name: "account", expr: { kind: "col", name: "account" } },
         {
           name: "category",
-          expr: { kind: "lookup_ref", lookup_id: "categories", input: CLEANED_DESCRIPTION },
+          expr: { kind: "dim_ref", dim_id: "categories", input: CLEANED_DESCRIPTION },
         },
         { name: "year", expr: { kind: "year", input: PARSED_DATE } },
         { name: "month", expr: { kind: "month", input: PARSED_DATE } },
@@ -521,6 +526,13 @@ layout:
 `;
 
 export const TEMPLATES: Record<TemplateId, Template> = {
+  traffic: {
+    id: "traffic",
+    name: "Traffic Analytics",
+    description:
+      "Caddy JSON logs plus a CDN CSV export into one requests table: row filter, inline and file-backed dimensions, partitioning and dedup. Seeded with sample data.",
+    ...TRAFFIC_TEMPLATE_FILES,
+  },
   blank: {
     id: "blank",
     name: "Blank",
@@ -530,7 +542,7 @@ export const TEMPLATES: Record<TemplateId, Template> = {
   spending: {
     id: "spending",
     name: "Spending Tracker",
-    description: "Personal spending pipeline with merchant + category lookups, transactions table, and overview dashboard.",
+    description: "Personal spending pipeline with merchant + category dimensions, transactions table, and overview dashboard.",
     files: {
       "pipeline.json": spendingPipeline,
     },

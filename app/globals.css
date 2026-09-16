@@ -111,6 +111,19 @@ button:disabled,
   border-bottom: 1px solid var(--color-rule-soft);
   color: var(--color-ink-2);
 }
+
+/* Clamp for query-result cells. A URL-encoded path or a JSON blob would
+   otherwise stretch its column and inflate every row's height; the wrapper
+   keeps the table's automatic column sizing intact, unlike a max-width on the
+   cell itself. Full value lives on the cell's title. */
+.cell-clamp {
+  display: inline-block;
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
 .data-table td:first-child {
   color: var(--color-ink);
 }
@@ -185,4 +198,90 @@ button:disabled,
   color: var(--color-ink);
   border: 1px solid var(--color-rule);
   box-shadow: none;
+
+/* Edge handles. Three facts, all measured in the rendered DOM: React Flow
+   anchors an edge on the handle box's *outer* edge, so the box is nudged inward
+   until that edge sits on the node's border; the dot is a pseudo-element centred
+   on it, straddling the border where a line should meet a card; and the dot is
+   placed with offsets, never a transform, since `scale` composes after
+   `transform` and would scale the offset too.
+
+   Two states: quiet at rest, grown and brightened near the cursor. Saturated
+   colour is held back for an active drag. */
+.react-flow .react-flow__handle {
+  width: 9px;
+  height: 9px;
+  background: transparent;
+  border: none;
+  /* Puts the box's outer edge on the node's border. */
+  transform: translate(0, -50%);
+}
+.react-flow .react-flow__handle::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background-color: var(--color-surface-2);
+  border: 1.5px solid var(--color-rule);
+  transition:
+    scale 0.12s ease,
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+.react-flow .react-flow__handle-right::before {
+  right: -4.5px;
+}
+.react-flow .react-flow__handle-left::before {
+  left: -4.5px;
+}
+/* Invisible reach: the cue is proximity to the dot, not to the whole node. */
+.react-flow .react-flow__handle::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+}
+.react-flow .react-flow__handle:hover::before {
+  scale: 1.45;
+  border-color: var(--color-ink-3);
+}
+.react-flow .react-flow__handle.connectingfrom::before {
+  scale: 1.45;
+  background-color: var(--color-carrot);
+  border-color: var(--color-carrot);
+}
+
+/* An inlet cannot start a connection, so its dot shows only while a drag is in
+   flight and this node is a legal target. Incoming edges end in an arrowhead. */
+.react-flow .react-flow__handle-left::before {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.react-flow__node.rf-connect-target .react-flow__handle-left::before {
+  opacity: 1;
+}
+
+/* The live line paints above nodes: lift the source node so its dot stays on
+   top of the line's first pixels. */
+.react-flow__node:has(.react-flow__handle.connectingfrom) {
+  z-index: 1002 !important;
+}
+
+/* Mid-drag: legal targets are called out, the rest recede, so the rules are
+   visible rather than found by a drop that does nothing. */
+.react-flow__node.rf-connect-target > * {
+  border-color: var(--color-leaf) !important;
+  box-shadow: 0 0 0 3px var(--color-leaf-soft) !important;
+}
+/* Only the inlet can receive, so only the inlet is tinted. */
+.react-flow__node.rf-connect-target .react-flow__handle-left::before {
+  scale: 1.45;
+  background-color: var(--color-leaf);
+  border-color: var(--color-leaf);
+}
+.react-flow__node.rf-connect-blocked {
+  opacity: 0.35;
 }

@@ -56,11 +56,12 @@ export function loadS3Config(): S3Config {
 
 /**
  * Bucket for a key by data class, inferred from the extension: `.parquet` is
- * warehouse, `.csv` is lake, everything else is pipelines.
+ * warehouse, source data (`.csv`, `.ndjson`, `.jsonl`) is lake, everything
+ * else is pipelines. `.json` stays with the configs and dashboards.
  */
 export function bucketForRelPath(config: S3Config, relPath: string): string {
   if (relPath.endsWith(".parquet")) return config.warehouseBucket;
-  if (relPath.endsWith(".csv")) return config.lakeBucket;
+  if (/\.(csv|ndjson|jsonl)$/.test(relPath)) return config.lakeBucket;
   return config.pipelinesBucket;
 }
 

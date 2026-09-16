@@ -6,6 +6,7 @@
 // a width/height; we stub the browser APIs it needs (ResizeObserver,
 // matchMedia, layout geometry) so jsdom can render nodes.
 
+import { readFileSync } from "node:fs";
 import React from "react";
 import { describe, expect, it, vi, beforeAll } from "vitest";
 import { render, cleanup } from "@testing-library/react";
@@ -82,14 +83,14 @@ const nodes: GraphNode[] = [
   },
   {
     id: "lkp1",
-    type: NODE_TYPE.lookupMapping,
+    type: NODE_TYPE.dimension,
     position: { x: 0, y: 150 },
     data: {
-      kind: "lookup-mapping",
+      kind: "dimension",
       entity: {
         id: "lkp1",
         name: "Categories",
-        rows: [{ input_patterns: ["RAMEN"], output: "FOOD" }],
+        rows: { values: ["category"], rows: [{ patterns: ["RAMEN"], values: ["FOOD"] }] },
       },
     },
   },
@@ -142,14 +143,14 @@ describe("GraphCanvas", () => {
     // Headers show the entity name plus a lowercase kind tag.
     const text = container.textContent ?? "";
     expect(text).toContain("source");
-    expect(text).toContain("lookup");
+    expect(text).toContain("dimension");
     expect(text).toContain("mapping");
     expect(text).toContain("table");
 
     // Each custom node component should have mounted.
     expect(container.querySelector('[data-testid="source-container-node"]'))
       .not.toBeNull();
-    expect(container.querySelector('[data-testid="lookup-mapping-node"]'))
+    expect(container.querySelector('[data-testid="dimension-node"]'))
       .not.toBeNull();
     expect(container.querySelector('[data-testid="mapping-node"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="analytic-table-node"]'))
@@ -183,5 +184,36 @@ describe("GraphCanvas", () => {
     expect(onNodeClick).toHaveBeenCalled();
 
     cleanup();
+  });
+});
+
+describe("connection rules", () => {
+  it("states the legal pairs once and uses that everywhere", () => {
+    const source = readFileSync("components/graph/GraphCanvas.tsx", "utf8");
+    // One definition…
+    expect(source.match(/function connectablePair/g)?.length).toBe(1);
+    // …consumed by the drag validator, the config writer and the mid-drag
+    // highlighting. Duplicating the rule is how they drift apart.
+    expect(source.match(/connectablePair\(/g)?.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("marks legal targets and recedes the rest while dragging", () => {
+    const source = readFileSync("components/graph/GraphCanvas.tsx", "utf8");
+    expect(source).toContain("onConnectStart");
+    expect(source).toContain("onConnectEnd");
+    expect(source).toContain("rf-connect-target");
+    expect(source).toContain("rf-connect-blocked");
+    const css = readFileSync("app/globals.css", "utf8");
+    expect(css).toContain(".react-flow__node.rf-connect-target");
+    expect(css).toContain(".react-flow__node.rf-connect-blocked");
+  });
+
+  it("grows a handle from cursor proximity to the handle, not the node", () => {
+    const css = readFileSync("app/globals.css", "utf8");
+    // A padded invisible ring does the hit-testing…
+    expect(css).toContain(".react-flow .react-flow__handle::after");
+    expect(css).toContain(".react-flow .react-flow__handle:hover");
+    // …and hovering anywhere on the node must no longer be the trigger.
+    expect(css).not.toContain(".react-flow__node:hover .react-flow__handle");
   });
 });

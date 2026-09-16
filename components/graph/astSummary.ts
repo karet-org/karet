@@ -64,12 +64,19 @@ function renderAst(node: AstNode, depth: number, truncate: boolean): string {
     case "lt":
     case "ge":
     case "le":
+    case "and":
+    case "or":
       return `${node.kind}(${recurse(node.left, depth, truncate)}, ${recurse(node.right, depth, truncate)})`;
     case "concat":
       // Parser shape: `concat("sep", a, b, ...)`.
       return `concat(${[JSON.stringify(node.sep), ...renderArgs(node.args, depth, truncate)].join(", ")})`;
     case "coalesce":
       return `coalesce(${renderArgs(node.args, depth, truncate).join(", ")})`;
+    case "from_unix":
+      return node.unit
+        ? `from_unix(${recurse(node.input, depth, truncate)}, ${JSON.stringify(node.unit)})`
+        : `from_unix(${recurse(node.input, depth, truncate)})`;
+    case "not":
     case "upper":
     case "lower":
     case "trim":
@@ -85,8 +92,11 @@ function renderAst(node: AstNode, depth: number, truncate: boolean): string {
       return `contains(${recurse(node.input, depth, truncate)}, ${recurse(node.pattern, depth, truncate)})`;
     case "if":
       return `if(${recurse(node.cond, depth, truncate)}, ${recurse(node.then, depth, truncate)}, ${recurse(node.else, depth, truncate)})`;
-    case "lookup_ref":
-      return `lookup_ref(${JSON.stringify(node.lookup_id)}, ${recurse(node.input, depth, truncate)})`;
+    case "dim_ref": {
+      const args = [JSON.stringify(node.dim_id), recurse(node.input, depth, truncate)];
+      if (node.value != null) args.push(JSON.stringify(node.value));
+      return `dim_ref(${args.join(", ")})`;
+    }
     case "substring": {
       const args = [recurse(node.input, depth, truncate), String(node.start)];
       if (node.length != null) args.push(String(node.length));

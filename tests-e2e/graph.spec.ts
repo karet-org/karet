@@ -34,7 +34,7 @@ async function readViewportTransform(page: Page): Promise<string> {
 async function firstEditableNode(page: Page): Promise<Locator> {
   const selectors = [
     '.react-flow__node[data-node-type="source-container"]',
-    '.react-flow__node[data-node-type="lookup-mapping"]',
+    '.react-flow__node[data-node-type="dimension"]',
     '.react-flow__node[data-node-type="mapping"]',
     // Fallback: generic React Flow node by class name.
     ".react-flow__node",

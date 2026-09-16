@@ -16,7 +16,11 @@ function AnalyticTableNode({
       selected={selected}
       testId="analytic-table-node"
       className="min-w-[200px]"
-      handles={<Handle type="target" position={Position.Left} />}
+      handles={
+        // Connections are drawn source → target only, so an inlet accepts a
+        // drop but cannot begin one.
+        <Handle type="target" position={Position.Left} isConnectableStart={false} />
+      }
     >
       <ul className="space-y-0.5">
         {entity.schema.map((col, i) => (

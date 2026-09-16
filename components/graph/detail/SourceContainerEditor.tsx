@@ -1,8 +1,9 @@
 // `path_prefix` is an absolute lake key prefix; browse lists /api/lake folders.
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { ColumnSchema, SourceContainer } from "@/lib/types/config";
+import { useMemo, useState } from "react";
+import type { ColumnSchema, SourceContainer, SourceFormat } from "@/lib/types/config";
 import { InlineErrorList } from "./editorPrimitives";
+import LakeFolderField from "./LakeFolderField";
 import {
   EditField,
   kvInputClass,
@@ -31,6 +32,9 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
   if (onValidate) onValidate(result);
 
   const [editingRow, setEditingRow] = useState<number | null>(null);
+
+  const format: SourceFormat = value.format ?? "csv";
+  const isJson = format !== "csv";
 
   const setColumn = (index: number, patch: Partial<ColumnSchema>) => {
     const schema = value.schema.map((c, i) => (i === index ? { ...c, ...patch } : c));
@@ -63,8 +67,34 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
           onChange={(path_prefix) => onChange({ ...value, path_prefix })}
         />
         <p className="mt-1.5 text-[10.5px] text-[color:var(--color-ink-3)]">
-          Any folder in the data lake; CSV files under it feed this source.
+          Any folder in the data lake. Files under it matching the format below feed
+          this source.
         </p>
+      </Section>
+
+      <Section label="Format">
+        <select
+          aria-label="source format"
+          className={kvInputClass()}
+          value={format}
+          onChange={(e) => {
+            const next = e.target.value as SourceFormat;
+            if (next === "csv") {
+              // Paths are meaningless for CSV: columns bind to headers.
+              const { record_filter: _drop, ...rest } = value;
+              onChange({
+                ...rest,
+                format: next,
+                schema: value.schema.map(({ path: _p, ...c }) => c),
+              });
+            } else {
+              onChange({ ...value, format: next });
+            }
+          }}
+        >
+          <option value="csv">CSV (.csv)</option>
+          <option value="ndjson">JSON lines (.json, .jsonl, .ndjson)</option>
+        </select>
       </Section>
 
       <Section
@@ -102,6 +132,22 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
                         onChange={(e) => setColumn(i, { name: e.target.value })}
                       />
                     </EditField>
+                    {isJson && (
+                      <EditField label="path" className="flex-1">
+                        <input
+                          aria-label={`column ${i} path`}
+                          className={editInputClass("font-mono")}
+                          // Doubles as the syntax hint: dotted keys, [n] for
+                          // array indices. Empty means the column name.
+                          placeholder={col.name || "request.headers.User-Agent[0]"}
+                          title="Path inside each record, e.g. request.headers.User-Agent[0]. Missing paths read as null."
+                          value={col.path ?? ""}
+                          onChange={(e) =>
+                            setColumn(i, { path: e.target.value || undefined })
+                          }
+                        />
+                      </EditField>
+                    )}
                     <EditField label="type">
                       <select
                         aria-label={`column ${i} type`}
@@ -168,88 +214,5 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
 }
 
 /** Folder input with a /api/lake browse dropdown; free text always works. */
-function LakeFolderField({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [folders, setFolders] = useState<string[] | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
-
-  // List folders under the deepest complete segment of the value.
-  const browsePrefix = value.includes("/") ? value.slice(0, value.lastIndexOf("/") + 1) : "";
-  useEffect(() => {
-    if (!open) return;
-    let stale = false;
-    setFolders(null);
-    fetch(`/api/lake?prefix=${encodeURIComponent(browsePrefix)}`)
-      .then((r) => (r.ok ? r.json() : { folders: [] }))
-      .then((data: { folders?: string[] }) => {
-        if (!stale) setFolders(data.folders ?? []);
-      })
-      .catch(() => {
-        if (!stale) setFolders([]);
-      });
-    return () => {
-      stale = true;
-    };
-  }, [open, browsePrefix]);
-
-  return (
-    <div ref={ref} className="relative flex gap-1.5">
-      <input
-        data-testid="source-container-editor-path-prefix"
-        aria-label="lake folder"
-        className={kvInputClass("flex-1 font-mono")}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      <button
-        type="button"
-        aria-label="browse lake folders"
-        onClick={() => setOpen((v) => !v)}
-        className="flex-none rounded-[7px] border border-[color:var(--color-rule-soft)] px-2.5 text-[11px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
-      >
-        Browse
-      </button>
-      {open && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-10 max-h-56 w-64 overflow-y-auto rounded-[9px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] p-1 shadow-xl">
-          {folders === null ? (
-            <div className="px-2 py-1.5 text-[11.5px] text-[color:var(--color-ink-3)]">Loading…</div>
-          ) : folders.length === 0 ? (
-            <div className="px-2 py-1.5 text-[11.5px] text-[color:var(--color-ink-3)]">
-              No folders under {browsePrefix || "the lake root"}
-            </div>
-          ) : (
-            folders.map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => {
-                  onChange(f);
-                }}
-                className="block w-full truncate rounded-md px-2 py-1.5 text-left font-mono text-[11.5px] text-[color:var(--color-ink)] hover:bg-white/5"
-              >
-                {f}
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default SourceContainerEditor;

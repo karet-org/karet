@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   Background,
   Controls,
@@ -22,10 +22,10 @@ import { NODE_TYPE, type GraphEdge, type GraphNode } from "@/lib/graph/build";
 import { autoLayout } from "@/lib/graph/layout";
 import type { NodeKind } from "@/lib/graph/nodeDefaults";
 import SourceContainerNode from "./SourceContainerNode";
-import LookupMappingNode from "./LookupMappingNode";
+import DimensionNode from "./DimensionNode";
 import MappingNode from "./MappingNode";
 import AnalyticTableNode from "./AnalyticTableNode";
-import { IconSource, IconLookup, IconMapping, IconTable, IconTrash, IconPlay,
+import { IconSource, IconDimension, IconMapping, IconTable, IconTrash, IconPlay,
 } from "@/components/icons";
 import Modal from "@/components/ui/Modal";
 
@@ -51,6 +51,8 @@ interface GraphCanvasProps {
   onDisconnectEdge?: (edge: { id: string; source: string; target: string }) => void;
   /** Omit to hide the toolbar's run button. */
   onRun?: () => void;
+  /** Rendered in the top-right control row, left of Auto layout. */
+  actions?: React.ReactNode;
 }
 
 interface DeleteImpactSummary {
@@ -61,13 +63,23 @@ interface DeleteImpactSummary {
 
 const nodeTypes: NodeTypes = {
   [NODE_TYPE.sourceContainer]: SourceContainerNode,
-  [NODE_TYPE.lookupMapping]: LookupMappingNode,
+  [NODE_TYPE.dimension]: DimensionNode,
   [NODE_TYPE.mapping]: MappingNode,
   [NODE_TYPE.analyticTable]: AnalyticTableNode,
 };
 
+/** The only pairs a user may draw; dimension edges are derived, not drawn.
+ *  Shared by the drag validator, the config writer and the mid-drag
+ *  highlighting, which must agree. */
+function connectablePair(source: string | undefined, target: string | undefined): boolean {
+  return (
+    (source === NODE_TYPE.sourceContainer && target === NODE_TYPE.mapping) ||
+    (source === NODE_TYPE.mapping && target === NODE_TYPE.analyticTable)
+  );
+}
+
 /** Edge kind derived from the source/target node types. */
-type EdgeKind = "source-to-mapping" | "lookup-to-mapping" | "mapping-to-table";
+type EdgeKind = "source-to-mapping" | "dimension-to-mapping" | "mapping-to-table";
 
 function deriveEdgeKind(
   edge: GraphEdge,
@@ -83,10 +95,10 @@ function deriveEdgeKind(
     return "source-to-mapping";
   }
   if (
-    src.type === NODE_TYPE.lookupMapping &&
+    src.type === NODE_TYPE.dimension &&
     dst.type === NODE_TYPE.mapping
   ) {
-    return "lookup-to-mapping";
+    return "dimension-to-mapping";
   }
   if (
     src.type === NODE_TYPE.mapping &&
@@ -112,7 +124,7 @@ function styleEdges(edges: GraphEdge[], nodes: GraphNode[]): Edge[] {
           markerEnd: { ...marker, color: "#6b7280" },
           style: { stroke: "#6b7280", strokeWidth: 1.5 },
         };
-      case "lookup-to-mapping":
+      case "dimension-to-mapping":
         return {
           ...e,
           type: "smoothstep",
@@ -138,7 +150,7 @@ function styleEdges(edges: GraphEdge[], nodes: GraphNode[]): Edge[] {
 }
 
 const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas(
-  { nodes, edges, onNodeClick, onPaneClick, onLayout, onNodeDragStop, onAddNode, onConnect: onConnectProp, onDeleteNode, analyzeDeleteImpact, onDisconnectEdge, onRun },
+  { nodes, edges, onNodeClick, onPaneClick, onLayout, onNodeDragStop, onAddNode, onConnect: onConnectProp, onDeleteNode, analyzeDeleteImpact, onDisconnectEdge, onRun, actions },
   ref,
 ) {
   const [internalNodes, setInternalNodes] = useState<GraphNode[]>(nodes);
@@ -240,10 +252,8 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         if (!src || !dst) return;
         const srcType = src.type;
         const dstType = dst.type;
-        const valid =
-          (srcType === NODE_TYPE.sourceContainer && dstType === NODE_TYPE.mapping) ||
-          (srcType === NODE_TYPE.mapping && dstType === NODE_TYPE.analyticTable);
-        if (!valid) return;
+        if (!connectablePair(srcType, dstType)) return;
+        connectionLandedRef.current = true;
         setInternalEdges((prev) => addEdge(connection, prev));
         onConnectProp?.(connection.source, connection.target);
       }
@@ -251,15 +261,17 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
     [onConnectProp, internalNodes],
   );
 
+  // Node a connection is being dragged from, for the target highlighting.
+  const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
+  // Set when React Flow lands a connection itself.
+  const connectionLandedRef = useRef(false);
+
   const isValidConnection = useCallback(
     (connection: Connection | Edge) => {
       const src = internalNodes.find((n) => n.id === connection.source);
       const dst = internalNodes.find((n) => n.id === connection.target);
       if (!src || !dst) return false;
-      return (
-        (src.type === NODE_TYPE.sourceContainer && dst.type === NODE_TYPE.mapping) ||
-        (src.type === NODE_TYPE.mapping && dst.type === NODE_TYPE.analyticTable)
-      );
+      return connectablePair(src.type, dst.type);
     },
     [internalNodes],
   );
@@ -334,6 +346,9 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         { id: edge.id, source: edge.source, target: edge.target },
         nodesById,
       );
+      // Derived edges have no config field behind them, so there is nothing to
+      // offer: fall through to the canvas menu instead of a dead one.
+      if (kind === "dimension-to-mapping") return;
       setContextMenu({
         x: event.clientX - bounds.left,
         y: event.clientY - bounds.top,
@@ -346,7 +361,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
   );
 
   const handleDisconnectEdge = useCallback(() => {
-    if (contextMenu?.edge && contextMenu.edge.kind !== "lookup-to-mapping") {
+    if (contextMenu?.edge && contextMenu.edge.kind !== "dimension-to-mapping") {
       setConfirmDisconnect({
         id: contextMenu.edge.id,
         source: contextMenu.edge.source,
@@ -364,10 +379,50 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
     setConfirmDisconnect(null);
   }, [confirmDisconnect, onDisconnectEdge]);
 
+  // Releasing anywhere over a legal node connects; React Flow's snap radius only
+  // covers a near miss. Runs only if React Flow did not already land it.
+  const handleConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent) => {
+      const from = connectingFrom;
+      setConnectingFrom(null);
+      if (!from || connectionLandedRef.current) return;
+
+      const point = "clientX" in event ? event : event.changedTouches?.[0];
+      if (!point) return;
+      const dropped = document
+        .elementFromPoint(point.clientX, point.clientY)
+        ?.closest<HTMLElement>(".react-flow__node");
+      const targetId = dropped?.getAttribute("data-id");
+      if (!targetId || targetId === from) return;
+
+      const src = internalNodes.find((n) => n.id === from);
+      const dst = internalNodes.find((n) => n.id === targetId);
+      if (!src || !dst || !connectablePair(src.type, dst.type)) return;
+
+      setInternalEdges((prev) =>
+        addEdge({ source: from, target: targetId, sourceHandle: null, targetHandle: null }, prev),
+      );
+      onConnectProp?.(from, targetId);
+    },
+    [connectingFrom, internalNodes, onConnectProp],
+  );
+
+  // Legal targets are called out mid-drag; everything else recedes.
+  const annotatedNodes = useMemo(() => {
+    if (!connectingFrom) return internalNodes;
+    const src = internalNodes.find((n) => n.id === connectingFrom);
+    if (!src) return internalNodes;
+    return internalNodes.map((n) => {
+      if (n.id === connectingFrom) return n;
+      const ok = connectablePair(src.type, n.type);
+      return { ...n, className: ok ? "rf-connect-target" : "rf-connect-blocked" };
+    });
+  }, [internalNodes, connectingFrom]);
+
   return (
     <div ref={wrapperRef} className="relative h-full w-full" onContextMenu={(e) => e.preventDefault()}>
       <ReactFlow
-        nodes={internalNodes}
+        nodes={annotatedNodes}
         edges={internalEdges}
         nodeTypes={nodeTypes}
         onNodesChange={handleNodesChange}
@@ -375,7 +430,15 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         onPaneClick={handlePaneClick}
         onNodeDragStop={handleNodeDragStop}
         onConnect={handleConnect}
+        onConnectStart={(_, { nodeId }) => {
+          connectionLandedRef.current = false;
+          setConnectingFrom(nodeId ?? null);
+        }}
+        onConnectEnd={handleConnectEnd}
         isValidConnection={isValidConnection}
+        // Generous snap radius: landing near a node counts, rather than
+        // demanding a hit on its 9 px inlet.
+        connectionRadius={44}
         onInit={(instance) => {
           screenToFlowRef.current = instance.screenToFlowPosition;
           instance.fitView();
@@ -413,12 +476,12 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
           ) : contextMenu.edge ? (
             <>
               <div className="px-3 py-1 text-[10.5px] font-medium text-[color:var(--color-ink-3)]">Edge</div>
-              {contextMenu.edge.kind === "lookup-to-mapping" ? (
+              {contextMenu.edge.kind === "dimension-to-mapping" ? (
                 <div
                   className="px-3 py-1.5 text-xs text-[color:var(--color-ink-3)]"
-                  title="Lookup edges are derived from the mapping's expressions. Remove the lookup reference in the mapping editor."
+                  title="Dimension edges are derived from the mapping's expressions. Remove the dim_ref in the mapping editor."
                 >
-                  Edit mapping to remove lookup
+                  Edit mapping to remove dim_ref
                 </div>
               ) : (
                 <button
@@ -436,7 +499,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
               <div className="px-3 py-1 text-[10.5px] font-medium text-[color:var(--color-ink-3)]">Add node</div>
               {([
                 ["source", "Source", IconSource],
-                ["lookup", "Lookup", IconLookup],
+                ["dimension", "Dimension", IconDimension],
                 ["mapping", "Mapping", IconMapping],
                 ["table", "Table", IconTable],
               ] as [NodeKind, string, React.ComponentType<{ size?: number }>][]).map(([kind, label, Icon]) => (
@@ -454,14 +517,20 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={handleAutoLayout}
-        data-testid="auto-layout-button"
-        className="absolute right-3 top-3 z-10 rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-ink-2)] shadow-sm hover:bg-[color:var(--color-surface-2)]"
-      >
-        Auto layout
-      </button>
+      {/* One control row: page-level actions sit beside the canvas's own, so
+          an unsaved edit changes what a button says rather than throwing an
+          alert over the graph. */}
+      <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+        {actions}
+        <button
+          type="button"
+          onClick={handleAutoLayout}
+          data-testid="auto-layout-button"
+          className="rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[color:var(--color-ink-2)] shadow-sm hover:bg-[color:var(--color-surface-2)]"
+        >
+          Auto layout
+        </button>
+      </div>
 
       {onAddNode && (
         <div
@@ -470,7 +539,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         >
           {([
             ["source", "Add source", IconSource],
-            ["lookup", "Add lookup", IconLookup],
+            ["dimension", "Add dimension", IconDimension],
             ["mapping", "Add mapping", IconMapping],
             ["table", "Add table", IconTable],
           ] as [NodeKind, string, React.ComponentType<{ size?: number }>][]).map(
