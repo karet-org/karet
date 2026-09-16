@@ -16,7 +16,7 @@ function SourceContainerNode({
       selected={selected}
       testId="source-container-node"
       className="min-w-[200px]"
-      handles={<Handle type="source" position={Position.Right} />}
+      handles={<Handle type="source" position={Position.Right} isConnectableEnd={false} />}
     >
       <ul className="space-y-0.5">
         {entity.schema.map((col, i) => (

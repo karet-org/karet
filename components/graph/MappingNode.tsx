@@ -20,8 +20,9 @@ function MappingNode({
       className="min-w-[280px] max-w-[420px]"
       handles={
         <>
-          <Handle type="target" position={Position.Left} />
-          <Handle type="source" position={Position.Right} />
+          {/* Inlets accept a drop but never start one: edges run one way. */}
+          <Handle type="target" position={Position.Left} isConnectableStart={false} />
+          <Handle type="source" position={Position.Right} isConnectableEnd={false} />
         </>
       }
     >

@@ -240,6 +240,25 @@ button:disabled,
   border-color: var(--color-carrot);
 }
 
+/* An edge ends at the inlet's centre, so its arrowhead would sit under the dot.
+   A connected inlet therefore hides its dot and lets the arrowhead be the
+   terminator; the dot returns on hover, when it matters as a drop target. */
+.react-flow__node.rf-inbound .react-flow__handle-left::before {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.react-flow__node.rf-inbound:hover .react-flow__handle-left::before,
+.react-flow__node.rf-connect-target .react-flow__handle-left::before {
+  opacity: 1;
+}
+
+/* The live connection line paints above the nodes, so it crossed the outlet it
+   started from. Lifting just the node being dragged from puts its dot back on
+   top of the line's first few pixels. */
+.react-flow__node:has(.react-flow__handle.connectingfrom) {
+  z-index: 1002 !important;
+}
+
 /* Mid-drag feedback: legal targets are called out, the rest recede, so the
    rules are visible rather than discovered by a drop that does nothing. */
 .react-flow__node.rf-connect-target > * {

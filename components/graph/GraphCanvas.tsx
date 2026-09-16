@@ -253,6 +253,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         const srcType = src.type;
         const dstType = dst.type;
         if (!connectablePair(srcType, dstType)) return;
+        connectionLandedRef.current = true;
         setInternalEdges((prev) => addEdge(connection, prev));
         onConnectProp?.(connection.source, connection.target);
       }
@@ -263,6 +264,9 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
   // Node a connection is being dragged from, so the graph can say which nodes
   // it could legally land on while the drag is in flight.
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
+  // Set when React Flow itself completes a connection, so the release handler
+  // below knows whether it still has work to do.
+  const connectionLandedRef = useRef(false);
 
   const isValidConnection = useCallback(
     (connection: Connection | Edge) => {
@@ -377,19 +381,55 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
     setConfirmDisconnect(null);
   }, [confirmDisconnect, onDisconnectEdge]);
 
+  // Releasing anywhere over a legal node connects: aiming at a 9 px inlet is
+  // the fiddly half of the gesture, and React Flow's snap radius only covers a
+  // near miss. Runs only when React Flow did not already land the connection.
+  const handleConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent) => {
+      const from = connectingFrom;
+      setConnectingFrom(null);
+      if (!from || connectionLandedRef.current) return;
+
+      const point = "clientX" in event ? event : event.changedTouches?.[0];
+      if (!point) return;
+      const dropped = document
+        .elementFromPoint(point.clientX, point.clientY)
+        ?.closest<HTMLElement>(".react-flow__node");
+      const targetId = dropped?.getAttribute("data-id");
+      if (!targetId || targetId === from) return;
+
+      const src = internalNodes.find((n) => n.id === from);
+      const dst = internalNodes.find((n) => n.id === targetId);
+      if (!src || !dst || !connectablePair(src.type, dst.type)) return;
+
+      setInternalEdges((prev) =>
+        addEdge({ source: from, target: targetId, sourceHandle: null, targetHandle: null }, prev),
+      );
+      onConnectProp?.(from, targetId);
+    },
+    [connectingFrom, internalNodes, onConnectProp],
+  );
+
   // While dragging from a node, legal targets are called out and the rest
   // recede, so the connection rules are visible instead of being discovered by
   // a drop that silently does nothing.
   const annotatedNodes = useMemo(() => {
-    if (!connectingFrom) return internalNodes;
-    const src = internalNodes.find((n) => n.id === connectingFrom);
-    if (!src) return internalNodes;
-    return internalNodes.map((n) => {
+    // A node whose inlet is already connected hides that dot, so the edge's
+    // arrowhead is the terminator rather than something under a dot.
+    const inbound = new Set(internalEdges.map((e) => e.target));
+    const withInbound = internalNodes.map((n) =>
+      inbound.has(n.id) ? { ...n, className: "rf-inbound" } : n,
+    );
+    if (!connectingFrom) return withInbound;
+    const src = withInbound.find((n) => n.id === connectingFrom);
+    if (!src) return withInbound;
+    return withInbound.map((n) => {
       if (n.id === connectingFrom) return n;
       const ok = connectablePair(src.type, n.type);
-      return { ...n, className: ok ? "rf-connect-target" : "rf-connect-blocked" };
+      const state = ok ? "rf-connect-target" : "rf-connect-blocked";
+      return { ...n, className: [n.className, state].filter(Boolean).join(" ") };
     });
-  }, [internalNodes, connectingFrom]);
+  }, [internalNodes, internalEdges, connectingFrom]);
 
   return (
     <div ref={wrapperRef} className="relative h-full w-full" onContextMenu={(e) => e.preventDefault()}>
@@ -402,8 +442,11 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         onPaneClick={handlePaneClick}
         onNodeDragStop={handleNodeDragStop}
         onConnect={handleConnect}
-        onConnectStart={(_, { nodeId }) => setConnectingFrom(nodeId ?? null)}
-        onConnectEnd={() => setConnectingFrom(null)}
+        onConnectStart={(_, { nodeId }) => {
+          connectionLandedRef.current = false;
+          setConnectingFrom(nodeId ?? null);
+        }}
+        onConnectEnd={handleConnectEnd}
         isValidConnection={isValidConnection}
         // Generous snap radius: landing near a node counts, rather than
         // demanding a hit on its 9 px inlet.
