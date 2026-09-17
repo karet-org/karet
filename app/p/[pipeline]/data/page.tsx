@@ -7,12 +7,22 @@ import SqlEditor from "@/components/data/SqlEditor";
 import type { SavedQuery } from "@/lib/types/query";
 
 interface Column { name: string; type: string }
+interface TableVersion {
+  version: number;
+  created_at: string;
+  files: number;
+  bytes: number;
+  live: boolean;
+}
 interface TableInfo { id: string; name: string; schema: Column[]; fileCount: number; version: number }
 
 import { nameToSlug } from "@/lib/config/name-to-slug";
+import { useCan } from "@/lib/client/use-current-user";
 
 interface Relation {
   key: string;
+  /** Analytic table id, for endpoints that address the table itself. */
+  tableId: string;
   name: string;
   schema: Column[];
   /** SQL identifier to type in the query box. */
@@ -25,6 +35,7 @@ interface Relation {
 
 export default function DataPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
+  const canEdit = useCan("editor");
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [queries, setQueries] = useState<SavedQuery[]>([]);
   const [loading, setLoading] = useState(false);
@@ -34,6 +45,12 @@ export default function DataPage() {
   const [error, setError] = useState<string | null>(null);
   const [tablesOpen, setTablesOpen] = useState(false);
   const [bucketError, setBucketError] = useState<string | null>(null);
+
+  // Table version history (the warehouse manifests the worker retains).
+  const [versionsFor, setVersionsFor] = useState<Relation | null>(null);
+  const [versions, setVersions] = useState<TableVersion[]>([]);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState<number | null>(null);
 
   // Tracked per source so a failure shows an error, not an empty list.
   const [tablesLoading, setTablesLoading] = useState(true);
@@ -52,23 +69,29 @@ export default function DataPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadTables = useCallback(async () => {
     setTablesLoading(true);
     setTablesError(null);
-    fetch(`/api/p/${pipeline}/tables`)
-      .then(async (r) => {
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          if (body.error === "bucket_not_found") setBucketError(body.message);
-          else setTablesError(body.message ?? "Could not load tables.");
-          return;
-        }
-        const d = await r.json();
-        setTables(d.tables ?? []);
-      })
-      .catch((e) => setTablesError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setTablesLoading(false));
+    try {
+      const r = await fetch(`/api/p/${pipeline}/tables`);
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        if (body.error === "bucket_not_found") setBucketError(body.message);
+        else setTablesError(body.message ?? "Could not load tables.");
+        return;
+      }
+      const d = await r.json();
+      setTables(d.tables ?? []);
+    } catch (e) {
+      setTablesError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTablesLoading(false);
+    }
   }, [pipeline]);
+
+  useEffect(() => {
+    void loadTables();
+  }, [loadTables]);
 
   const loadQueries = useCallback(async () => {
     setQueriesLoading(true);
@@ -93,6 +116,45 @@ export default function DataPage() {
     loadQueries();
   }, [loadQueries]);
 
+  const openVersions = useCallback(
+    async (relation: Relation) => {
+      setVersionsFor(relation);
+      setVersions([]);
+      setVersionsError(null);
+      try {
+        const res = await fetch(`/api/p/${pipeline}/tables/${relation.tableId}/versions`);
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.message || body.error || `HTTP ${res.status}`);
+        setVersions(body.versions ?? []);
+      } catch (err) {
+        setVersionsError((err as Error).message);
+      }
+    },
+    [pipeline],
+  );
+
+  const restoreVersion = useCallback(
+    async (version: number) => {
+      if (!versionsFor) return;
+      setRestoring(version);
+      try {
+        const res = await fetch(
+          `/api/p/${pipeline}/tables/${versionsFor.tableId}/versions/${version}/restore`,
+          { method: "POST" },
+        );
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.message || body.error || `HTTP ${res.status}`);
+        await openVersions(versionsFor);
+        await loadTables();
+      } catch (err) {
+        setVersionsError((err as Error).message);
+      } finally {
+        setRestoring(null);
+      }
+    },
+    [pipeline, versionsFor, openVersions],
+  );
+
   // Resolve every table to its query slug and flag slug collisions.
   const relations = useMemo<Relation[]>(() => {
     const seen = new Map<string, string>();
@@ -103,9 +165,9 @@ export default function DataPage() {
       const owner = seen.get(slug);
       if (owner === undefined) {
         seen.set(slug, key);
-        return { key, name: t.name, schema: t.schema, slug, meta, collidesWith: null };
+        return { key, tableId: t.id, name: t.name, schema: t.schema, slug, meta, collidesWith: null };
       }
-      return { key, name: t.name, schema: t.schema, slug, meta, collidesWith: owner };
+      return { key, tableId: t.id, name: t.name, schema: t.schema, slug, meta, collidesWith: owner };
     });
   }, [tables]);
 
@@ -422,9 +484,20 @@ export default function DataPage() {
                   </span>
                   <span className="shrink-0 text-[10.5px] text-[color:var(--color-ink-4)]">{r.meta}</span>
                 </button>
-                <code className="mt-0.5 block truncate font-mono text-[10.5px] text-[color:var(--color-ink-3)]">
-                  {r.slug}
-                </code>
+                <div className="mt-0.5 flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-[color:var(--color-ink-3)]">
+                    {r.slug}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => void openVersions(r)}
+                    data-testid={`table-versions-${r.tableId}`}
+                    title="Snapshots of this table the worker still retains"
+                    className="shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-medium text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink-2)]"
+                  >
+                    Versions
+                  </button>
+                </div>
                 {r.collidesWith && (
                   <p className="mt-1 text-[10.5px] text-[color:var(--color-amber-deep)]">
                     Name collides with another table; rename one to query it.
@@ -513,6 +586,73 @@ export default function DataPage() {
           </button>
         </div>
       </Modal>
+      <Modal
+        open={versionsFor !== null}
+        onClose={() => { setVersionsFor(null); setVersionsError(null); }}
+        cardClassName="w-full max-w-xl rounded-xl bg-[color:var(--color-surface)] p-6 text-[color:var(--color-ink)] shadow-xl"
+      >
+        <h2 className="text-[15px] font-semibold text-[color:var(--color-ink)]">
+          {versionsFor?.name} versions
+        </h2>
+        <p className="mt-1 text-[12.5px] text-[color:var(--color-ink-3)]">
+          Snapshots the worker still retains. Restoring makes one live again without
+          moving any data; the next run publishes on top of it.
+        </p>
+        {versionsError ? (
+          <p className="mt-3 text-sm text-[color:var(--color-rose-deep)]" role="alert">
+            {versionsError}
+          </p>
+        ) : versions.length === 0 ? (
+          <p className="mt-3 text-sm text-[color:var(--color-ink-3)]">
+            No published versions yet.
+          </p>
+        ) : (
+          <table className="mt-4 w-full border-collapse text-sm" data-testid="table-versions">
+            <thead>
+              <tr className="border-b border-[color:var(--color-rule)] text-left text-[11px] uppercase tracking-[0.05em] text-[color:var(--color-ink-3)]">
+                <th className="py-1.5 pr-3 font-medium">Version</th>
+                <th className="py-1.5 pr-3 font-medium">Published</th>
+                <th className="py-1.5 pr-3 font-medium">Files</th>
+                <th className="py-1.5 pr-3 font-medium">Size</th>
+                <th className="py-1.5 font-medium" />
+              </tr>
+            </thead>
+            <tbody>
+              {versions.map((v) => (
+                <tr key={v.version} className="border-b border-[color:var(--color-rule-soft)] text-[color:var(--color-ink-2)]">
+                  <td className="py-1.5 pr-3 font-medium text-[color:var(--color-ink)]">
+                    v{v.version}
+                    {v.live && (
+                      <span className="ml-2 rounded border border-[color:var(--color-rule)] px-1.5 py-0.5 text-[10px] font-medium text-[color:var(--color-ink-3)]">
+                        live
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-1.5 pr-3 whitespace-nowrap">
+                    {new Date(v.created_at).toLocaleString()}
+                  </td>
+                  <td className="py-1.5 pr-3">{v.files}</td>
+                  <td className="py-1.5 pr-3">{(v.bytes / 1024).toFixed(0)} KB</td>
+                  <td className="py-1.5 text-right">
+                    {canEdit && !v.live && (
+                      <button
+                        type="button"
+                        onClick={() => void restoreVersion(v.version)}
+                        disabled={restoring !== null}
+                        data-testid={`restore-table-v${v.version}`}
+                        className="rounded px-2 py-1 text-xs font-medium text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink-2)] disabled:opacity-50"
+                      >
+                        {restoring === v.version ? "Restoring…" : "Restore"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Modal>
+
     </div>
   );
 }
