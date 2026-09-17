@@ -6,6 +6,8 @@ import {
   putPipelineConfig,
 } from "@/lib/services/config-service";
 import { withRole } from "@/lib/auth/guard";
+import type { Principal } from "@/lib/auth/service-token";
+import { recordVersion } from "@/lib/services/config-history";
 import { validateConfigForSave } from "@/lib/graph/validateConfig";
 import type { PipelineConfig } from "@/lib/types/config";
 
@@ -31,6 +33,7 @@ async function handleGet(
 async function handlePut(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
+  principal: Principal,
 ) {
   const { pipeline } = await context.params;
   const config = pipelineS3Config(loadS3Config(), pipeline);
@@ -69,9 +72,14 @@ async function handlePut(
   return wrapS3Error(async () => {
     try {
       const result = await putPipelineConfig(client, config, body, ifMatch);
+      // After the head lands, so a failed save leaves no phantom version.
+      const version = await recordVersion(client, config, pipeline, body, principal.username);
       const headers: Record<string, string> = {};
       if (result.etag) headers.ETag = `"${result.etag}"`;
-      return NextResponse.json({ ok: true, etag: result.etag ?? null }, { status: 200, headers });
+      return NextResponse.json(
+        { ok: true, etag: result.etag ?? null, version },
+        { status: 200, headers },
+      );
     } catch (err) {
       if (err instanceof PreconditionFailedError) {
         return NextResponse.json({ ok: false, error: err.message }, { status: 412 });

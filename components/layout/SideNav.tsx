@@ -242,6 +242,12 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
           </svg>
           Data
         </Link>
+        <Link href={`${base}/history`} className={itemClass(isActive(`${base}/history`))}>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={iconClass(isActive(`${base}/history`))} aria-hidden>
+            <path d="M3 8a5 5 0 1 0 5-5" /><path d="M3 3v3h3" /><path d="M8 5.5V8l2.2 1.4" />
+          </svg>
+          History
+        </Link>
       </div>
 
       {/* Dashboards */}
