@@ -51,6 +51,8 @@ interface GraphCanvasProps {
   onDisconnectEdge?: (edge: { id: string; source: string; target: string }) => void;
   /** Omit to hide the toolbar's run button. */
   onRun?: () => void;
+  /** False for a viewer: hide every control that would write. */
+  editable?: boolean;
   /** Rendered in the top-right control row, left of Auto layout. */
   actions?: React.ReactNode;
 }
@@ -150,7 +152,7 @@ function styleEdges(edges: GraphEdge[], nodes: GraphNode[]): Edge[] {
 }
 
 const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas(
-  { nodes, edges, onNodeClick, onPaneClick, onLayout, onNodeDragStop, onAddNode, onConnect: onConnectProp, onDeleteNode, analyzeDeleteImpact, onDisconnectEdge, onRun, actions },
+  { nodes, edges, onNodeClick, onPaneClick, onLayout, onNodeDragStop, onAddNode, onConnect: onConnectProp, onDeleteNode, analyzeDeleteImpact, onDisconnectEdge, onRun, actions, editable = true },
   ref,
 ) {
   const [internalNodes, setInternalNodes] = useState<GraphNode[]>(nodes);
@@ -522,6 +524,7 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
           alert over the graph. */}
       <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
         {actions}
+        {editable && (
         <button
           type="button"
           onClick={handleAutoLayout}
@@ -530,9 +533,10 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function Gra
         >
           Auto layout
         </button>
+        )}
       </div>
 
-      {onAddNode && (
+      {editable && onAddNode && (
         <div
           data-testid="canvas-toolbar"
           className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-1 shadow-[0_6px_24px_rgba(0,0,0,0.4)]"

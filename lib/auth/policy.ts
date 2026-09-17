@@ -1,0 +1,71 @@
+// What role each request needs.
+//
+// One table, consulted twice: middleware uses it for a cheap edge gate off the
+// signed role claim, and `withRole` uses it again in the handler where the user
+// store is reachable and a demotion or deletion can be seen. Keeping both on
+// the same data is the point; two lists would drift.
+//
+// Edge-safe: no Node built-ins, no S3.
+
+import { type Role } from "./roles";
+
+/** Requests that need no session at all. */
+const PUBLIC = [
+  { method: "POST", path: /^\/api\/auth\/(login|logout)$/ },
+  { method: "GET", path: /^\/api\/auth\/me$/ },
+];
+
+interface Rule {
+  /** Methods this rule covers. */
+  methods: string[];
+  path: RegExp;
+  role: Role;
+}
+
+/**
+ * First match wins, so put the narrow rules first. Anything unmatched falls
+ * through to the default at the bottom of `requiredRole`, which is the
+ * strictest sensible reading of an unknown route.
+ */
+const RULES: Rule[] = [
+  // Reads that happen to be POSTs: running a SELECT, previewing a dashboard,
+  // validating a draft. These write nothing, so a viewer may do them.
+  { methods: ["POST"], path: /^\/api\/p\/[^/]+\/query$/, role: "viewer" },
+  { methods: ["POST"], path: /^\/api\/p\/[^/]+\/dashboards\/[^/]+\/data$/, role: "viewer" },
+  { methods: ["POST"], path: /^\/api\/p\/[^/]+\/dashboards\/[^/]+\/validate$/, role: "viewer" },
+  { methods: ["POST"], path: /^\/api\/p\/[^/]+\/validate$/, role: "viewer" },
+
+  // Deleting or renaming a whole pipeline, and instance-wide settings.
+  { methods: ["DELETE", "PATCH"], path: /^\/api\/pipelines\/[^/]+$/, role: "admin" },
+  { methods: ["PUT", "POST", "DELETE"], path: /^\/api\/settings$/, role: "admin" },
+
+  // Creating and importing pipelines.
+  { methods: ["POST"], path: /^\/api\/pipelines(\/import)?$/, role: "editor" },
+
+  // Everything else that changes state: configs, dashboards, saved queries,
+  // lake objects, triggering runs.
+  { methods: ["POST", "PUT", "PATCH", "DELETE"], path: /^\/api\//, role: "editor" },
+
+  // Reads.
+  { methods: ["GET", "HEAD"], path: /^\/api\//, role: "viewer" },
+];
+
+export function isPublicRequest(method: string, pathname: string): boolean {
+  return PUBLIC.some((p) => p.method === method && p.path.test(pathname));
+}
+
+/**
+ * The role a request needs, or null when it is public. Non-API paths are pages,
+ * which every signed-in role may load; the API calls they make are what carry
+ * the privilege.
+ */
+export function requiredRole(method: string, pathname: string): Role | null {
+  if (isPublicRequest(method, pathname)) return null;
+  if (!pathname.startsWith("/api/")) return "viewer";
+  for (const rule of RULES) {
+    if (rule.methods.includes(method) && rule.path.test(pathname)) return rule.role;
+  }
+  // Unknown API route with an unusual method: demand the most privilege rather
+  // than waving it through.
+  return "admin";
+}

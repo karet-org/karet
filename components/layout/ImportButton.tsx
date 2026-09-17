@@ -3,8 +3,10 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconUpload } from "@/components/icons";
+import { useCan } from "@/lib/client/use-current-user";
 
 export default function ImportButton() {
+  const canImport = useCan("editor");
   const inputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const router = useRouter();
@@ -28,6 +30,9 @@ export default function ImportButton() {
       setImporting(false);
     }
   }
+
+  // Importing writes a pipeline, so a viewer would only get a 403.
+  if (!canImport) return null;
 
   return (
     <>

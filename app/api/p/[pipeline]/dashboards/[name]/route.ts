@@ -6,8 +6,9 @@ import {
   putDashboardV2,
 } from "@/lib/services/config-service";
 import { fullDashboardGate } from "@/lib/services/dashboard-data";
+import { withRole } from "@/lib/auth/guard";
 
-export async function GET(
+async function handleGet(
   request: Request,
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
@@ -36,7 +37,7 @@ export async function GET(
 }
 
 /** Saves a dashboard body. `?draft=1` skips validation (mid-edit). */
-export async function PUT(
+async function handlePut(
   request: Request,
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
@@ -63,7 +64,7 @@ export async function PUT(
   }, `PUT /api/p/${pipeline}/dashboards/${name}`);
 }
 
-export async function DELETE(
+async function handleDelete(
   _request: Request,
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
@@ -76,3 +77,7 @@ export async function DELETE(
     return NextResponse.json({ ok: true });
   }, `DELETE /api/p/${pipeline}/dashboards/${name}`);
 }
+
+export const GET = withRole(handleGet);
+export const PUT = withRole(handlePut);
+export const DELETE = withRole(handleDelete);
