@@ -4,7 +4,7 @@
 [![Publish Docker image](https://github.com/karet-org/karet/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/karet-org/karet/actions/workflows/docker-publish.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2b2c33)](./LICENSE)
 
-Next.js frontend for the Karet analytics platform. Renders
+Next.js frontend for Karet, a self-hosted ETL and dashboard stack. Renders
 configurable dashboards and the React Flow Data Flow Graph editor over an
 ETL pipeline configuration stored in S3.
 
