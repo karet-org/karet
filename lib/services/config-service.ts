@@ -430,15 +430,3 @@ export async function deleteQuery(
   );
 }
 
-// Analytic table rows (Parquet)
-
-/** Lists every `*.parquet` key under `<pipeline>/<table>/` in the warehouse bucket. */
-export async function listParquetKeys(
-  client: S3Client,
-  config: S3Config,
-  table: string,
-): Promise<string[]> {
-  const prefix = `${config.warehousePrefix}${table}/`;
-  const allKeys = await listAllObjectKeys(client, config.warehouseBucket, prefix);
-  return allKeys.filter((k) => k.endsWith(".parquet"));
-}

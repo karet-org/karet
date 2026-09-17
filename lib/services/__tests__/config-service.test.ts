@@ -26,7 +26,6 @@ import {
   getQuery,
   listDashboardsV2,
   listDashboardsWithNamesV2,
-  listParquetKeys,
   listPipelinesWithNames,
   listQueries,
   PreconditionFailedError,
@@ -396,33 +395,6 @@ describe("config-service", () => {
     it("returns null when missing", async () => {
       const client = buildStubClient();
       expect(await getDashboardV2(client, DEFAULT_CONFIG, "missing")).toBeNull();
-    });
-  });
-
-  describe("listParquetKeys", () => {
-    beforeEach(() => {
-      // no shared state
-    });
-
-    it("lists only parquet keys under the requested table prefix", async () => {
-      const client = buildStubClient({
-        "transactions/year=2024/month=01/a.parquet": {
-          body: "",
-          etag: "1",
-        },
-        "transactions/year=2024/month=02/b.parquet": {
-          body: "",
-          etag: "2",
-        },
-        "transactions/manifest.json": { body: "{}", etag: "3" },
-        "other/y.parquet": { body: "", etag: "4" },
-      });
-
-      const keys = await listParquetKeys(client, DEFAULT_CONFIG, "transactions");
-      expect(keys.sort()).toEqual([
-        "transactions/year=2024/month=01/a.parquet",
-        "transactions/year=2024/month=02/b.parquet",
-      ]);
     });
   });
 
