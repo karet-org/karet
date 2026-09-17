@@ -1,6 +1,10 @@
 // Edge middleware login wall: browser routes redirect to /login, `/api/*` gets
 // 401 JSON, only /login and /api/auth/* are reachable unauthenticated. Session
 // verification uses Web Crypto so it runs in the Edge runtime.
+//
+// This gate proves a request carries a validly signed, unexpired session (or
+// the service token). Whether that account still exists, and what it may do, is
+// checked per route by `currentPrincipal()`, which can reach the user store.
 
 import { NextResponse, type NextRequest } from "next/server";
 import {
@@ -8,6 +12,7 @@ import {
   getSessionKeyMaterial,
   verifySession,
 } from "@/lib/auth/session";
+import { serviceTokenPrincipal } from "@/lib/auth/service-token";
 
 export const config = {
   // Every request except Next internals and static assets; `middleware()` decides.
@@ -29,16 +34,18 @@ export async function middleware(request: NextRequest) {
 
   const isApi = pathname.startsWith("/api/");
 
+  // Machine callers present the service token instead of a cookie.
+  if (isApi && serviceTokenPrincipal(request.headers.get("authorization"))) {
+    return NextResponse.next();
+  }
+
   const secret = getSessionKeyMaterial();
   if (!secret) {
     // Missing configuration: fail closed rather than letting requests through
     // (the startup check in `instrumentation.ts` should have caught this).
     if (isApi) {
       return NextResponse.json(
-        {
-          error: "server_misconfigured",
-          message: "KARET_SESSION_SECRET / KARET_ADMIN_PASSWORD_HASH not set",
-        },
+        { error: "server_misconfigured", message: "KARET_SESSION_SECRET is not set" },
         { status: 500 },
       );
     }

@@ -1,6 +1,7 @@
 "use client";
 
-// Sign-in page. Karet is single-admin and password-only; the credential
+// Sign-in page. Accounts are provisioned by the operator (the bootstrap admin
+// from env, team accounts with `scripts/manage-users.mjs`); the credential
 // is provisioned via the KARET_ADMIN_PASSWORD_HASH environment variable
 // (see README), so there is no in-app setup or password-change flow.
 
@@ -43,6 +44,7 @@ function LoginForm() {
   const params = useSearchParams();
   const next = params?.get("next") || "/";
 
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -55,11 +57,11 @@ function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body.message || "Incorrect password");
+        setError(body.message || "Incorrect username or password");
         return;
       }
       router.push(next);
@@ -86,14 +88,27 @@ function LoginForm() {
           Sign in
         </h2>
         <p className="mt-1 text-[13px] text-[color:var(--color-ink-3)]">
-          Enter the admin password for this Karet instance.
+          Sign in to this Karet instance.
         </p>
 
         <label className="mt-5 block text-[12px] font-medium text-[color:var(--color-ink-2)]">
-          Password
+          Username
         </label>
         <input
           autoFocus
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          autoComplete="username"
+          required
+          className="mt-1.5 h-[38px] w-full rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 text-sm outline-none transition focus:border-[color:var(--color-carrot)] focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
+          data-testid="login-username"
+        />
+
+        <label className="mt-4 block text-[12px] font-medium text-[color:var(--color-ink-2)]">
+          Password
+        </label>
+        <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
