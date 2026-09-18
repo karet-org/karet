@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { loadTableRowsDuckDB } from "@/lib/services/duckdb";
+import { withRole } from "@/lib/auth/guard";
 
-export async function GET(
+async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string; table: string }> },
 ) {
@@ -18,3 +19,5 @@ export async function GET(
     );
   }
 }
+
+export const GET = withRole(handleGet);

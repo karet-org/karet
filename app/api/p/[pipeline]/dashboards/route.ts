@@ -8,10 +8,11 @@ import {
   putDashboardV2,
 } from "@/lib/services/config-service";
 import { templateV2 } from "@/lib/types/dashboard-v2";
+import { withRole } from "@/lib/auth/guard";
 
 const ID_RE = /^[a-z0-9][a-z0-9-_]*$/;
 
-export async function GET(
+async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -35,7 +36,7 @@ export async function GET(
 }
 
 /** Creates a new draft dashboard from the v2 YAML template. */
-export async function POST(
+async function handlePost(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -57,3 +58,6 @@ export async function POST(
     return NextResponse.json({ ok: true, id }, { status: 201 });
   }, `POST /api/p/${pipeline}/dashboards`);
 }
+
+export const GET = withRole(handleGet);
+export const POST = withRole(handlePost);

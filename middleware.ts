@@ -2,9 +2,10 @@
 // 401 JSON, only /login and /api/auth/* are reachable unauthenticated. Session
 // verification uses Web Crypto so it runs in the Edge runtime.
 //
-// This gate proves a request carries a validly signed, unexpired session (or
-// the service token). Whether that account still exists, and what it may do, is
-// checked per route by `currentPrincipal()`, which can reach the user store.
+// This gate proves a request carries a validly signed, unexpired session (or the
+// service token), and that the role in it clears the bar for the request. The
+// claim is tamper-proof but can be stale, so `withRole` re-checks against the
+// user store in the handler, where a demotion or deletion is visible.
 
 import { NextResponse, type NextRequest } from "next/server";
 import {
@@ -13,6 +14,8 @@ import {
   verifySession,
 } from "@/lib/auth/session";
 import { serviceTokenPrincipal } from "@/lib/auth/service-token";
+import { requiredRole } from "@/lib/auth/policy";
+import { roleAtLeast } from "@/lib/auth/roles";
 
 export const config = {
   // Every request except Next internals and static assets; `middleware()` decides.
@@ -56,7 +59,26 @@ export async function middleware(request: NextRequest) {
   }
 
   const cookie = request.cookies.get(SESSION_COOKIE)?.value;
-  if (await verifySession(cookie, secret)) return NextResponse.next();
+  const claims = await verifySession(cookie, secret);
+  if (claims) {
+    const needed = requiredRole(request.method, pathname);
+    if (!needed || roleAtLeast(claims.role, needed)) return NextResponse.next();
+    if (isApi) {
+      return NextResponse.json(
+        {
+          error: "forbidden",
+          message: `this action needs the ${needed} role; you are ${claims.role}`,
+        },
+        { status: 403 },
+      );
+    }
+    // A page a role may not see is rare (pages are viewer-level); send them
+    // home rather than to the login form, which they would sail through.
+    const home = request.nextUrl.clone();
+    home.pathname = "/";
+    home.search = "";
+    return NextResponse.redirect(home);
+  }
 
   if (isApi) {
     return NextResponse.json(

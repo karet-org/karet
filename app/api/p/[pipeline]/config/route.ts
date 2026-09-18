@@ -5,8 +5,11 @@ import {
   PreconditionFailedError,
   putPipelineConfig,
 } from "@/lib/services/config-service";
+import { withRole } from "@/lib/auth/guard";
+import { validateConfigForSave } from "@/lib/graph/validateConfig";
+import type { PipelineConfig } from "@/lib/types/config";
 
-export async function GET(
+async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -25,7 +28,7 @@ export async function GET(
   }, `GET /api/p/${pipeline}/config`);
 }
 
-export async function PUT(
+async function handlePut(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -34,12 +37,28 @@ export async function PUT(
   const client = createS3Client(config);
 
   let body: string;
+  let parsed: unknown;
   try {
     body = await request.text();
-    JSON.parse(body);
+    parsed = JSON.parse(body);
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: `invalid_json: ${(err as Error).message}` },
+      { status: 422 },
+    );
+  }
+
+  // Valid JSON is not a valid pipeline. Writing `{}` here used to be accepted
+  // and left every read of the pipeline failing, so the same checks the editor
+  // runs before a save also run here.
+  const shapeError = configShapeError(parsed);
+  if (shapeError) {
+    return NextResponse.json({ ok: false, error: shapeError }, { status: 422 });
+  }
+  const errors = validateConfigForSave(parsed as PipelineConfig);
+  if (errors.length > 0) {
+    return NextResponse.json(
+      { ok: false, error: `invalid_config: ${errors.join("; ")}` },
       { status: 422 },
     );
   }
@@ -60,4 +79,19 @@ export async function PUT(
       throw err;
     }
   }, `PUT /api/p/${pipeline}/config`);
+}
+
+export const GET = withRole(handleGet);
+export const PUT = withRole(handlePut);
+
+/** The fields every config must carry, checked before the deeper pass. */
+function configShapeError(value: unknown): string | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return "invalid_config: expected a JSON object";
+  }
+  const cfg = value as Record<string, unknown>;
+  for (const field of ["source_containers", "dimensions", "mappings", "analytic_tables"]) {
+    if (!Array.isArray(cfg[field])) return `invalid_config: ${field} must be an array`;
+  }
+  return null;
 }

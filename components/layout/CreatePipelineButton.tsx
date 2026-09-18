@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Modal from "@/components/ui/Modal";
 import { IconPlus } from "@/components/icons";
+import { useCan } from "@/lib/client/use-current-user";
 
 type TemplateId = "blank" | "spending" | "traffic";
 
@@ -34,6 +35,7 @@ export default function CreatePipelineButton({
   variant?: "button" | "card";
 }) {
   const router = useRouter();
+  const canCreate = useCan("editor");
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [template, setTemplate] = useState<TemplateId>("spending");
@@ -80,6 +82,9 @@ export default function CreatePipelineButton({
       setSubmitting(false);
     }
   }
+
+  // A viewer would only get a 403 from /api/pipelines.
+  if (!canCreate) return null;
 
   return (
     <>

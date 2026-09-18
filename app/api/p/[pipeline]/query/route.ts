@@ -6,8 +6,9 @@ import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import { getPipelineConfig } from "@/lib/services/config-service";
 import { runPipelineQuery } from "@/lib/services/query-service";
+import { withRole } from "@/lib/auth/guard";
 
-export async function POST(
+async function handlePost(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -51,3 +52,5 @@ export async function POST(
     });
   }, `POST /api/p/${pipeline}/query`);
 }
+
+export const POST = withRole(handlePost);

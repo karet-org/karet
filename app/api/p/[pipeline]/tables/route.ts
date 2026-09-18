@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import { getPipelineConfig } from "@/lib/services/config-service";
 import { readManifest } from "@/lib/services/table-manifest";
+import { withRole } from "@/lib/auth/guard";
 
-export async function GET(
+async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -33,3 +34,5 @@ export async function GET(
     return NextResponse.json({ tables });
   }, `GET /api/p/${pipeline}/tables`);
 }
+
+export const GET = withRole(handleGet);

@@ -12,6 +12,7 @@ import {
   IconSignOut,
 } from "@/components/icons";
 import { cachedJson } from "@/lib/client/fetch-cache";
+import { useCurrentUser } from "@/lib/client/use-current-user";
 
 export default function RailUserMenu({
   displayName,
@@ -19,6 +20,7 @@ export default function RailUserMenu({
   displayName: string | null;
 }) {
   const router = useRouter();
+  const user = useCurrentUser();
   const [name, setName] = useState(displayName ?? "");
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -56,7 +58,8 @@ export default function RailUserMenu({
     };
   }, [menuOpen]);
 
-  const shown = name || "admin";
+  // The signed-in account, once known; the instance display name until then.
+  const shown = user?.username || name || "admin";
 
   return (
     <div ref={ref} className="relative">

@@ -3,8 +3,9 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import JSZip from "jszip";
 import { createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import { listAllObjectKeys, readBodyToBuffer } from "@/lib/services/s3-helpers";
+import { withRole } from "@/lib/auth/guard";
 
-export async function GET(
+async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -41,3 +42,5 @@ export async function GET(
     });
   }, `GET /api/p/${pipeline}/export`);
 }
+
+export const GET = withRole(handleGet);

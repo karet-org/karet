@@ -9,8 +9,9 @@ import {
   MAX_TOTAL_UNCOMPRESSED,
   MAX_ZIP_BYTES,
 } from "@/lib/services/import-validation";
+import { withRole } from "@/lib/auth/guard";
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const base = loadS3Config();
   const client = createS3Client(base);
 
@@ -101,3 +102,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, pipeline: slug });
   }, "POST /api/pipelines/import");
 }
+
+export const POST = withRole(handlePost);

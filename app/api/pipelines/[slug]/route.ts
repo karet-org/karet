@@ -12,9 +12,10 @@ import {
   putPipelineConfig,
 } from "@/lib/services/config-service";
 import { listAllObjectKeys } from "@/lib/services/s3-helpers";
+import { withRole } from "@/lib/auth/guard";
 
 /** Removes every object under `pipelines/<slug>/` in the pipelines and warehouse bucket. */
-export async function DELETE(
+async function handleDelete(
   _request: Request,
   context: { params: Promise<{ slug: string }> },
 ) {
@@ -59,7 +60,7 @@ export async function DELETE(
 }
 
 /** Renames the display name only; the id is immutable, so no objects move. */
-export async function PATCH(
+async function handlePatch(
   request: Request,
   context: { params: Promise<{ slug: string }> },
 ) {
@@ -93,3 +94,6 @@ export async function PATCH(
     return NextResponse.json({ ok: true, pipeline: safeSlug, name });
   }, `PATCH /api/pipelines/${safeSlug}`);
 }
+
+export const DELETE = withRole(handleDelete);
+export const PATCH = withRole(handlePatch);

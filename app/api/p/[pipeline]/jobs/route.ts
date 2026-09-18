@@ -5,6 +5,7 @@ import { listAllObjects, readBodyToBuffer } from "@/lib/services/s3-helpers";
 import { startJob } from "@/lib/services/job-runner";
 import { listLiveJobs, orderedJobIds, pickJobRecord } from "@/lib/services/live-jobs";
 import type { JobRecord } from "@/lib/types/jobs";
+import { withRole } from "@/lib/auth/guard";
 
 function jobsPrefix(pipeline: string): string {
   return `${loadS3Config().pipelinesPrefix}${pipeline}/jobs/`;
@@ -30,7 +31,7 @@ async function fetchJobRecord(
 }
 
 /** Paginated job history, newest first. */
-export async function GET(
+async function handleGet(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -95,7 +96,7 @@ export async function GET(
 }
 
 /** Triggers a job and returns immediately; it runs in this Node process. */
-export async function POST(
+async function handlePost(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -105,3 +106,6 @@ export async function POST(
   const job = await startJob({ pipeline, cleanRun, trigger: "manual" });
   return NextResponse.json({ job });
 }
+
+export const GET = withRole(handleGet);
+export const POST = withRole(handlePost);

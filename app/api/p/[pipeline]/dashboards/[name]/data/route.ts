@@ -7,11 +7,12 @@ import {
 } from "@/lib/services/config-service";
 import { coerceParams, executeDashboard } from "@/lib/services/dashboard-data";
 import type { SavedQuery } from "@/lib/types/query";
+import { withRole } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
 /** Batch data fetch for a v2 dashboard: all panel queries plus dropdown options. */
-export async function POST(
+async function handlePost(
   request: Request,
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
@@ -64,3 +65,5 @@ export async function POST(
     return NextResponse.json(data);
   }, `POST /api/p/${pipeline}/dashboards/${name}/data`);
 }
+
+export const POST = withRole(handlePost);

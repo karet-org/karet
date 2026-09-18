@@ -7,8 +7,9 @@ import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/l
 import { TargetExistsError, getPipelineConfig, listQueries, putQuery } from "@/lib/services/config-service";
 import { nameToSlug, runPipelineQuery } from "@/lib/services/query-service";
 import type { SavedQuery } from "@/lib/types/query";
+import { withRole } from "@/lib/auth/guard";
 
-export async function GET(
+async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -22,7 +23,7 @@ export async function GET(
   }, `GET /api/p/${pipeline}/queries`);
 }
 
-export async function POST(
+async function handlePost(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -76,3 +77,6 @@ export async function POST(
     return NextResponse.json(query, { status: 201 });
   }, `POST /api/p/${pipeline}/queries`);
 }
+
+export const GET = withRole(handleGet);
+export const POST = withRole(handlePost);

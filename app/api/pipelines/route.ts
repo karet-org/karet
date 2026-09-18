@@ -6,8 +6,9 @@ import { listPipelinesWithNames } from "@/lib/services/config-service";
 import { TEMPLATES, type TemplateId } from "@/lib/templates";
 import { isFileRows } from "@/lib/types/config";
 import type { PipelineConfig } from "@/lib/types/config";
+import { withRole } from "@/lib/auth/guard";
 
-export async function GET() {
+async function handleGet() {
   return withS3("GET /api/pipelines", async (client, config) => {
     const pipelines = await listPipelinesWithNames(client, config);
     return NextResponse.json({ pipelines });
@@ -31,7 +32,7 @@ function absolutizeSourcePrefixes(cfg: PipelineConfig, prefix: string): Pipeline
 }
 
 /** Creates a pipeline; the generated id is immutable, rename only edits `name`. */
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     name?: string;
     template?: TemplateId;
@@ -105,3 +106,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, pipeline: slug, name });
   });
 }
+
+export const GET = withRole(handleGet);
+export const POST = withRole(handlePost);
