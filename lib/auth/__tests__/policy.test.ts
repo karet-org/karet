@@ -41,6 +41,14 @@ describe("requiredRole", () => {
     expect(requiredRole("POST", "/api/pipelines/import")).toBe("editor");
   });
 
+  it("lets a viewer read table versions but only an editor restore one", () => {
+    expect(requiredRole("GET", "/api/p/demo/tables/requests/versions")).toBe("viewer");
+    expect(requiredRole("POST", "/api/p/demo/tables/requests/versions/3/restore")).toBe("editor");
+    expect(requiredRole("GET", "/api/p/demo/config/history")).toBe("viewer");
+    expect(requiredRole("GET", "/api/p/demo/config/history/2")).toBe("viewer");
+    expect(requiredRole("POST", "/api/p/demo/config/history/2/revert")).toBe("editor");
+  });
+
   it("needs an admin to delete or rename a pipeline, or change settings", () => {
     expect(requiredRole("DELETE", "/api/pipelines/demo")).toBe("admin");
     expect(requiredRole("PATCH", "/api/pipelines/demo")).toBe("admin");

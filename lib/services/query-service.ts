@@ -14,12 +14,14 @@ import { nameToSlug } from "@/lib/config/name-to-slug";
 export async function relationsForConfig(
   pipeline: string,
   config: PipelineConfig,
+  /** Per-table version to read as of; omitted tables read what is live. */
+  versions: Record<string, number> = {},
 ): Promise<QueryRelation[]> {
   const out: QueryRelation[] = [];
   const seen = new Set<string>();
   for (const t of config.analytic_tables) {
     // One manifest read per table, not per alias.
-    const source = await warehouseSource(pipeline, t.id);
+    const source = await warehouseSource(pipeline, t.id, versions[t.id]);
     if (!source) continue;
     for (const slug of new Set([nameToSlug(t.name), t.id])) {
       if (seen.has(slug)) continue;
@@ -36,9 +38,15 @@ export async function runPipelineQuery(
   pipeline: string,
   config: PipelineConfig,
   sql: string,
-  options: { validateOnly?: boolean; values?: (string | null)[] } = {},
+  options: {
+    validateOnly?: boolean;
+    values?: (string | null)[];
+    /** Per-table version to read as of; omitted tables read what is live. */
+    versions?: Record<string, number>;
+  } = {},
 ): ReturnType<typeof executeUserQuery> {
-  return executeUserQuery(await relationsForConfig(pipeline, config), sql, options);
+  const relations = await relationsForConfig(pipeline, config, options.versions);
+  return executeUserQuery(relations, sql, options);
 }
 
 /** Column names a query would produce against this pipeline's warehouse. */

@@ -17,7 +17,11 @@ async function handlePost(
   const cfg = pipelineS3Config(base, pipeline);
   const client = createS3Client(base);
 
-  const body = (await request.json().catch(() => null)) as { sql?: string } | null;
+  const body = (await request.json().catch(() => null)) as {
+    sql?: string;
+    /** Read a table as of a retained version: `{ "requests": 3 }`. */
+    versions?: Record<string, number>;
+  } | null;
   const sql = body?.sql?.trim();
   if (!sql) {
     return NextResponse.json(
@@ -39,7 +43,9 @@ async function handlePost(
       return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
     }
 
-    const result = await runPipelineQuery(pipeline, pcfg.config, sql);
+    const result = await runPipelineQuery(pipeline, pcfg.config, sql, {
+      versions: body?.versions,
+    });
 
     if ("error" in result) {
       return NextResponse.json({ error: "query_error", message: result.error }, { status: 400 });

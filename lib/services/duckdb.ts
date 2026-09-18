@@ -127,12 +127,16 @@ export async function warehouseSource(
   return `read_parquet([${list}], union_by_name = true, hive_partitioning = true)`;
 }
 
-/** Load a table's rows, or `[]` when it has no published output yet. */
+/**
+ * Load a table's rows, or `[]` when it has no published output yet. Pass a
+ * `version` to read a retained snapshot instead of what is live.
+ */
 export async function loadTableRowsDuckDB<T extends Record<string, unknown>>(
   slug: string,
   tableId: string,
+  version?: number,
 ): Promise<T[]> {
-  const source = await warehouseSource(slug, tableId);
+  const source = await warehouseSource(slug, tableId, version);
   if (!source) return [];
   try {
     return await query<T>(`SELECT * FROM ${source}`);
