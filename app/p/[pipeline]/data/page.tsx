@@ -7,7 +7,7 @@ import SqlEditor from "@/components/data/SqlEditor";
 import type { SavedQuery } from "@/lib/types/query";
 
 interface Column { name: string; type: string }
-interface TableInfo { id: string; name: string; schema: Column[]; fileCount: number }
+interface TableInfo { id: string; name: string; schema: Column[]; fileCount: number; version: number }
 
 import { nameToSlug } from "@/lib/config/name-to-slug";
 
@@ -99,7 +99,7 @@ export default function DataPage() {
     return tables.map((t) => {
       const key = `t:${t.id}`;
       const slug = nameToSlug(t.name);
-      const meta = `${t.fileCount} file${t.fileCount !== 1 ? "s" : ""}`;
+      const meta = `${t.fileCount} file${t.fileCount !== 1 ? "s" : ""}${t.version ? ` · v${t.version}` : ""}`;
       const owner = seen.get(slug);
       if (owner === undefined) {
         seen.set(slug, key);
