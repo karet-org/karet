@@ -9,6 +9,7 @@ import type {
 import { extractParams } from "@/lib/types/dashboard-v2";
 import type { SavedQuery } from "@/lib/types/query";
 import { runPipelineQuery } from "@/lib/services/query-service";
+import { getLiveConfig } from "@/lib/services/pipeline-store";
 
 const PANEL_ROW_CAP = 10_000;
 const OPTIONS_ROW_CAP = 500;
@@ -161,14 +162,14 @@ export async function fullDashboardGate(
   body: string,
 ): Promise<{ ok: boolean; errors: string[] }> {
   const { validateDashboardV2 } = await import("@/lib/types/dashboard-v2");
-  const { getPipelineConfig, getQuery } = await import("@/lib/services/config-service");
+  const { getQuery } = await import("@/lib/services/config-service");
 
   const result = validateDashboardV2(body);
   if (!result.ok) return { ok: false, errors: result.errors };
   if (result.config.id !== expectedId) {
     return { ok: false, errors: [`Config id "${result.config.id}" must match "${expectedId}"`] };
   }
-  const pipelineCfg = await getPipelineConfig(client, s3cfg);
+  const pipelineCfg = await getLiveConfig(pipeline);
   if (!pipelineCfg) return { ok: false, errors: ["Pipeline config not found"] };
 
   const referenced = [

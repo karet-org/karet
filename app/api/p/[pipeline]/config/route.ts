@@ -1,33 +1,29 @@
 import { NextResponse } from "next/server";
-import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import {
-  getPipelineConfig,
-  PreconditionFailedError,
-  putPipelineConfig,
-} from "@/lib/services/config-service";
 import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
-import { recordVersion } from "@/lib/services/config-history";
+import { findUserByUsername } from "@/lib/auth/users";
+import { getLiveConfig, pipelineExists, saveConfig } from "@/lib/services/pipeline-store";
 import { validateConfigForSave } from "@/lib/graph/validateConfig";
 import type { PipelineConfig } from "@/lib/types/config";
+
+export const dynamic = "force-dynamic";
 
 async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
   const { pipeline } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
-
-  return wrapS3Error(async () => {
-    const current = await getPipelineConfig(client, config);
-    if (current === null) {
-      return NextResponse.json({ error: "pipeline_config_not_found" }, { status: 404 });
-    }
-    const headers: Record<string, string> = {};
-    if (current.etag) headers.ETag = `"${current.etag}"`;
-    return NextResponse.json(current.config, { status: 200, headers });
-  }, `GET /api/p/${pipeline}/config`);
+  const live = await getLiveConfig(pipeline);
+  if (!live) {
+    return NextResponse.json({ error: "pipeline_config_not_found" }, { status: 404 });
+  }
+  return NextResponse.json(live.config, {
+    status: 200,
+    // The version replaces the S3 ETag as the concurrency token: an editor saves
+    // against the version it loaded, and a mismatch means someone else saved
+    // first.
+    headers: { "X-Karet-Config-Version": String(live.version) },
+  });
 }
 
 async function handlePut(
@@ -36,14 +32,10 @@ async function handlePut(
   principal: Principal,
 ) {
   const { pipeline } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
 
-  let body: string;
   let parsed: unknown;
   try {
-    body = await request.text();
-    parsed = JSON.parse(body);
+    parsed = JSON.parse(await request.text());
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: `invalid_json: ${(err as Error).message}` },
@@ -58,7 +50,8 @@ async function handlePut(
   if (shapeError) {
     return NextResponse.json({ ok: false, error: shapeError }, { status: 422 });
   }
-  const errors = validateConfigForSave(parsed as PipelineConfig);
+  const config = parsed as PipelineConfig;
+  const errors = validateConfigForSave(config);
   if (errors.length > 0) {
     return NextResponse.json(
       { ok: false, error: `invalid_config: ${errors.join("; ")}` },
@@ -66,27 +59,35 @@ async function handlePut(
     );
   }
 
-  const ifMatchHeader = request.headers.get("If-Match") ?? undefined;
-  const ifMatch = ifMatchHeader ? ifMatchHeader.replace(/^"|"$/g, "") : undefined;
+  if (!(await pipelineExists(pipeline))) {
+    return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
+  }
 
-  return wrapS3Error(async () => {
-    try {
-      const result = await putPipelineConfig(client, config, body, ifMatch);
-      // After the head lands, so a failed save leaves no phantom version.
-      const version = await recordVersion(client, config, pipeline, body, principal.username);
-      const headers: Record<string, string> = {};
-      if (result.etag) headers.ETag = `"${result.etag}"`;
+  // Optimistic concurrency: the editor sends the version it loaded.
+  const expected = request.headers.get("X-Karet-Config-Version");
+  if (expected !== null) {
+    const live = await getLiveConfig(pipeline);
+    if (live && String(live.version) !== expected) {
       return NextResponse.json(
-        { ok: true, etag: result.etag ?? null, version },
-        { status: 200, headers },
+        {
+          ok: false,
+          error: `stale_config: you loaded v${expected}, the live version is v${live.version}`,
+        },
+        { status: 412 },
       );
-    } catch (err) {
-      if (err instanceof PreconditionFailedError) {
-        return NextResponse.json({ ok: false, error: err.message }, { status: 412 });
-      }
-      throw err;
     }
-  }, `PUT /api/p/${pipeline}/config`);
+  }
+
+  const author = principal.service ? null : await findUserByUsername(principal.username);
+  const saved = await saveConfig(pipeline, config, {
+    id: author?.id ?? null,
+    name: principal.username,
+  });
+
+  return NextResponse.json(
+    { ok: true, version: saved.version, versionId: saved.versionId },
+    { status: 200, headers: { "X-Karet-Config-Version": String(saved.version) } },
+  );
 }
 
 export const GET = withRole(handleGet);

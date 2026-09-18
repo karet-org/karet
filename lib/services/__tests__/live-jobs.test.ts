@@ -164,6 +164,7 @@ describe.skipIf(!TEST_URL)("enqueueJob (integration)", () => {
       job_id: "job-web-int-1",
       pipeline: "web-int",
       prefix: "pipelines/web-int/",
+      config_version_id: null,
       clean_run: true,
       trigger: "manual",
       enqueued_at: 1760000000000,
