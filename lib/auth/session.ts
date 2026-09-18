@@ -1,13 +1,23 @@
-// Stateless session cookies: `<base64url({exp})>.<base64url(hmacSHA256)>`; a valid
-// HMAC over a fresh `exp` is the whole authorization signal (single-admin app).
+// Stateless session cookies: `<base64url(claims)>.<base64url(hmacSHA256)>`.
 // Web Crypto, so this module works in Edge middleware and Node handlers alike.
+//
+// The claims name the user (`sub`), their role, and a fingerprint of their
+// credential (`cv`). Middleware verifies the signature and expiry only, which
+// is all it can do at the edge without reading the user store; route handlers
+// call `currentUser()`, which additionally checks the user still exists and
+// that `cv` still matches, so a password change, a role change or a deleted
+// account takes effect without waiting for the cookie to expire.
 
 import { NextResponse } from "next/server";
+import { credentialVersion, isRole, type Role } from "./roles";
 
 export const SESSION_COOKIE = "karet_session";
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days.
 
-interface SessionPayload {
+export interface SessionClaims {
+  sub: string;
+  role: Role;
+  cv: string;
   exp: number;
 }
 
@@ -44,10 +54,11 @@ function timingSafeEqualBytes(a: Uint8Array, b: Uint8Array): boolean {
 
 export async function signSession(
   secret: string,
+  claims: Omit<SessionClaims, "exp">,
   ttlSeconds: number = SESSION_TTL_SECONDS,
 ): Promise<{ value: string; expiresAt: number }> {
   const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
-  const payload: SessionPayload = { exp: expiresAt };
+  const payload: SessionClaims = { ...claims, exp: expiresAt };
   const payloadBytes = new TextEncoder().encode(JSON.stringify(payload));
   const key = await hmacKey(secret);
   const sig = new Uint8Array(
@@ -59,14 +70,14 @@ export async function signSession(
   };
 }
 
-/** True iff `cookieValue` is a valid, non-expired session signed by `secret`. */
+/** The claims when `cookieValue` is a valid, non-expired session; null otherwise. */
 export async function verifySession(
   cookieValue: string | undefined,
   secret: string,
-): Promise<boolean> {
-  if (!cookieValue) return false;
+): Promise<SessionClaims | null> {
+  if (!cookieValue) return null;
   const dot = cookieValue.indexOf(".");
-  if (dot < 0) return false;
+  if (dot < 0) return null;
   const payloadB64 = cookieValue.slice(0, dot);
   const sigB64 = cookieValue.slice(dot + 1);
 
@@ -76,24 +87,27 @@ export async function verifySession(
     payloadBytes = base64UrlDecode(payloadB64);
     sigBytes = base64UrlDecode(sigB64);
   } catch {
-    return false;
+    return null;
   }
 
   const key = await hmacKey(secret);
   const expected = new Uint8Array(
     await crypto.subtle.sign("HMAC", key, payloadBytes),
   );
-  if (!timingSafeEqualBytes(sigBytes, expected)) return false;
+  if (!timingSafeEqualBytes(sigBytes, expected)) return null;
 
-  let parsed: SessionPayload;
+  let parsed: SessionClaims;
   try {
     parsed = JSON.parse(new TextDecoder().decode(payloadBytes));
   } catch {
-    return false;
+    return null;
   }
-  if (typeof parsed.exp !== "number") return false;
-  if (parsed.exp < Math.floor(Date.now() / 1000)) return false;
-  return true;
+  if (typeof parsed.sub !== "string" || parsed.sub.length === 0) return null;
+  if (!isRole(parsed.role)) return null;
+  if (typeof parsed.cv !== "string") return null;
+  if (typeof parsed.exp !== "number") return null;
+  if (parsed.exp < Math.floor(Date.now() / 1000)) return null;
+  return parsed;
 }
 
 /** `Set-Cookie` for a fresh session. Secure is opt-in: dev runs over plain
@@ -128,37 +142,44 @@ export function clearSessionCookieHeader(options: { secure: boolean }): string {
   return parts.join("; ");
 }
 
-/** Sign a fresh session; the cookie's `Secure` flag follows `request.url`'s protocol. */
-export async function issueSessionCookie(request: Request): Promise<NextResponse> {
-  const { value, expiresAt } = await signSession(getSessionSecret());
+/** Sign a fresh session for `user`; the cookie's `Secure` flag follows `request.url`. */
+export async function issueSessionCookie(
+  request: Request,
+  user: { username: string; role: Role; passwordHash: string },
+): Promise<NextResponse> {
+  const { value, expiresAt } = await signSession(getSessionSecret(), {
+    sub: user.username,
+    role: user.role,
+    cv: await credentialVersion(user),
+  });
   const secure = new URL(request.url).protocol === "https:";
-  const res = NextResponse.json({ ok: true });
+  const res = NextResponse.json({
+    ok: true,
+    user: { username: user.username, role: user.role },
+  });
   res.headers.set("Set-Cookie", sessionCookieHeader(value, expiresAt, { secure }));
   return res;
 }
 
 /**
  * Signing key material, or `null` when config is incomplete (callers fail
- * closed). Derived from the session secret AND the admin password hash, so
- * rotating the password invalidates every outstanding session. Edge-safe.
+ * closed). Per-user credential fingerprints live in the claims, so this no
+ * longer mixes in the admin hash: rotating one account's password must not sign
+ * every other account out. Edge-safe.
  */
 export function getSessionKeyMaterial(
   env: Record<string, string | undefined> = process.env,
 ): string | null {
   const secret = env.KARET_SESSION_SECRET;
-  const adminHash = env.KARET_ADMIN_PASSWORD_HASH;
   if (!secret || secret.length === 0) return null;
-  if (!adminHash || adminHash.length === 0) return null;
-  return `${secret}\n${adminHash}`;
+  return secret;
 }
 
 export function getSessionSecret(): string {
   const material = getSessionKeyMaterial();
   if (!material) {
     throw new Error(
-      "KARET_SESSION_SECRET / KARET_ADMIN_PASSWORD_HASH are not both set. " +
-        "Generate the secret with `openssl rand -base64 48` and the hash " +
-        "with `npm run hash-password`.",
+      "KARET_SESSION_SECRET is not set. Generate it with `openssl rand -base64 48`.",
     );
   }
   return material;
