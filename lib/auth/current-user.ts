@@ -1,38 +1,37 @@
 // Who is making this request, resolved server-side.
 //
-// Middleware can only check the cookie's signature and expiry at the edge. This
-// runs in Node handlers, where the user store is reachable, so it is the
-// authoritative check: the account must still exist and its credential
-// fingerprint must still match the one in the session.
+// Middleware can only see whether a session cookie exists. This runs in Node
+// handlers, where the database is reachable, so it is the authoritative check:
+// better-auth validates the session against the `session` table, which means a
+// deleted session or a demoted account is caught here rather than whenever a
+// cookie would have expired.
 //
-// Machine callers present the service token instead of a cookie; see
-// `service-token.ts`, which middleware also uses.
+// Machine callers present `Authorization: Bearer $KARET_WORKER_TOKEN` instead of
+// a cookie; see `service-token.ts`, which middleware also uses.
 
-import { cookies, headers } from "next/headers";
-import {
-  SESSION_COOKIE,
-  getSessionKeyMaterial,
-  verifySession,
-} from "@/lib/auth/session";
-import { credentialVersion } from "@/lib/auth/roles";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth/auth";
+import { isRole, type Role } from "@/lib/auth/roles";
 import { serviceTokenPrincipal, type Principal } from "@/lib/auth/service-token";
-import { findUser } from "@/lib/auth/users";
 
 export { serviceTokenPrincipal, type Principal };
 
 /** The caller, or null when unauthenticated. */
 export async function currentPrincipal(): Promise<Principal | null> {
-  const service = serviceTokenPrincipal((await headers()).get("authorization"));
+  const requestHeaders = await headers();
+
+  const service = serviceTokenPrincipal(requestHeaders.get("authorization"));
   if (service) return service;
 
-  const secret = getSessionKeyMaterial();
-  if (!secret) return null;
-  const claims = await verifySession((await cookies()).get(SESSION_COOKIE)?.value, secret);
-  if (!claims) return null;
+  const session = await auth.api.getSession({ headers: requestHeaders });
+  if (!session?.user) return null;
 
-  // The cookie says who they were; the store says who they are now.
-  const user = await findUser(claims.sub);
-  if (!user) return null;
-  if ((await credentialVersion(user)) !== claims.cv) return null;
-  return { username: user.username, role: user.role, service: false };
+  const username = session.user.username ?? session.user.name;
+  if (!username) return null;
+
+  // The column is constrained to the three roles, but a row could predate that
+  // constraint; treat anything unrecognised as the least privilege rather than
+  // trusting it.
+  const role: Role = isRole(session.user.role) ? session.user.role : "viewer";
+  return { username, role, service: false };
 }

@@ -13,6 +13,7 @@ import {
 } from "@/components/icons";
 import { cachedJson } from "@/lib/client/fetch-cache";
 import { useCurrentUser } from "@/lib/client/use-current-user";
+import { authClient } from "@/lib/client/auth-client";
 
 export default function RailUserMenu({
   displayName,
@@ -86,7 +87,7 @@ export default function RailUserMenu({
             onClick={async () => {
               setSigningOut(true);
               try {
-                await fetch("/api/auth/logout", { method: "POST" });
+                await authClient.signOut();
               } finally {
                 router.push("/login");
                 router.refresh();

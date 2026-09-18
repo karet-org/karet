@@ -7,15 +7,16 @@
     "node": "20.x"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/db-setup.mjs && next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/db-setup.mjs && next start",
     "lint": "next lint",
     "test": "vitest --run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
-    "hash-password": "node scripts/hash-password.mjs"
+    "hash-password": "node scripts/hash-password.mjs",
+    "db:setup": "node scripts/db-setup.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1009.0",
@@ -32,6 +33,7 @@
     "@tailwindcss/postcss": "^4.2.1",
     "@types/d3-sankey": "^0.12.5",
     "@xyflow/react": "^12.3.5",
+    "better-auth": "^1.7.5",
     "chart.js": "^4.5.1",
     "chartjs-chart-geo": "^4.3.6",
     "d3-sankey": "^0.12.3",
@@ -39,6 +41,7 @@
     "jszip": "^3.10.1",
     "leaflet": "1.9.4",
     "next": "^15.5.7",
+    "pg": "^8.23.0",
     "react": "^19.2.3",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.3",
@@ -54,6 +57,7 @@
     "@types/dagre": "^0.7.53",
     "@types/leaflet": "1.9.21",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "fast-check": "^4.6.0",

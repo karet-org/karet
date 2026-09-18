@@ -8,6 +8,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { KaretLogo } from "@/components/icons";
+import { authClient } from "@/lib/client/auth-client";
 
 export default function LoginPage() {
   return (
@@ -54,14 +55,14 @@ function LoginForm() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+      const { error: signInError } = await authClient.signIn.username({
+        username,
+        password,
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setError(body.message || "Incorrect username or password");
+      if (signInError) {
+        // Better-auth reports a generic failure for both a wrong username and a
+        // wrong password, which is what we want to show anyway.
+        setError(signInError.message || "Incorrect username or password");
         return;
       }
       router.push(next);
