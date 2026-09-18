@@ -61,57 +61,11 @@ function isNotFound(err: unknown): boolean {
 }
 
 // Pipelines
-
-/** Lists pipeline slugs by finding `pipeline.json` files under the pipelines prefix. */
-export async function listPipelines(
-  client: S3Client,
-  config: S3Config,
-): Promise<string[]> {
-  const allKeys = await listAllObjectKeys(client, config.pipelinesBucket, config.pipelinesPrefix);
-  const slugs: string[] = [];
-  for (const key of allKeys) {
-    if (!key.endsWith("/pipeline.json")) continue;
-    const rel = key.slice(config.pipelinesPrefix.length);
-    const slash = rel.indexOf("/");
-    if (slash === -1) continue;
-    const slug = rel.slice(0, slash);
-    if (slug && !slugs.includes(slug)) slugs.push(slug);
-  }
-  return slugs;
-}
-
 /** A pipeline's immutable id (slug, also the S3 prefix) plus its display name. */
 export interface PipelineListing {
   id: string;
   name: string;
 }
-
-/** Pipeline listing with display names from each `pipeline.json`; an unreadable
- * config lists under its id. Sorted by name. */
-export async function listPipelinesWithNames(
-  client: S3Client,
-  config: S3Config,
-): Promise<PipelineListing[]> {
-  const ids = await listPipelines(client, config);
-  const listings = await Promise.all(
-    ids.map(async (id): Promise<PipelineListing> => {
-      const scoped: S3Config = {
-        ...config,
-        pipelineConfigKey: `${config.pipelinesPrefix}${id}/pipeline.json`,
-      };
-      try {
-        const pc = await getPipelineConfig(client, scoped);
-        const name = pc?.config.name?.trim();
-        return { id, name: name && name.length > 0 ? name : id };
-      } catch {
-        return { id, name: id };
-      }
-    }),
-  );
-  listings.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
-  return listings;
-}
-
 // Pipeline_Config
 
 export interface PipelineConfigWithETag {
@@ -123,80 +77,6 @@ export interface PipelineConfigWithETag {
   /** S3 LastModified (ISO). Creation time until the config is next edited. */
   lastModified?: string;
 }
-
-/** Reads the Pipeline_Config from S3. Returns `null` if missing. */
-export async function getPipelineConfig(
-  client: S3Client,
-  config: S3Config,
-): Promise<PipelineConfigWithETag | null> {
-  try {
-    const response = await client.send(
-      new GetObjectCommand({
-        Bucket: config.pipelinesBucket,
-        Key: config.pipelineConfigKey,
-      }),
-    );
-    const body = await streamToString(response.Body);
-    // Pre-Dimension / pre-Rollup configs are upgraded here, so nothing
-    // downstream has to know about the old shape.
-    const parsed = normalizePipelineConfig(JSON.parse(body));
-    return {
-      config: parsed,
-      body,
-      etag: normalizeETag(response.ETag),
-      lastModified: response.LastModified?.toISOString(),
-    };
-  } catch (err) {
-    if (isNotFound(err)) return null;
-    throw err;
-  }
-}
-
-/**
- * Write the Pipeline_Config. `ifMatch` compare-and-swap runs against a fresh
- * GET (RustFS doesn't honor If-Match) and the returned ETag comes from a HEAD
- * after the PUT (the PutObject ETag can differ).
- */
-export async function putPipelineConfig(
-  client: S3Client,
-  config: S3Config,
-  body: string,
-  ifMatch?: string,
-): Promise<{ etag?: string }> {
-  if (ifMatch !== undefined) {
-    const current = await getPipelineConfig(client, config);
-    const currentEtag = current?.etag;
-    const normalizedIfMatch = normalizeETag(ifMatch);
-    if (currentEtag !== normalizedIfMatch) {
-      throw new PreconditionFailedError(
-        `ETag mismatch: expected ${normalizedIfMatch}, got ${currentEtag ?? "<none>"}`,
-      );
-    }
-  }
-
-  await client.send(
-    new PutObjectCommand({
-      Bucket: config.pipelinesBucket,
-      Key: config.pipelineConfigKey,
-      Body: body,
-      ContentType: "application/json",
-    }),
-  );
-
-  try {
-    const head = await client.send(
-      new HeadObjectCommand({
-        Bucket: config.pipelinesBucket,
-        Key: config.pipelineConfigKey,
-      }),
-    );
-    return { etag: normalizeETag(head.ETag) };
-  } catch {
-    // HEAD failure is non-fatal; the write itself succeeded.
-    return { etag: undefined };
-  }
-}
-
 // Dashboards
 
 

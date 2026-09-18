@@ -10,8 +10,12 @@ import {
   MAX_ZIP_BYTES,
 } from "@/lib/services/import-validation";
 import { withRole } from "@/lib/auth/guard";
+import type { Principal } from "@/lib/auth/service-token";
+import { findUserByUsername } from "@/lib/auth/users";
+import { createPipeline } from "@/lib/services/pipeline-store";
+import { normalizePipelineConfig } from "@/lib/config/migrate";
 
-async function handlePost(request: Request) {
+async function handlePost(request: Request, _context: unknown, principal: Principal) {
   const base = loadS3Config();
   const client = createS3Client(base);
 

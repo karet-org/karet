@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
-import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import { withRole } from "@/lib/auth/guard";
-import { getPipelineConfig } from "@/lib/services/config-service";
-import { readVersion } from "@/lib/services/config-history";
+import { getLiveConfig, getVersion } from "@/lib/services/pipeline-store";
 import { diffConfigs } from "@/lib/config/diff";
-import type { PipelineConfig } from "@/lib/types/config";
 
 export const dynamic = "force-dynamic";
 
@@ -19,21 +16,20 @@ async function handleGet(
     return NextResponse.json({ error: "invalid_version" }, { status: 400 });
   }
 
-  const base = loadS3Config();
-  const config = pipelineS3Config(base, pipeline);
-  const client = createS3Client(base);
+  const entry = await getVersion(pipeline, n);
+  if (!entry) return NextResponse.json({ error: "version_not_found" }, { status: 404 });
+  const live = await getLiveConfig(pipeline);
 
-  return wrapS3Error(async () => {
-    const entry = await readVersion(client, config, pipeline, n);
-    if (!entry) return NextResponse.json({ error: "version_not_found" }, { status: 404 });
-    const head = await getPipelineConfig(client, config);
-    return NextResponse.json({
-      ...entry,
-      diffFromCurrent: head
-        ? diffConfigs(head.config, entry.config as PipelineConfig)
-        : { changes: [], onlyLayout: false },
-    });
-  }, `GET /api/p/${pipeline}/config/history/${version}`);
+  return NextResponse.json({
+    version: entry.version,
+    saved_at: entry.createdAt,
+    author: entry.authorName,
+    note: entry.note ?? undefined,
+    config: entry.config,
+    diffFromCurrent: live
+      ? diffConfigs(live.config, entry.config)
+      : { changes: [], onlyLayout: false },
+  });
 }
 
 export const GET = withRole(handleGet);

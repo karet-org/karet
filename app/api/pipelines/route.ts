@@ -2,15 +2,18 @@ import { NextResponse } from "next/server";
 import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { bucketForRelPath, withS3 } from "@/lib/config/s3-client";
 import { newId } from "@/lib/config/id";
-import { listPipelinesWithNames } from "@/lib/services/config-service";
+
 import { TEMPLATES, type TemplateId } from "@/lib/templates";
 import { isFileRows } from "@/lib/types/config";
 import type { PipelineConfig } from "@/lib/types/config";
 import { withRole } from "@/lib/auth/guard";
+import type { Principal } from "@/lib/auth/service-token";
+import { findUserByUsername } from "@/lib/auth/users";
+import { createPipeline, listPipelines, pipelineExists } from "@/lib/services/pipeline-store";
 
 async function handleGet() {
   return withS3("GET /api/pipelines", async (client, config) => {
-    const pipelines = await listPipelinesWithNames(client, config);
+    const pipelines = (await listPipelines()).map((p) => ({ id: p.slug, name: p.name }));
     return NextResponse.json({ pipelines });
   });
 }
@@ -32,7 +35,7 @@ function absolutizeSourcePrefixes(cfg: PipelineConfig, prefix: string): Pipeline
 }
 
 /** Creates a pipeline; the generated id is immutable, rename only edits `name`. */
-async function handlePost(request: Request) {
+async function handlePost(request: Request, _context: unknown, principal: Principal) {
   const body = (await request.json().catch(() => null)) as {
     name?: string;
     template?: TemplateId;

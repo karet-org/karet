@@ -5,10 +5,7 @@ import {
   pipelineS3Config,
   type S3Config,
 } from "@/lib/config/s3-client";
-import {
-  getPipelineConfig,
-  listPipelines,
-} from "@/lib/services/config-service";
+
 import { listAllObjects, readBodyToBuffer, type ListedObject } from "@/lib/services/s3-helpers";
 import { GetObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import type { JobRecord } from "@/lib/types/jobs";
@@ -21,6 +18,8 @@ import type { ThumbGraph, ThumbNode } from "@/components/layout/DagThumbnail";
 import { buildGraph, NODE_TYPE } from "@/lib/graph/build";
 import { getUiSettings } from "@/lib/services/ui-settings";
 import { formatRelative } from "@/lib/format/relative-time";
+import { getLiveConfig, listPipelines } from "@/lib/services/pipeline-store";
+import { latestTerminalJob as loadLatestTerminalJob } from "@/lib/services/job-store";
 
 export const dynamic = "force-dynamic";
 
@@ -49,9 +48,11 @@ async function getPipelines(): Promise<PipelineResult> {
   try {
     const cfg = loadS3Config();
     const client = createS3Client(cfg);
-    const slugs = await listPipelines(client, cfg);
+    // The registry lists pipelines now, so one unparseable config can no
+    // longer take the whole landing page down.
+    const registered = await listPipelines();
     const summaries = await Promise.all(
-      slugs.map((slug) => loadSummary(client, cfg, slug)),
+      registered.map((p) => loadSummary(client, cfg, p.slug)),
     );
     return { pipelines: summaries };
   } catch (err) {
@@ -78,12 +79,9 @@ async function loadSummary(
 ): Promise<PipelineSummary> {
   const cfg = pipelineS3Config(base, slug);
   const [configResult, latestTerminalJob] = await Promise.all([
-    getPipelineConfig(client, cfg).catch(() => null),
-    loadLatestTerminalJob(
-      client,
-      base.pipelinesBucket,
-      `${base.pipelinesPrefix}${slug}/jobs/`,
-    ),
+    getLiveConfig(slug).catch(() => null),
+    // One indexed query instead of listing and reading job objects.
+    loadLatestTerminalJob(slug).catch(() => null),
   ]);
 
   // Only terminal runs count: `scheduled`/`running` collapse into the
@@ -129,45 +127,14 @@ async function loadSummary(
     name: c?.name?.trim() || slug,
     tableCount: c?.analytic_tables.length ?? 0,
     lastRunAt: latestTerminalJob?.startedAt ?? null,
-    activityAt: latestTerminalJob?.startedAt ?? configResult?.lastModified ?? null,
+    // No runs yet: fall back to when the live config was saved.
+    activityAt: latestTerminalJob?.startedAt ?? configResult?.createdAt ?? null,
     status,
     graph,
   };
 }
 
 /** Newest-first scan for the first `completed`/`failed` job, capped at 5 reads. */
-async function loadLatestTerminalJob(
-  client: S3Client,
-  bucket: string,
-  prefix: string,
-): Promise<JobRecord | null> {
-  let listed: ListedObject[];
-  try {
-    listed = await listAllObjects(client, bucket, prefix);
-  } catch {
-    return null;
-  }
-  // Newest-first by the record's write time; ids stay opaque.
-  const jsonKeys = listed
-    .filter((o) => o.key.endsWith(".json"))
-    .sort((a, b) => Date.parse(b.lastModified ?? "") - Date.parse(a.lastModified ?? ""))
-    .map((o) => o.key);
-  if (jsonKeys.length === 0) return null;
-  const limit = Math.min(jsonKeys.length, 5);
-  for (let i = 0; i < limit; i++) {
-    try {
-      const r = await client.send(
-        new GetObjectCommand({ Bucket: bucket, Key: jsonKeys[i] }),
-      );
-      const buf = await readBodyToBuffer(r.Body);
-      const job = JSON.parse(buf.toString("utf-8")) as JobRecord;
-      if (job.status === "completed" || job.status === "failed") return job;
-    } catch {
-      continue;
-    }
-  }
-  return null;
-}
 
 export default async function Home() {
   const [{ pipelines, bucketError, loadError }, settings] = await Promise.all([
