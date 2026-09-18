@@ -4,10 +4,15 @@
 
 import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import { TargetExistsError, getPipelineConfig, listQueries, putQuery } from "@/lib/services/config-service";
+import {
+  TargetExistsError,
+  listQueries,
+  putQuery,
+} from "@/lib/services/config-service";
 import { nameToSlug, runPipelineQuery } from "@/lib/services/query-service";
 import type { SavedQuery } from "@/lib/types/query";
 import { withRole } from "@/lib/auth/guard";
+import { getLiveConfig } from "@/lib/services/pipeline-store";
 
 async function handleGet(
   _request: Request,
@@ -47,7 +52,7 @@ async function handlePost(
   const query: SavedQuery = { id, name, sql };
 
   return wrapS3Error(async () => {
-    const pcfg = await getPipelineConfig(client, config);
+    const pcfg = await getLiveConfig(pipeline);
     if (!pcfg) {
       return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
     }
