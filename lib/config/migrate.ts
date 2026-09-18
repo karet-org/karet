@@ -1,5 +1,5 @@
 // Bring a stored config up to the current shape on read: configs written before
-// Dimensions replaced Lookups carry `lookup_mappings` and `lookup_ref`, and
+// Dimensions replaced Lookups carry `lookup_mappings` and `lookup_ref`, which
 // `buildGraph` would throw on the first one. Upgrading here means nothing
 // downstream knows about the old shape, and the upgrade persists on next save.
 // Mirrors `scripts/migrate-lookups-to-dimensions.mjs`, which does this in bulk.
