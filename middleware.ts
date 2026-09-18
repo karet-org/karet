@@ -1,31 +1,26 @@
-// Edge middleware login wall: browser routes redirect to /login, `/api/*` gets
-// 401 JSON, only /login and /api/auth/* are reachable unauthenticated. Session
-// verification uses Web Crypto so it runs in the Edge runtime.
+// Edge login wall: browser routes redirect to /login, `/api/*` gets 401 JSON,
+// and only /login and /api/auth/* are reachable without a session.
 //
-// This gate proves a request carries a validly signed, unexpired session (or the
-// service token), and that the role in it clears the bar for the request. The
-// claim is tamper-proof but can be stale, so `withRole` re-checks against the
-// user store in the handler, where a demotion or deletion is visible.
+// This is an optimistic gate, deliberately. Sessions live in Postgres now, which
+// Edge cannot reach, so middleware checks that a session cookie is present and
+// nothing more. Whether that session is still valid, whose it is, and what they
+// may do is decided by `withRole` in the route handler, where better-auth can
+// query the session table. A stale cookie therefore gets past this line and is
+// refused a few milliseconds later, which is the right trade: no database round
+// trip on static assets, no authorization decided on unverified input.
 
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  SESSION_COOKIE,
-  getSessionKeyMaterial,
-  verifySession,
-} from "@/lib/auth/session";
+import { getSessionCookie } from "better-auth/cookies";
 import { serviceTokenPrincipal } from "@/lib/auth/service-token";
-import { requiredRole } from "@/lib/auth/policy";
-import { roleAtLeast } from "@/lib/auth/roles";
 
 export const config = {
-  // Every request except Next internals and static assets; `middleware()` decides.
   matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.svg|opengraph-image.svg|manifest.webmanifest).*)"],
 };
 
 const PUBLIC_PATHS = ["/login"];
 const PUBLIC_API_PREFIXES = ["/api/auth/"];
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (
@@ -42,43 +37,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const secret = getSessionKeyMaterial();
-  if (!secret) {
-    // Missing configuration: fail closed rather than letting requests through
-    // (the startup check in `instrumentation.ts` should have caught this).
-    if (isApi) {
-      return NextResponse.json(
-        { error: "server_misconfigured", message: "KARET_SESSION_SECRET is not set" },
-        { status: 500 },
-      );
-    }
-    return new NextResponse(
-      "Server is misconfigured: session signing material is not set.",
-      { status: 500, headers: { "content-type": "text/plain" } },
-    );
-  }
-
-  const cookie = request.cookies.get(SESSION_COOKIE)?.value;
-  const claims = await verifySession(cookie, secret);
-  if (claims) {
-    const needed = requiredRole(request.method, pathname);
-    if (!needed || roleAtLeast(claims.role, needed)) return NextResponse.next();
-    if (isApi) {
-      return NextResponse.json(
-        {
-          error: "forbidden",
-          message: `this action needs the ${needed} role; you are ${claims.role}`,
-        },
-        { status: 403 },
-      );
-    }
-    // A page a role may not see is rare (pages are viewer-level); send them
-    // home rather than to the login form, which they would sail through.
-    const home = request.nextUrl.clone();
-    home.pathname = "/";
-    home.search = "";
-    return NextResponse.redirect(home);
-  }
+  if (getSessionCookie(request)) return NextResponse.next();
 
   if (isApi) {
     return NextResponse.json(
@@ -90,12 +49,8 @@ export async function middleware(request: NextRequest) {
   const loginUrl = request.nextUrl.clone();
   loginUrl.pathname = "/login";
   loginUrl.search = "";
-  // Don't loop /login → /login.
   if (pathname !== "/login") {
-    loginUrl.searchParams.set(
-      "next",
-      pathname + (request.nextUrl.search || ""),
-    );
+    loginUrl.searchParams.set("next", pathname + (request.nextUrl.search || ""));
   }
   return NextResponse.redirect(loginUrl);
 }

@@ -97,10 +97,10 @@ function routeFiles(dir: string): string[] {
 
 describe("every API route is guarded", () => {
   // The auth endpoints are the login wall itself: they must be reachable
-  // without a session, and they do their own checking.
+  // without a session, and they do their own checking. `[...all]` is
+  // better-auth's handler, which owns sign-in, sign-out and session reads.
   const EXEMPT = new Set([
-    join("app", "api", "auth", "login", "route.ts"),
-    join("app", "api", "auth", "logout", "route.ts"),
+    join("app", "api", "auth", "[...all]", "route.ts"),
     join("app", "api", "auth", "me", "route.ts"),
   ]);
 
