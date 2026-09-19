@@ -5,6 +5,10 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    // An unused local is usually an edit that did not land: four real bugs in
+    // this tree were silent no-ops whose only symptom was a variable nobody
+    // read. Failing the build on that is cheaper than finding them by hand.
+    "noUnusedLocals": true,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",

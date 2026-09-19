@@ -4,7 +4,7 @@
 // that services the subset of commands (`GetObject`, `PutObject`,
 // `ListObjectsV2`) we exercise.
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { Readable } from "node:stream";
 import {
   CopyObjectCommand,
@@ -26,11 +26,9 @@ import {
   listDashboardsV2,
   listDashboardsWithNamesV2,
   listQueries,
-  PreconditionFailedError,
   putQuery,
   TargetExistsError,
 } from "../config-service";
-import type { PipelineConfig } from "@/lib/types/config";
 
 // ---------------------------------------------------------------------------
 // In-memory S3 stub
@@ -143,36 +141,6 @@ const DEFAULT_CONFIG: S3Config = {
   queriesPrefix: "queries/",
   warehousePrefix: "",
   pipelinesPrefix: "pipelines/",
-};
-
-const SAMPLE_CONFIG: PipelineConfig = {
-  version: 1,
-  name: "Sample Pipeline",
-  source_containers: [
-    {
-      id: "visa",
-      name: "Visa",
-      path_prefix: "raw/visa/",
-      schema: [{ name: "date", type: "string" }],
-    },
-  ],
-  dimensions: [],
-  mappings: [
-    {
-      id: "visa_to_tx",
-      name: "Visa to TX",
-      source_container_id: "visa",
-      analytic_table_id: "transactions",
-      columns: [{ name: "date", expr: { kind: "col", name: "date" } }],
-    },
-  ],
-  analytic_tables: [
-    {
-      id: "transactions",
-      name: "Transactions",
-      schema: [{ name: "date", type: "date" }],
-    },
-  ],
 };
 
 // ---------------------------------------------------------------------------

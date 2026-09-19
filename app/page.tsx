@@ -1,14 +1,5 @@
-import {
-  createS3Client,
-  isNoSuchBucket,
-  loadS3Config,
-  pipelineS3Config,
-  type S3Config,
-} from "@/lib/config/s3-client";
+import { createS3Client, isNoSuchBucket, loadS3Config } from "@/lib/config/s3-client";
 
-import { listAllObjects, readBodyToBuffer, type ListedObject } from "@/lib/services/s3-helpers";
-import { GetObjectCommand, type S3Client } from "@aws-sdk/client-s3";
-import type { JobRecord } from "@/lib/types/jobs";
 import ImportButton from "@/components/layout/ImportButton";
 import CreatePipelineButton from "@/components/layout/CreatePipelineButton";
 import LandingRail, { MobileRailToggle } from "@/components/layout/LandingRail";
@@ -49,8 +40,6 @@ interface PipelineResult {
 
 async function getPipelines(): Promise<PipelineResult> {
   try {
-    const cfg = loadS3Config();
-    const client = createS3Client(cfg);
     // The registry lists pipelines now, so one unparseable config can no
     // longer take the whole landing page down. Members-only pipelines are
     // filtered out here rather than rendering cards that 404 when clicked.
@@ -62,7 +51,7 @@ async function getPipelines(): Promise<PipelineResult> {
       : ([] as string[]);
     const registered = await listPipelines(visible === "all" ? undefined : visible);
     const summaries = await Promise.all(
-      registered.map((p) => loadSummary(client, cfg, p.slug)),
+      registered.map((p) => loadSummary(p.slug)),
     );
     return { pipelines: summaries };
   } catch (err) {
@@ -82,12 +71,7 @@ async function getPipelines(): Promise<PipelineResult> {
   }
 }
 
-async function loadSummary(
-  client: S3Client,
-  base: S3Config,
-  slug: string,
-): Promise<PipelineSummary> {
-  const cfg = pipelineS3Config(base, slug);
+async function loadSummary(slug: string): Promise<PipelineSummary> {
   const [configResult, latestTerminalJob] = await Promise.all([
     getLiveConfig(slug).catch(() => null),
     // One indexed query instead of listing and reading job objects.

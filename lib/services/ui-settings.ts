@@ -89,17 +89,10 @@ export async function putUiSettings(
  * are dropped: they no longer exist, so the rail shouldn't link to them.
  */
 export async function starredListings(
-  client: S3Client,
-  config: S3Config,
   starred: string[],
 ): Promise<{ id: string; name: string }[]> {
   const listings = await Promise.all(
-    starred.map(async (id) => {
-      const scoped: S3Config = {
-        ...config,
-        pipelineConfigKey: `${config.pipelinesPrefix}${id}/pipeline.json`,
-      };
-      try {
+    starred.map(async (id) => {      try {
         const live = await getLiveConfig(id);
         if (!live) return null;
         return { id, name: live.config.name?.trim() || id };
