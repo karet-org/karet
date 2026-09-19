@@ -608,9 +608,16 @@ export default function DataPage() {
             No published versions yet.
           </p>
         ) : (
-          <table className="mt-4 w-full border-collapse text-sm" data-testid="table-versions">
+          <table className="mt-4 w-full table-fixed border-collapse text-sm" data-testid="table-versions">
+            <colgroup>
+              <col className="w-[110px]" />
+              <col className="w-[180px]" />
+              <col className="w-[80px]" />
+              <col className="w-[90px]" />
+              <col />
+            </colgroup>
             <thead>
-              <tr className="border-b border-[color:var(--color-rule)] text-left text-[11px] uppercase tracking-[0.05em] text-[color:var(--color-ink-3)]">
+              <tr className="border-b border-[color:var(--color-rule)] text-left text-[11px] text-[color:var(--color-ink-3)]">
                 <th className="py-1.5 pr-3 font-medium">Version</th>
                 <th className="py-1.5 pr-3 font-medium">Published</th>
                 <th className="py-1.5 pr-3 font-medium">Files</th>
