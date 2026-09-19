@@ -4,14 +4,12 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
-  HeadObjectCommand,
   NoSuchKey,
   PutObjectCommand,
   S3Client,
   S3ServiceException,
 } from "@aws-sdk/client-s3";
 import { type S3Config } from "../config/s3-client";
-import { normalizePipelineConfig } from "../config/migrate";
 import type { PipelineConfig } from "../types/config";
 import type { SavedQuery } from "../types/query";
 import { listAllObjectKeys, readBodyToBuffer } from "./s3-helpers";
@@ -38,15 +36,6 @@ async function streamToString(body: unknown): Promise<string> {
   return (await readBodyToBuffer(body)).toString("utf-8");
 }
 
-/**
- * Strip quotes and RustFS's alphabetic codec suffix (`<md5>-zstd`), which
- * flip-flops across reads and would break compare-and-swap. Numeric multipart
- * suffixes are preserved.
- */
-function normalizeETag(etag: string | undefined): string | undefined {
-  if (!etag) return undefined;
-  return etag.replace(/^"|"$/g, "").replace(/-[a-zA-Z]+$/, "");
-}
 
 function isNotFound(err: unknown): boolean {
   if (err instanceof NoSuchKey) return true;

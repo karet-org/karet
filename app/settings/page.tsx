@@ -12,7 +12,7 @@ export default async function SettingsPage() {
   const settings = await getUiSettings(client, config).catch(
     () => ({ displayName: "", workspaceName: "", starred: [] }),
   );
-  const starred = await starredListings(client, config, settings.starred).catch(() => []);
+  const starred = await starredListings(settings.starred).catch(() => []);
 
   return (
     <SearchProvider>

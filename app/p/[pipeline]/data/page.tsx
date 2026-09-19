@@ -641,7 +641,7 @@ export default function DataPage() {
                         onClick={() => void restoreVersion(v.version)}
                         disabled={restoring !== null}
                         data-testid={`restore-table-v${v.version}`}
-                        className="rounded px-2 py-1 text-xs font-medium text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink-2)] disabled:opacity-50"
+                        className={ghostButtonClass()}
                       >
                         {restoring === v.version ? "Restoring…" : "Restore"}
                       </button>

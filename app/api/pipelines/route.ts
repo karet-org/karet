@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { HeadObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { bucketForRelPath, withS3 } from "@/lib/config/s3-client";
 import { newId } from "@/lib/config/id";
 
@@ -61,15 +61,9 @@ async function handlePost(request: Request, _context: unknown, principal: Princi
     let slug = "";
     for (let attempt = 0; attempt < 3; attempt++) {
       const candidate = newId("p");
-      try {
-        await client.send(
-          new HeadObjectCommand({
-            Bucket: config.pipelinesBucket,
-            Key: `${config.pipelinesPrefix}${candidate}/pipeline.json`,
-          }),
-        );
-        // Exists (astronomically unlikely); draw again.
-      } catch {
+      // Uniqueness is the registry's primary key now, so ask it rather than
+      // probing for an object that no longer exists.
+      if (!(await pipelineExists(candidate))) {
         slug = candidate;
         break;
       }
@@ -81,17 +75,26 @@ async function handlePost(request: Request, _context: unknown, principal: Princi
     const prefix = `${config.pipelinesPrefix}${slug}/`;
 
     for (const [relPath, content] of Object.entries(template.files)) {
-      // Templates author source prefixes relative to the pipeline; stored
-      // configs use absolute lake keys, so render them here.
-      const body =
-        relPath === "pipeline.json"
-          ? { ...absolutizeSourcePrefixes(content as PipelineConfig, prefix), name }
-          : content;
+      if (relPath === "pipeline.json") {
+        // The config is the pipeline's first version in Postgres, not an object.
+        // Templates author source prefixes relative to the pipeline, so render
+        // them absolute here.
+        const author = principal.service
+          ? null
+          : await findUserByUsername(principal.username);
+        await createPipeline(
+          slug,
+          { ...absolutizeSourcePrefixes(content as PipelineConfig, prefix), name },
+          { id: author?.id ?? null, name: principal.username },
+        );
+        continue;
+      }
+      // Dashboards and saved queries stay in S3: documents edited as text.
       await client.send(
         new PutObjectCommand({
           Bucket: bucketForRelPath(config, relPath),
           Key: `${prefix}${relPath}`,
-          Body: JSON.stringify(body, null, 2),
+          Body: JSON.stringify(content, null, 2),
           ContentType: "application/json",
         }),
       );
