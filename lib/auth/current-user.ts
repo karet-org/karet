@@ -10,7 +10,7 @@
 // a cookie; see `service-token.ts`, which middleware also uses.
 
 import { headers } from "next/headers";
-import { auth } from "@/lib/auth/auth";
+import { getAuth } from "@/lib/auth/auth";
 import { isRole, type Role } from "@/lib/auth/roles";
 import { serviceTokenPrincipal, type Principal } from "@/lib/auth/service-token";
 
@@ -23,7 +23,7 @@ export async function currentPrincipal(): Promise<Principal | null> {
   const service = serviceTokenPrincipal(requestHeaders.get("authorization"));
   if (service) return service;
 
-  const session = await auth.api.getSession({ headers: requestHeaders });
+  const session = await getAuth().api.getSession({ headers: requestHeaders });
   if (!session?.user) return null;
 
   const username = session.user.username ?? session.user.name;
