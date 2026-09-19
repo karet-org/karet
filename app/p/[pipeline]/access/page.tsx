@@ -126,21 +126,21 @@ export default function AccessPage() {
             <div className="mt-3 flex flex-col gap-3">
               <Radio
                 name="visibility"
+                value="members"
+                checked={visibility === "members"}
+                disabled={busy}
+                onChange={() => void send({ visibility: "members" })}
+                label="Members only"
+                detail="Hidden from everyone except the people listed below. New pipelines start here."
+              />
+              <Radio
+                name="visibility"
                 value="instance"
                 checked={visibility === "instance"}
                 disabled={busy}
                 onChange={() => void send({ visibility: "instance" })}
                 label="Everyone"
                 detail="Anyone signed in sees this pipeline, at whatever role they hold."
-              />
-              <Radio
-                name="visibility"
-                value="members"
-                checked={visibility === "members"}
-                disabled={busy}
-                onChange={() => void send({ visibility: "members" })}
-                label="Members only"
-                detail="Hidden from everyone except the people listed below."
               />
             </div>
           </section>

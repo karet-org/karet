@@ -16,6 +16,12 @@ const HAS_DB = Boolean(process.env.DATABASE_URL);
 const suite = HAS_DB ? describe : describe.skip;
 
 const SLUG = "test-store-fixture";
+const OWNED_SLUG = "test-store-owned-fixture";
+
+/** Unique per run so a crashed run's leftovers cannot collide with this one. */
+function fixtureId(): string {
+  return `fixture-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function config(overrides: Partial<PipelineConfig> = {}): PipelineConfig {
   return {
@@ -43,16 +49,22 @@ function config(overrides: Partial<PipelineConfig> = {}): PipelineConfig {
 suite("pipeline store", () => {
   let store: typeof import("../pipeline-store");
   let db: typeof import("@/lib/db");
+  let access: typeof import("@/lib/auth/pipeline-access");
+  const createdUserIds: string[] = [];
 
   beforeAll(async () => {
     store = await import("../pipeline-store");
     db = await import("@/lib/db");
-    await db.query(`DELETE FROM pipelines WHERE slug = $1`, [SLUG]);
+    access = await import("@/lib/auth/pipeline-access");
+    await db.query(`DELETE FROM pipelines WHERE slug = ANY($1)`, [[SLUG, OWNED_SLUG]]);
   });
 
   afterAll(async () => {
     if (!HAS_DB) return;
-    await db.query(`DELETE FROM pipelines WHERE slug = $1`, [SLUG]);
+    await db.query(`DELETE FROM pipelines WHERE slug = ANY($1)`, [[SLUG, OWNED_SLUG]]);
+    if (createdUserIds.length) {
+      await db.query(`DELETE FROM "user" WHERE id = ANY($1)`, [createdUserIds]);
+    }
   });
 
   it("registers a pipeline with its first version live", async () => {
@@ -146,5 +158,39 @@ suite("pipeline store", () => {
     await store.deletePipeline(SLUG);
     expect(await store.getLiveConfig(SLUG)).toBeNull();
     expect(await store.listVersions(SLUG)).toEqual([]);
+  });
+
+  // A members-only default is only safe if creating a pipeline also grants the
+  // creator access to it, so the two are asserted together.
+  it("creates pipelines members-only, with the creator as admin", async () => {
+    const userId = fixtureId();
+    await db.query(
+      `INSERT INTO "user" (id, name, email, "emailVerified", username, "displayUsername", role)
+       VALUES ($1, 'owner-fixture', $2, true, $3, $3, 'editor')`,
+      [userId, `${userId}@karet.test`, userId],
+    );
+    createdUserIds.push(userId);
+
+    await store.createPipeline(OWNED_SLUG, config(), { id: userId, name: "owner-fixture" });
+
+    const row = await db.queryOne<{ visibility: string }>(
+      `SELECT visibility FROM pipelines WHERE slug = $1`,
+      [OWNED_SLUG],
+    );
+    expect(row?.visibility).toBe("members");
+
+    const members = await access.listMembers(OWNED_SLUG);
+    expect(members).toHaveLength(1);
+    expect(members[0].userId).toBe(userId);
+    expect(members[0].role).toBe("admin");
+
+    // What the grant buys: without it this editor would resolve to no access.
+    expect(
+      await access.effectiveRoleFor(
+        { username: "owner-fixture", role: "editor", service: false } as never,
+        OWNED_SLUG,
+        userId,
+      ),
+    ).toBe("admin");
   });
 });

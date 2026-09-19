@@ -7,10 +7,10 @@
 --
 -- Two additions cover both:
 --
---   * `pipelines.visibility` — `instance` (default) keeps today's behaviour:
---     everyone sees it at their instance role. `members` hides it from everyone
+--   * `pipelines.visibility` — `instance` keeps today's behaviour: everyone
+--     sees it at their instance role. `members` hides it from everyone
 --     except the people listed below, so a private pipeline is genuinely private
---     rather than merely read-only.
+--     rather than merely read-only. (0004 later made `members` the default.)
 --
 --   * `pipeline_members` — an explicit grant that replaces the instance role for
 --     that pipeline. It can widen (a viewer who edits one pipeline) or narrow (an

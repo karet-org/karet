@@ -4,13 +4,13 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { IconPlay } from "@/components/icons";
 import type { JobRecord } from "@/lib/types/jobs";
-import { useCan } from "@/lib/client/use-current-user";
+import { useCanHere } from "@/lib/client/use-current-user";
 
 type Job = JobRecord;
 
 export default function JobsPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
-  const canEdit = useCan("editor");
+  const canEdit = useCanHere(pipeline, "editor");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [running, setRunning] = useState(false);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);

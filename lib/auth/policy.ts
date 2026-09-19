@@ -80,8 +80,18 @@ export function requiredRole(method: string, pathname: string): Role | null {
  *
  * Here rather than in the guard so it stays a pure function of the path, with no
  * database or auth instance behind it.
+ *
+ * Two prefixes name one pipeline: `/api/p/<slug>/…` for everything inside it,
+ * and `/api/pipelines/<slug>` for renaming and deleting the thing itself. Both
+ * have to resolve here, or membership is ignored on exactly the two actions a
+ * pipeline's own admin most needs — the creator of a pipeline holds admin on it
+ * while being an editor everywhere else.
  */
 export function pipelineFromPath(pathname: string): string | null {
-  const match = /^\/api\/p\/([^/]+)(?:\/|$)/.exec(pathname);
-  return match ? decodeURIComponent(match[1]) : null;
+  const scoped = /^\/api\/p\/([^/]+)(?:\/|$)/.exec(pathname);
+  if (scoped) return decodeURIComponent(scoped[1]);
+  // `import` is a sibling route under the same prefix, not a slug.
+  const registry = /^\/api\/pipelines\/([^/]+)$/.exec(pathname);
+  if (registry && registry[1] !== "import") return decodeURIComponent(registry[1]);
+  return null;
 }
