@@ -1,8 +1,14 @@
 "use client";
 
-// Config history: who changed this pipeline, when, what it changed, and a way
-// back. Reverting writes the old config forward as a new version rather than
-// winding history back, so the trail stays append-only.
+// Config history: who changed this pipeline, when, and a way back.
+//
+// Inspecting a version shows how it differs from the live config, which is the
+// question worth answering: "what would change if I restored this". Diffs
+// between adjacent versions are not shown — they cost a read per version and
+// answer a question nobody asks.
+//
+// Reverting writes the old config forward as a new version rather than winding
+// history back, so the trail stays append-only.
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -15,7 +21,7 @@ interface VersionRow {
   saved_at: string;
   author: string;
   note?: string;
-  summary: string;
+  live: boolean;
 }
 
 interface VersionDetail {
@@ -109,8 +115,8 @@ export default function HistoryPage() {
         History
       </h1>
       <p className="mt-1 text-[13px] text-[color:var(--color-ink-3)]">
-        Every saved version of this pipeline&apos;s config, newest first. Layout-only
-        changes are recorded but not counted as changes.
+        Every saved version of this pipeline&apos;s config, newest first. Inspect one
+        to see how it differs from the version that is live.
       </p>
 
       {error ? (
@@ -133,7 +139,7 @@ export default function HistoryPage() {
               <th className="py-2 pr-3 font-medium">Version</th>
               <th className="py-2 pr-3 font-medium">Saved</th>
               <th className="py-2 pr-3 font-medium">Author</th>
-              <th className="py-2 pr-3 font-medium">Changes</th>
+              <th className="py-2 pr-3 font-medium">Note</th>
               <th className="py-2 font-medium" />
             </tr>
           </thead>
@@ -153,11 +159,8 @@ export default function HistoryPage() {
                 </td>
                 <td className="py-2 pr-3 whitespace-nowrap">{when(v.saved_at)}</td>
                 <td className="py-2 pr-3">{v.author}</td>
-                <td className="py-2 pr-3">
-                  {v.summary}
-                  {v.note ? (
-                    <span className="text-[color:var(--color-ink-3)]"> · {v.note}</span>
-                  ) : null}
+                <td className="py-2 pr-3 text-[color:var(--color-ink-3)]">
+                  {v.note ?? ""}
                 </td>
                 <td className="py-2 text-right whitespace-nowrap">
                   <button
@@ -198,22 +201,44 @@ export default function HistoryPage() {
               v{detail.version} · {detail.author} · {when(detail.saved_at)}
             </h2>
             <p className="mt-1 text-[12.5px] text-[color:var(--color-ink-3)]">
-              Difference from the config that is live now.
+              {current === null
+                ? "How this version differs from the live config."
+                : detail.version === current
+                  ? "This is the live config."
+                  : `What would change if you restored this over v${current}.`}
             </p>
             {detail.diffFromCurrent.changes.length === 0 ? (
               <p className="mt-3 text-sm text-[color:var(--color-ink-2)]">
-                Identical to the live config, apart from layout.
+                Identical to the live config, apart from node positions.
               </p>
             ) : (
-              <ul className="mt-3 list-inside list-disc text-[13px] text-[color:var(--color-ink-2)]">
+              <ul className="mt-3 space-y-1 text-[13px] text-[color:var(--color-ink-2)]">
                 {detail.diffFromCurrent.changes.map((c, i) => (
-                  <li key={i}>{changeLabel(c)}</li>
+                  <li key={i} className="flex gap-2">
+                    <span
+                      className={
+                        "mt-[0.35rem] h-1.5 w-1.5 shrink-0 rounded-full " +
+                        (c.kind === "added"
+                          ? "bg-[color:var(--color-leaf)]"
+                          : c.kind === "removed"
+                            ? "bg-[color:var(--color-rose-deep)]"
+                            : "bg-[color:var(--color-amber-deep)]")
+                      }
+                      aria-hidden
+                    />
+                    <span>{changeLabel(c)}</span>
+                  </li>
                 ))}
               </ul>
             )}
-            <pre className="mt-4 max-h-[38vh] overflow-auto rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)] p-3 text-[11.5px] leading-[1.5] text-[color:var(--color-ink-2)]">
-              {JSON.stringify(detail.config, null, 2)}
-            </pre>
+            <details className="mt-4">
+              <summary className="cursor-pointer text-[12px] font-medium text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink-2)]">
+                Full config
+              </summary>
+              <pre className="mt-2 max-h-[38vh] overflow-auto rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)] p-3 text-[11.5px] leading-[1.5] text-[color:var(--color-ink-2)]">
+                {JSON.stringify(detail.config, null, 2)}
+              </pre>
+            </details>
           </div>
         ) : null}
       </Modal>
