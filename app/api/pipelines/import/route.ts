@@ -73,18 +73,32 @@ async function handlePost(request: Request, _context: unknown, principal: Princi
       if (totalBytes > MAX_TOTAL_UNCOMPRESSED) {
         return NextResponse.json({ error: "zip_expands_too_large" }, { status: 413 });
       }
-      // Older exports carry no `name`; seed one so the pipeline never
+      // The config becomes the pipeline's first version in Postgres rather than
+      // an object. Older exports carry no `name`; seed one so the pipeline never
       // renders as its opaque id.
       if (relPath === "pipeline.json") {
         try {
-          const cfg = JSON.parse(data.toString("utf-8")) as { name?: string };
+          const cfg = normalizePipelineConfig(JSON.parse(data.toString("utf-8")));
           if (!cfg.name?.trim()) {
             cfg.name = fallbackName || `Imported ${new Date().toISOString().slice(0, 10)}`;
-            data = Buffer.from(JSON.stringify(cfg, null, 2));
           }
-        } catch {
-          // Stored as-is; validation is the graph page's job.
+          const author = principal.service
+            ? null
+            : await findUserByUsername(principal.username);
+          await createPipeline(slug, cfg, {
+            id: author?.id ?? null,
+            name: principal.username,
+          });
+        } catch (err) {
+          return NextResponse.json(
+            {
+              error: "invalid_pipeline_json",
+              message: `pipeline.json could not be imported: ${(err as Error).message}`,
+            },
+            { status: 422 },
+          );
         }
+        continue;
       }
       const key = `${prefix}${relPath}`;
       const contentType = relPath.endsWith(".json")

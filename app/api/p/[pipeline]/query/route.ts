@@ -3,7 +3,7 @@
 // slugified table name.
 
 import { NextResponse } from "next/server";
-import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import { wrapS3Error } from "@/lib/config/s3-client";
 
 import { runPipelineQuery } from "@/lib/services/query-service";
 import { withRole } from "@/lib/auth/guard";
@@ -14,9 +14,6 @@ async function handlePost(
   context: { params: Promise<{ pipeline: string }> },
 ) {
   const { pipeline } = await context.params;
-  const base = loadS3Config();
-  const cfg = pipelineS3Config(base, pipeline);
-  const client = createS3Client(base);
 
   const body = (await request.json().catch(() => null)) as {
     sql?: string;
