@@ -18,6 +18,7 @@ interface TableInfo { id: string; name: string; schema: Column[]; fileCount: num
 
 import { nameToSlug } from "@/lib/config/name-to-slug";
 import { useCan } from "@/lib/client/use-current-user";
+import { ghostButtonClass } from "@/components/ui/controls";
 
 interface Relation {
   key: string;
@@ -595,8 +596,8 @@ export default function DataPage() {
           {versionsFor?.name} versions
         </h2>
         <p className="mt-1 text-[12.5px] text-[color:var(--color-ink-3)]">
-          Snapshots the worker still keeps. Restoring one makes it live again without
-          copying any data, and the next run publishes on top of it.
+          Snapshots the worker still keeps. Restoring one makes it live again; no data
+          is copied.
         </p>
         {versionsError ? (
           <p className="mt-3 text-sm text-[color:var(--color-rose-deep)]" role="alert">

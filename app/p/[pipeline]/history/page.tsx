@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Modal from "@/components/ui/Modal";
 import { useCan } from "@/lib/client/use-current-user";
+import { ghostButtonClass, primaryButtonClass } from "@/components/ui/controls";
 import type { UnifiedDiff } from "@/lib/config/text-diff";
 
 interface VersionRow {
@@ -161,16 +162,21 @@ export default function HistoryPage() {
                   <button
                     type="button"
                     onClick={() => void openDetail(v.version)}
-                    className="rounded-md px-2 py-1 text-xs font-medium text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink-2)]"
+                    className={ghostButtonClass()}
                   >
                     Inspect
                   </button>
+                  {canEdit && v.version === current && (
+                    <span className="ml-1 inline-block px-2 py-1 text-xs text-[color:var(--color-ink-4)]">
+                      in use
+                    </span>
+                  )}
                   {canEdit && v.version !== current && (
                     <button
                       type="button"
                       onClick={() => setRevertTarget(v.version)}
                       data-testid={`revert-v${v.version}`}
-                      className="ml-1 rounded-md px-2 py-1 text-xs font-medium text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink-2)]"
+                      className={ghostButtonClass("ml-1")}
                     >
                       Restore
                     </button>
@@ -234,7 +240,7 @@ export default function HistoryPage() {
                                 : "text-[color:var(--color-ink-3)]")
                           }
                         >
-                          <span className="select-none text-[color:var(--color-ink-4)]">
+                          <span className="select-none pr-2 text-[color:var(--color-ink-3)]">
                             {line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " "}
                           </span>
                           {line.text}
@@ -255,14 +261,14 @@ export default function HistoryPage() {
             Restore v{revertTarget}?
           </h2>
           <p className="mt-2 text-[13px] text-[color:var(--color-ink-2)]">
-            This saves v{revertTarget}&apos;s config as a new version, so the current
-            one stays in the history. The next run uses the restored config.
+            v{revertTarget} becomes the live config, and the current one stays in
+            history.
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setRevertTarget(null)}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)]"
+              className={ghostButtonClass("px-3 py-1.5 text-sm")}
             >
               Cancel
             </button>
@@ -271,7 +277,7 @@ export default function HistoryPage() {
               onClick={() => void confirmRevert()}
               disabled={reverting}
               data-testid="confirm-revert"
-              className="rounded-md bg-[color:var(--color-carrot)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+              className={primaryButtonClass("text-sm")}
             >
               {reverting ? "Restoring…" : "Restore"}
             </button>
