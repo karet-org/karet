@@ -14,14 +14,14 @@ const service = { role: "admin" as const, service: true };
 
 describe("resolveEffectiveRole", () => {
   it("falls back to the instance role on an ordinary pipeline", () => {
-    const open = { visibility: "instance" as const, memberRole: null };
+    const open = { visibility: "instance" as const, memberRole: null, isOwner: false };
     expect(resolveEffectiveRole(viewer, open)).toBe("viewer");
     expect(resolveEffectiveRole(editor, open)).toBe("editor");
   });
 
   it("lets a grant widen: a viewer who edits one pipeline", () => {
     expect(
-      resolveEffectiveRole(viewer, { visibility: "instance", memberRole: "editor" }),
+      resolveEffectiveRole(viewer, { visibility: "instance", memberRole: "editor", isOwner: false }),
     ).toBe("editor");
   });
 
@@ -29,36 +29,48 @@ describe("resolveEffectiveRole", () => {
     // The reason this feature exists. A grant is the more specific statement, so
     // it wins over the instance role in both directions.
     expect(
-      resolveEffectiveRole(editor, { visibility: "instance", memberRole: "viewer" }),
+      resolveEffectiveRole(editor, { visibility: "instance", memberRole: "viewer", isOwner: false }),
     ).toBe("viewer");
   });
 
   it("hides a members-only pipeline from non-members entirely", () => {
-    const closed = { visibility: "members" as const, memberRole: null };
+    const closed = { visibility: "members" as const, memberRole: null, isOwner: false };
     expect(resolveEffectiveRole(viewer, closed)).toBeNull();
     expect(resolveEffectiveRole(editor, closed)).toBeNull();
   });
 
   it("admits members of a members-only pipeline at their granted role", () => {
     expect(
-      resolveEffectiveRole(viewer, { visibility: "members", memberRole: "editor" }),
+      resolveEffectiveRole(viewer, { visibility: "members", memberRole: "editor", isOwner: false }),
     ).toBe("editor");
     expect(
-      resolveEffectiveRole(editor, { visibility: "members", memberRole: "viewer" }),
+      resolveEffectiveRole(editor, { visibility: "members", memberRole: "viewer", isOwner: false }),
     ).toBe("viewer");
   });
 
   it("keeps instance admins admin everywhere", () => {
     // An access list that can lock the operator out of a pipeline is a way to
     // lose a pipeline.
-    expect(resolveEffectiveRole(admin, { visibility: "members", memberRole: null })).toBe("admin");
-    expect(resolveEffectiveRole(admin, { visibility: "members", memberRole: "viewer" })).toBe(
+    expect(resolveEffectiveRole(admin, { visibility: "members", memberRole: null, isOwner: false })).toBe("admin");
+    expect(resolveEffectiveRole(admin, { visibility: "members", memberRole: "viewer", isOwner: false })).toBe(
       "admin",
     );
   });
 
+  it("keeps the owner admin on their own pipeline, whatever the list says", () => {
+    // Their access is read from `owner_id`, so it cannot be revoked or narrowed
+    // by an edit to the member list, including their own. Handing the pipeline to
+    // somebody else is the way it ends.
+    const mine = { visibility: "members" as const, isOwner: true };
+    expect(resolveEffectiveRole(viewer, { ...mine, memberRole: null })).toBe("admin");
+    expect(resolveEffectiveRole(editor, { ...mine, memberRole: "viewer" })).toBe("admin");
+    expect(
+      resolveEffectiveRole(viewer, { visibility: "instance", memberRole: null, isOwner: true }),
+    ).toBe("admin");
+  });
+
   it("treats the service token as admin, since nothing grants it membership", () => {
-    expect(resolveEffectiveRole(service, { visibility: "members", memberRole: null })).toBe("admin");
+    expect(resolveEffectiveRole(service, { visibility: "members", memberRole: null, isOwner: false })).toBe("admin");
   });
 });
 

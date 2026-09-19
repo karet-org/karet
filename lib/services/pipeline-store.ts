@@ -191,9 +191,9 @@ export async function saveConfig(
 /**
  * Register a pipeline and store its first config version.
  *
- * New pipelines are members-only (0004), so the creator is granted admin here.
- * Without that grant an editor would create a pipeline and immediately 404 on
- * it, and nobody but an instance admin could hand it back.
+ * New pipelines are members-only (0004), so the creator is recorded as the owner
+ * and granted admin here. Without that an editor would create a pipeline and
+ * immediately 404 on it, and nobody but an instance admin could hand it back.
  */
 export async function createPipeline(
   slug: string,
@@ -201,7 +201,7 @@ export async function createPipeline(
   author: { id: string | null; name: string },
 ): Promise<SaveResult> {
   await query(
-    `INSERT INTO pipelines (slug, name, created_by) VALUES ($1, $2, $3)
+    `INSERT INTO pipelines (slug, name, created_by, owner_id) VALUES ($1, $2, $3, $3)
      ON CONFLICT (slug) DO NOTHING`,
     [slug, config.name ?? slug, author.id],
   );
