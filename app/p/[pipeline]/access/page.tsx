@@ -86,8 +86,8 @@ export default function AccessPage() {
         Access
       </h1>
       <p className="mt-1 text-[13px] text-[color:var(--color-ink-3)]">
-        Who may use this pipeline, and at what level. Instance admins always have
-        full access regardless of what is listed here.
+        Who may use this pipeline, and at what level. Admins always have full access,
+        whatever is listed here.
       </p>
 
       {error ? (
@@ -108,7 +108,7 @@ export default function AccessPage() {
             <div className="mt-3 flex flex-col gap-2.5">
               {(
                 [
-                  ["instance", "Everyone", "Any signed-in account sees this pipeline at its own instance role."],
+                  ["instance", "Everyone", "Anyone signed in sees this pipeline, at whatever role they hold."],
                   ["members", "Members only", "Hidden from everyone except the people listed below."],
                 ] as const
               ).map(([value, label, detail]) => (
@@ -136,8 +136,8 @@ export default function AccessPage() {
               People with explicit access
             </h2>
             <p className="mt-1 text-[12px] text-[color:var(--color-ink-3)]">
-              A grant replaces that person&apos;s instance role here, so it can widen
-              or narrow what they may do.
+              A grant replaces that person&apos;s usual role on this pipeline, so it can
+              give them more or less than they have elsewhere.
             </p>
 
             {members.length === 0 ? (

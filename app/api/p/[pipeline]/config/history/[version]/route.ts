@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { withRole } from "@/lib/auth/guard";
 import { getLiveConfig, getVersion } from "@/lib/services/pipeline-store";
-import { diffConfigs } from "@/lib/config/diff";
+import { unifiedConfigDiff } from "@/lib/config/text-diff";
 
 export const dynamic = "force-dynamic";
 
-/** One saved version, plus how it differs from what is live now. */
+/**
+ * One saved version, and a unified diff against the live config.
+ *
+ * Computed here rather than in the browser so the canonicalisation rules — sorted
+ * keys, node positions dropped — live in one place with tests around them, and so
+ * the client does not have to fetch two configs to show one diff.
+ */
 async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string; version: string }> },
@@ -25,10 +31,10 @@ async function handleGet(
     saved_at: entry.createdAt,
     author: entry.authorName,
     note: entry.note ?? undefined,
-    config: entry.config,
-    diffFromCurrent: live
-      ? diffConfigs(live.config, entry.config)
-      : { changes: [], onlyLayout: false },
+    live: entry.live,
+    liveVersion: live?.version ?? null,
+    // From live to this version, so it reads as "what restoring would change".
+    diff: unifiedConfigDiff(live?.config ?? null, entry.config),
   });
 }
 

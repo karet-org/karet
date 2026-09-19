@@ -14,7 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Modal from "@/components/ui/Modal";
 import { useCan } from "@/lib/client/use-current-user";
-import type { EntityChange } from "@/lib/config/diff";
+import type { UnifiedDiff } from "@/lib/config/text-diff";
 
 interface VersionRow {
   version: number;
@@ -29,8 +29,9 @@ interface VersionDetail {
   saved_at: string;
   author: string;
   note?: string;
-  config: unknown;
-  diffFromCurrent: { changes: EntityChange[]; onlyLayout: boolean };
+  live: boolean;
+  liveVersion: number | null;
+  diff: UnifiedDiff;
 }
 
 function when(iso: string): string {
@@ -38,12 +39,6 @@ function when(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
-function changeLabel(c: EntityChange): string {
-  const who = c.name ? `${c.entity} "${c.name}"` : `${c.entity} ${c.id}`;
-  if (c.kind === "added") return `Added ${who}`;
-  if (c.kind === "removed") return `Removed ${who}`;
-  return `Changed ${who}${c.fields?.length ? ` (${c.fields.join(", ")})` : ""}`;
-}
 
 export default function HistoryPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
@@ -115,8 +110,8 @@ export default function HistoryPage() {
         History
       </h1>
       <p className="mt-1 text-[13px] text-[color:var(--color-ink-3)]">
-        Every saved version of this pipeline&apos;s config, newest first. Inspect one
-        to see how it differs from the version that is live.
+        Every saved version of this config, newest first. Inspect one to see how it
+        differs from the live version.
       </p>
 
       {error ? (
@@ -197,48 +192,59 @@ export default function HistoryPage() {
           <p className="text-sm text-[color:var(--color-rose-deep)]">{detailError}</p>
         ) : detail ? (
           <div className="max-h-[70vh] overflow-auto">
-            <h2 className="text-[15px] font-semibold text-[color:var(--color-ink)]">
-              v{detail.version} · {detail.author} · {when(detail.saved_at)}
-            </h2>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="text-[15px] font-semibold text-[color:var(--color-ink)]">
+                v{detail.version}, saved by {detail.author} on {when(detail.saved_at)}
+              </h2>
+              {!detail.diff.identical && (
+                <span className="font-mono text-[12px]">
+                  <span className="text-[color:var(--color-leaf)]">+{detail.diff.additions}</span>
+                  {" "}
+                  <span className="text-[color:var(--color-rose-deep)]">−{detail.diff.deletions}</span>
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-[12.5px] text-[color:var(--color-ink-3)]">
-              {current === null
-                ? "How this version differs from the live config."
-                : detail.version === current
-                  ? "This is the live config."
-                  : `What would change if you restored this over v${current}.`}
+              {detail.live
+                ? "This is the live config."
+                : `Changes restoring this would make to the live config (v${detail.liveVersion ?? "?"}). Node positions are ignored.`}
             </p>
-            {detail.diffFromCurrent.changes.length === 0 ? (
+
+            {detail.diff.identical ? (
               <p className="mt-3 text-sm text-[color:var(--color-ink-2)]">
-                Identical to the live config, apart from node positions.
+                No differences from the live config.
               </p>
             ) : (
-              <ul className="mt-3 space-y-1 text-[13px] text-[color:var(--color-ink-2)]">
-                {detail.diffFromCurrent.changes.map((c, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span
-                      className={
-                        "mt-[0.35rem] h-1.5 w-1.5 shrink-0 rounded-full " +
-                        (c.kind === "added"
-                          ? "bg-[color:var(--color-leaf)]"
-                          : c.kind === "removed"
-                            ? "bg-[color:var(--color-rose-deep)]"
-                            : "bg-[color:var(--color-amber-deep)]")
-                      }
-                      aria-hidden
-                    />
-                    <span>{changeLabel(c)}</span>
-                  </li>
+              <div className="mt-3 overflow-x-auto rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)]">
+                {detail.diff.hunks.map((hunk, hi) => (
+                  <div key={hi} className="border-b border-[color:var(--color-rule-soft)] last:border-b-0">
+                    <div className="bg-[color:var(--color-surface)] px-3 py-1 font-mono text-[11px] text-[color:var(--color-ink-3)]">
+                      {hunk.header}
+                    </div>
+                    <pre className="m-0 whitespace-pre px-0 py-1 font-mono text-[11.5px] leading-[1.55]">
+                      {hunk.lines.map((line, li) => (
+                        <div
+                          key={li}
+                          className={
+                            "px-3 " +
+                            (line.kind === "added"
+                              ? "bg-[color:var(--color-leaf-soft)] text-[color:var(--color-ink)]"
+                              : line.kind === "removed"
+                                ? "bg-[color:var(--color-rose-soft)] text-[color:var(--color-ink)]"
+                                : "text-[color:var(--color-ink-3)]")
+                          }
+                        >
+                          <span className="select-none text-[color:var(--color-ink-4)]">
+                            {line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " "}
+                          </span>
+                          {line.text}
+                        </div>
+                      ))}
+                    </pre>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
-            <details className="mt-4">
-              <summary className="cursor-pointer text-[12px] font-medium text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink-2)]">
-                Full config
-              </summary>
-              <pre className="mt-2 max-h-[38vh] overflow-auto rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)] p-3 text-[11.5px] leading-[1.5] text-[color:var(--color-ink-2)]">
-                {JSON.stringify(detail.config, null, 2)}
-              </pre>
-            </details>
           </div>
         ) : null}
       </Modal>
@@ -249,8 +255,8 @@ export default function HistoryPage() {
             Restore v{revertTarget}?
           </h2>
           <p className="mt-2 text-[13px] text-[color:var(--color-ink-2)]">
-            This writes v{revertTarget}&apos;s config forward as a new version, so the
-            current one stays in the history. The next run uses the restored config.
+            This saves v{revertTarget}&apos;s config as a new version, so the current
+            one stays in the history. The next run uses the restored config.
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <button

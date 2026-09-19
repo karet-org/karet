@@ -45,9 +45,14 @@ export function syntheticEmail(user: string): string {
   return `${user.toLowerCase()}@${USERNAME_EMAIL_DOMAIN}`;
 }
 
-export const auth = betterAuth({
-  // A getter, so importing this module does not require a reachable database —
-  // pure helpers downstream of it stay unit-testable.
+/**
+ * Built by a function so its type is inferred rather than declared: better-auth's
+ * `Auth` is generic over the exact options, and widening it to `BetterAuthOptions`
+ * loses the additional fields — `username` and `role` would vanish from the
+ * session type.
+ */
+function build() {
+  return betterAuth({
   database: authPool(),
   secret: process.env.BETTER_AUTH_SECRET ?? process.env.KARET_SESSION_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
@@ -88,6 +93,22 @@ export const auth = betterAuth({
     useSecureCookies: (process.env.BETTER_AUTH_URL ?? "").startsWith("https:"),
   },
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"],
-});
+  });
+}
+
+let instance: ReturnType<typeof build> | null = null;
+
+/**
+ * The auth instance, built on first use.
+ *
+ * Not a module-level constant: `next build` imports every route to collect page
+ * data, and constructing this reads DATABASE_URL, so a top-level instance would
+ * make the build require a database URL it has no business knowing. Deferring to
+ * the first request also keeps pure helpers downstream unit-testable.
+ */
+export function getAuth(): ReturnType<typeof build> {
+  instance ??= build();
+  return instance;
+}
 
 export const VALID_ROLES = ROLES;
