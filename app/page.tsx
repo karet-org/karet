@@ -175,14 +175,14 @@ export default async function Home() {
 
   return (
     <SearchProvider>
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <LandingRail
         displayName={settings.displayName}
         workspaceName={settings.workspaceName}
         starred={starred}
       />
-      <main className="min-w-0 flex-1">
-        <div className="sticky top-0 z-20 flex h-[52px] items-center justify-between border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 sm:px-6">
+      <main className="flex min-w-0 flex-1 flex-col">
+        <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             <MobileRailToggle
               displayName={settings.displayName}
@@ -199,7 +199,7 @@ export default async function Home() {
           </div>
         </div>
 
-        <div className="px-4 py-5 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
           {bucketError ? (
             <div
               className="rounded-md border border-[color:var(--color-rose-soft)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]"
