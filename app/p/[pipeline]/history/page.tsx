@@ -53,21 +53,27 @@ export default function HistoryPage() {
   const [revertTarget, setRevertTarget] = useState<number | null>(null);
   const [reverting, setReverting] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/p/${pipeline}/config/history`);
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.message || body.error || `HTTP ${res.status}`);
-      setVersions(body.versions ?? []);
-      setCurrent(body.current ?? null);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [pipeline]);
+  // `quiet` for the reload after a revert: the table is already on screen and the
+  // reader is looking at it, so replacing it with "Loading…" loses their place to
+  // show them nothing they did not already know.
+  const load = useCallback(
+    async (opts?: { quiet?: boolean }) => {
+      if (!opts?.quiet) setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/p/${pipeline}/config/history`);
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.message || body.error || `HTTP ${res.status}`);
+        setVersions(body.versions ?? []);
+        setCurrent(body.current ?? null);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        if (!opts?.quiet) setLoading(false);
+      }
+    },
+    [pipeline],
+  );
 
   useEffect(() => {
     void load();
@@ -97,7 +103,7 @@ export default function HistoryPage() {
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       setRevertTarget(null);
       setDetail(null);
-      await load();
+      await load({ quiet: true });
     } catch (err) {
       setDetailError((err as Error).message);
     } finally {

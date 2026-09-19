@@ -33,6 +33,13 @@ interface Account {
   role: Role;
 }
 
+/** What a read or a write reports back about this pipeline's access. */
+interface AccessState {
+  visibility: "instance" | "members";
+  owner: string | null;
+  members: Member[];
+}
+
 const ROLES: Role[] = ["viewer", "editor", "admin"];
 
 export default function AccessPage() {
@@ -46,34 +53,53 @@ export default function AccessPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  // Which control is mid-request, so one change disables that control rather than
+  // the whole page. Nothing else here is a reason to stop reading.
+  const [pending, setPending] = useState<string | null>(null);
   const [addUser, setAddUser] = useState("");
   const [addRole, setAddRole] = useState<Role>("viewer");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/p/${pipeline}/members`);
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.message || body.error || `HTTP ${res.status}`);
-      setVisibility(body.visibility);
-      setMembers(body.members ?? []);
-      setOwner(body.owner ?? null);
-      setAccounts(body.accounts ?? []);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [pipeline]);
+  const apply = useCallback((body: AccessState) => {
+    setVisibility(body.visibility);
+    setMembers(body.members ?? []);
+    setOwner(body.owner ?? null);
+  }, []);
 
+  // The only load that shows a loading view is the first one. A change already
+  // knows what it did, so redrawing the page from scratch afterwards threw the
+  // reader back to "Loading…" for no new information.
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/p/${pipeline}/members`);
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.message || body.error || `HTTP ${res.status}`);
+        if (cancelled) return;
+        apply(body);
+        setAccounts(body.accounts ?? []);
+      } catch (err) {
+        if (!cancelled) setError((err as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pipeline, apply]);
 
-  async function send(body: unknown, method: "PUT" | "DELETE" = "PUT", qs = "") {
-    setBusy(true);
+  /**
+   * Send one change and take the resulting state from its response, so the page
+   * updates in place: the row changes, nothing else moves.
+   */
+  async function send(
+    key: string,
+    body: unknown,
+    method: "PUT" | "DELETE" = "PUT",
+    qs = "",
+  ) {
+    setPending(key);
     setError(null);
     try {
       const res = await fetch(`/api/p/${pipeline}/members${qs}`, {
@@ -83,11 +109,11 @@ export default function AccessPage() {
       });
       const parsed = await res.json();
       if (!res.ok) throw new Error(parsed.message || parsed.error || `HTTP ${res.status}`);
-      await load();
+      apply(parsed);
     } catch (err) {
       setError((err as Error).message);
     } finally {
-      setBusy(false);
+      setPending(null);
     }
   }
 
@@ -137,8 +163,8 @@ export default function AccessPage() {
                 name="visibility"
                 value="members"
                 checked={visibility === "members"}
-                disabled={busy}
-                onChange={() => void send({ visibility: "members" })}
+                disabled={pending === "visibility"}
+                onChange={() => void send("visibility", { visibility: "members" })}
                 label="Members only"
                 detail="Hidden from everyone except the people listed below. New pipelines start here."
               />
@@ -146,8 +172,8 @@ export default function AccessPage() {
                 name="visibility"
                 value="instance"
                 checked={visibility === "instance"}
-                disabled={busy}
-                onChange={() => void send({ visibility: "instance" })}
+                disabled={pending === "visibility"}
+                onChange={() => void send("visibility", { visibility: "instance" })}
                 label="Everyone"
                 detail="Anyone signed in sees this pipeline, at whatever role they hold."
               />
@@ -207,9 +233,12 @@ export default function AccessPage() {
                           <Select
                             label={`Role for ${m.username} on this pipeline`}
                             value={m.role}
-                            disabled={busy}
+                            disabled={pending === `role:${m.username}`}
                             onChange={(e) =>
-                              void send({ username: m.username, role: e.target.value })
+                              void send(`role:${m.username}`, {
+                                username: m.username,
+                                role: e.target.value,
+                              })
                             }
                           >
                             {ROLES.map((r) => (
@@ -230,9 +259,10 @@ export default function AccessPage() {
                         ) : (
                           <button
                             type="button"
-                            disabled={busy}
+                            disabled={pending === `revoke:${m.username}`}
                             onClick={() =>
                               void send(
+                                `revoke:${m.username}`,
                                 null,
                                 "DELETE",
                                 `?username=${encodeURIComponent(m.username)}`,
@@ -283,9 +313,9 @@ export default function AccessPage() {
                   </Select>
                   <button
                     type="button"
-                    disabled={busy || !addUser}
+                    disabled={pending === "grant" || !addUser}
                     onClick={() => {
-                      void send({ username: addUser, role: addRole });
+                      void send("grant", { username: addUser, role: addRole });
                       setAddUser("");
                     }}
                     data-testid="add-member"
@@ -324,9 +354,9 @@ export default function AccessPage() {
                 </Select>
                 <button
                   type="button"
-                  disabled={busy || !nextOwner}
+                  disabled={pending === "owner" || !nextOwner}
                   onClick={() => {
-                    void send({ owner: nextOwner });
+                    void send("owner", { owner: nextOwner });
                     setNextOwner("");
                   }}
                   data-testid="transfer-owner"
