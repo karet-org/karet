@@ -22,6 +22,7 @@ const MOBILE_NAV_HEIGHT_PX = 48;
 
 import { pipelineHue } from "@/lib/config/pipeline-hue";
 import { formatRelative } from "@/lib/format/relative-time";
+import { useCan } from "@/lib/client/use-current-user";
 
 export default function SideNav({ pipeline }: { pipeline: string }) {
   const pathname = usePathname() ?? "/";
@@ -41,6 +42,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
   const [renameValue, setRenameValue] = useState("");
   const [renaming, setRenaming] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
+  const isAdmin = useCan("admin");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const switcherRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -242,6 +244,15 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
           </svg>
           Data
         </Link>
+        {isAdmin && (
+          <Link href={`${base}/access`} className={itemClass(isActive(`${base}/access`))}>
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={iconClass(isActive(`${base}/access`))} aria-hidden>
+              <circle cx="6" cy="6" r="2.4" /><path d="M2.2 13.2c.5-2 2-3.2 3.8-3.2s3.3 1.2 3.8 3.2" />
+              <path d="M11 5.5h3.2M11 8h3.2M11 10.5h2" />
+            </svg>
+            Access
+          </Link>
+        )}
         <Link href={`${base}/history`} className={itemClass(isActive(`${base}/history`))}>
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={iconClass(isActive(`${base}/history`))} aria-hidden>
             <path d="M3 8a5 5 0 1 0 5-5" /><path d="M3 3v3h3" /><path d="M8 5.5V8l2.2 1.4" />

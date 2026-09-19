@@ -35,6 +35,11 @@ const RULES: Rule[] = [
   { methods: ["POST"], path: /^\/api\/p\/[^/]+\/dashboards\/[^/]+\/validate$/, role: "viewer" },
   { methods: ["POST"], path: /^\/api\/p\/[^/]+\/validate$/, role: "viewer" },
 
+  // Who may use a pipeline is an admin decision about that pipeline: an editor
+  // can change what it does, not who else can.
+  { methods: ["GET"], path: /^\/api\/p\/[^/]+\/members$/, role: "admin" },
+  { methods: ["PUT", "DELETE"], path: /^\/api\/p\/[^/]+\/members$/, role: "admin" },
+
   // Deleting or renaming a whole pipeline, and instance-wide settings.
   { methods: ["DELETE", "PATCH"], path: /^\/api\/pipelines\/[^/]+$/, role: "admin" },
   { methods: ["PUT", "POST", "DELETE"], path: /^\/api\/settings$/, role: "admin" },
@@ -68,4 +73,15 @@ export function requiredRole(method: string, pathname: string): Role | null {
   // Unknown API route with an unusual method: demand the most privilege rather
   // than waving it through.
   return "admin";
+}
+
+/**
+ * The pipeline a request addresses, or null for instance-wide routes.
+ *
+ * Here rather than in the guard so it stays a pure function of the path, with no
+ * database or auth instance behind it.
+ */
+export function pipelineFromPath(pathname: string): string | null {
+  const match = /^\/api\/p\/([^/]+)(?:\/|$)/.exec(pathname);
+  return match ? decodeURIComponent(match[1]) : null;
 }
