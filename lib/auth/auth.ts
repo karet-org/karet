@@ -23,10 +23,15 @@ import { ROLES } from "@/lib/auth/roles";
  * own their lifecycle, so sharing the app pool would couple two things that
  * shut down at different times.
  */
-const authPool = new Pool({
-  connectionString: databaseUrl(),
-  max: Number(process.env.DATABASE_POOL_MAX) || 4,
-});
+let pool: Pool | null = null;
+
+function authPool(): Pool {
+  pool ??= new Pool({
+    connectionString: databaseUrl(),
+    max: Number(process.env.DATABASE_POOL_MAX) || 4,
+  });
+  return pool;
+}
 
 /**
  * Usernames, not emails. Karet has no mail sender, so verification links and
@@ -41,7 +46,9 @@ export function syntheticEmail(user: string): string {
 }
 
 export const auth = betterAuth({
-  database: authPool,
+  // A getter, so importing this module does not require a reachable database —
+  // pure helpers downstream of it stay unit-testable.
+  database: authPool(),
   secret: process.env.BETTER_AUTH_SECRET ?? process.env.KARET_SESSION_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
   emailAndPassword: {

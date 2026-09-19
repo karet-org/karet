@@ -62,7 +62,15 @@ function toVersion(row: VersionRow): ConfigVersion {
   };
 }
 
-export async function listPipelines(): Promise<PipelineRow[]> {
+/**
+ * Registered pipelines, optionally limited to a set of slugs.
+ *
+ * The filter is how members-only pipelines stay invisible: callers pass what the
+ * access layer says this person may see, and an empty array means nothing rather
+ * than everything.
+ */
+export async function listPipelines(onlySlugs?: string[]): Promise<PipelineRow[]> {
+  if (onlySlugs !== undefined && onlySlugs.length === 0) return [];
   const rows = await query<{
     slug: string;
     name: string;
@@ -72,7 +80,9 @@ export async function listPipelines(): Promise<PipelineRow[]> {
     `SELECT slug, name, created_at, archived_at
        FROM pipelines
       WHERE archived_at IS NULL
+        AND ($1::text[] IS NULL OR slug = ANY($1::text[]))
       ORDER BY name`,
+    [onlySlugs ?? null],
   );
   return rows.map((r) => ({
     slug: r.slug,

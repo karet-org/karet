@@ -20,6 +20,9 @@ import { getUiSettings } from "@/lib/services/ui-settings";
 import { formatRelative } from "@/lib/format/relative-time";
 import { getLiveConfig, listPipelines } from "@/lib/services/pipeline-store";
 import { latestTerminalJob as loadLatestTerminalJob } from "@/lib/services/job-store";
+import { currentPrincipal } from "@/lib/auth/current-user";
+import { findUserByUsername } from "@/lib/auth/users";
+import { visiblePipelineSlugs } from "@/lib/auth/pipeline-access";
 
 export const dynamic = "force-dynamic";
 
@@ -49,8 +52,15 @@ async function getPipelines(): Promise<PipelineResult> {
     const cfg = loadS3Config();
     const client = createS3Client(cfg);
     // The registry lists pipelines now, so one unparseable config can no
-    // longer take the whole landing page down.
-    const registered = await listPipelines();
+    // longer take the whole landing page down. Members-only pipelines are
+    // filtered out here rather than rendering cards that 404 when clicked.
+    const principal = await currentPrincipal();
+    const user =
+      principal && !principal.service ? await findUserByUsername(principal.username) : null;
+    const visible = principal
+      ? await visiblePipelineSlugs(principal, user?.id ?? null)
+      : ([] as string[]);
+    const registered = await listPipelines(visible === "all" ? undefined : visible);
     const summaries = await Promise.all(
       registered.map((p) => loadSummary(client, cfg, p.slug)),
     );

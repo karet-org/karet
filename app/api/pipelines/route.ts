@@ -10,10 +10,18 @@ import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
 import { findUserByUsername } from "@/lib/auth/users";
 import { createPipeline, listPipelines, pipelineExists } from "@/lib/services/pipeline-store";
+import { visiblePipelineSlugs } from "@/lib/auth/pipeline-access";
 
-async function handleGet() {
+async function handleGet(_request: Request, _context: unknown, principal: Principal) {
   return withS3("GET /api/pipelines", async (client, config) => {
-    const pipelines = (await listPipelines()).map((p) => ({ id: p.slug, name: p.name }));
+    // Members-only pipelines are invisible to non-members, so the list is
+    // filtered rather than the cards being 404s.
+    const user = principal.service ? null : await findUserByUsername(principal.username);
+    const visible = await visiblePipelineSlugs(principal, user?.id ?? null);
+    const pipelines = (await listPipelines(visible === "all" ? undefined : visible)).map((p) => ({
+      id: p.slug,
+      name: p.name,
+    }));
     return NextResponse.json({ pipelines });
   });
 }
