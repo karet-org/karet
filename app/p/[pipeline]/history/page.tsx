@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Modal from "@/components/ui/Modal";
-import { useCan } from "@/lib/client/use-current-user";
+import { useCanHere } from "@/lib/client/use-current-user";
 import { ghostButtonClass, primaryButtonClass } from "@/components/ui/controls";
 import type { UnifiedDiff } from "@/lib/config/text-diff";
 
@@ -43,7 +43,7 @@ function when(iso: string): string {
 
 export default function HistoryPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
-  const canEdit = useCan("editor");
+  const canEdit = useCanHere(pipeline, "editor");
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [current, setCurrent] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);

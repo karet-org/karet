@@ -111,8 +111,12 @@ async function importPipeline(slug) {
     };
   }
 
+  // Visibility is explicit: pipelines that already existed in S3 predate access
+  // control and everyone could read them, so keep that rather than inheriting
+  // the members-only default and hiding them all behind an empty member list.
   await db.query(
-    `INSERT INTO pipelines (slug, name) VALUES ($1, $2) ON CONFLICT (slug) DO NOTHING`,
+    `INSERT INTO pipelines (slug, name, visibility) VALUES ($1, $2, 'instance')
+     ON CONFLICT (slug) DO NOTHING`,
     [slug, name],
   );
 

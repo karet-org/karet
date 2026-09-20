@@ -51,3 +51,36 @@ export function useCan(required: Role): boolean {
   const user = useCurrentUser();
   return user ? roleAtLeast(user.role, required) : false;
 }
+
+/**
+ * The same question asked of one pipeline, where a membership may have widened
+ * or narrowed the instance role. Null until the fetch lands, so callers render
+ * the read-only view rather than flashing controls.
+ */
+export function usePipelineRole(pipeline: string): Role | null {
+  const [role, setRole] = useState<Role | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRole(null);
+    (async () => {
+      try {
+        const body = await cachedJson<{ role: Role | null }>(`/api/p/${pipeline}/role`);
+        if (!cancelled && body.role) setRole(body.role);
+      } catch {
+        // Leave it null: controls stay hidden until we know otherwise.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pipeline]);
+
+  return role;
+}
+
+/** True once we know the user holds at least `required` on this pipeline. */
+export function useCanHere(pipeline: string, required: Role): boolean {
+  const role = usePipelineRole(pipeline);
+  return role ? roleAtLeast(role, required) : false;
+}

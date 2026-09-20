@@ -17,7 +17,7 @@ import type { PipelineConfig } from "@/lib/types/config";
 import GraphCanvas, { type GraphCanvasHandle } from "@/components/graph/GraphCanvas";
 import Modal from "@/components/ui/Modal";
 import NodeDetailPanel from "@/components/graph/NodeDetailPanel";
-import { useCan } from "@/lib/client/use-current-user";
+import { useCanHere } from "@/lib/client/use-current-user";
 import { validateConfigForSave } from "@/lib/graph/validateConfig";
 
 type LoadState = "loading" | "error" | "ready";
@@ -29,7 +29,7 @@ export default function PipelineGraphPage() {
   const [errorMsg, setErrorMsg] = useState<string>("");
   // Fingerprint of the last saved config; dirtiness is derived by comparing
   // the working config against it, so undoing an edit clears it.
-  const canEdit = useCan("editor");
+  const canEdit = useCanHere(pipeline, "editor");
   const [savedFingerprint, setSavedFingerprint] = useState("");
   const [saving, setSaving] = useState(false);
   // Validation detail is opt-in: a count in the control row, the list on tap.

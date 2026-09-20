@@ -22,7 +22,7 @@ const MOBILE_NAV_HEIGHT_PX = 48;
 
 import { pipelineHue } from "@/lib/config/pipeline-hue";
 import { formatRelative } from "@/lib/format/relative-time";
-import { useCan } from "@/lib/client/use-current-user";
+import { useCanHere } from "@/lib/client/use-current-user";
 
 export default function SideNav({ pipeline }: { pipeline: string }) {
   const pathname = usePathname() ?? "/";
@@ -41,7 +41,9 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
   const [renameValue, setRenameValue] = useState("");
   const [renaming, setRenaming] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
-  const isAdmin = useCan("admin");
+  // Admin *here*, not instance-wide: a pipeline's creator owns it at admin
+  // while holding a lesser role everywhere else.
+  const isAdmin = useCanHere(pipeline, "admin");
   const switcherRef = useRef<HTMLDivElement>(null);
 
   const base = `/p/${pipeline}`;

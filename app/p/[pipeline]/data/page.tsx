@@ -17,7 +17,7 @@ interface TableVersion {
 interface TableInfo { id: string; name: string; schema: Column[]; fileCount: number; version: number }
 
 import { nameToSlug } from "@/lib/config/name-to-slug";
-import { useCan } from "@/lib/client/use-current-user";
+import { useCanHere } from "@/lib/client/use-current-user";
 import { ghostButtonClass } from "@/components/ui/controls";
 
 interface Relation {
@@ -36,7 +36,7 @@ interface Relation {
 
 export default function DataPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
-  const canEdit = useCan("editor");
+  const canEdit = useCanHere(pipeline, "editor");
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [queries, setQueries] = useState<SavedQuery[]>([]);
   const [loading, setLoading] = useState(false);

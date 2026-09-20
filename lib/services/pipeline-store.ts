@@ -188,7 +188,13 @@ export async function saveConfig(
   });
 }
 
-/** Register a pipeline and store its first config version. */
+/**
+ * Register a pipeline and store its first config version.
+ *
+ * New pipelines are members-only (0004), so the creator is granted admin here.
+ * Without that grant an editor would create a pipeline and immediately 404 on
+ * it, and nobody but an instance admin could hand it back.
+ */
 export async function createPipeline(
   slug: string,
   config: PipelineConfig,
@@ -199,6 +205,15 @@ export async function createPipeline(
      ON CONFLICT (slug) DO NOTHING`,
     [slug, config.name ?? slug, author.id],
   );
+  // Null for the service token, which is admin everywhere and needs no row.
+  if (author.id) {
+    await query(
+      `INSERT INTO pipeline_members (pipeline, user_id, role, granted_by)
+       VALUES ($1, $2, 'admin', $2)
+       ON CONFLICT (pipeline, user_id) DO NOTHING`,
+      [slug, author.id],
+    );
+  }
   return saveConfig(slug, config, author, "created");
 }
 

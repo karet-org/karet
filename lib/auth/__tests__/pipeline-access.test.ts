@@ -69,13 +69,21 @@ describe("pipelineFromPath", () => {
     expect(pipelineFromPath("/api/p/p-abc123")).toBe("p-abc123");
   });
 
+  it("finds the slug on the registry routes too", () => {
+    // Renaming and deleting used to resolve instance-wide, on the reading that
+    // they are decisions about the instance's pipelines rather than within one.
+    // Members-only-by-default retired that: every pipeline now has a creator who
+    // is admin on it and an editor elsewhere, and "admin here but may not rename
+    // it" is not a distinction anyone can hold in their head.
+    expect(pipelineFromPath("/api/pipelines/p-abc123")).toBe("p-abc123");
+  });
+
   it("returns null for instance-wide routes", () => {
     expect(pipelineFromPath("/api/pipelines")).toBeNull();
     expect(pipelineFromPath("/api/settings")).toBeNull();
     expect(pipelineFromPath("/api/lake")).toBeNull();
-    // `/api/pipelines/<slug>` is instance-level on purpose: creating, deleting
-    // and renaming are decisions about the instance's pipelines, not within one.
-    expect(pipelineFromPath("/api/pipelines/p-abc123")).toBeNull();
+    // A sibling route under the same prefix, not a pipeline called "import".
+    expect(pipelineFromPath("/api/pipelines/import")).toBeNull();
   });
 
   it("decodes an escaped slug rather than comparing raw bytes", () => {
