@@ -68,7 +68,7 @@ async function handlePost(request: Request, _context: unknown, principal: Princi
   return wrapS3Error(async () => {
     let totalBytes = 0;
     for (const [relPath, entry] of entries) {
-      let data = await entry.async("nodebuffer");
+      const data = await entry.async("nodebuffer");
       totalBytes += data.length;
       if (totalBytes > MAX_TOTAL_UNCOMPRESSED) {
         return NextResponse.json({ error: "zip_expands_too_large" }, { status: 413 });

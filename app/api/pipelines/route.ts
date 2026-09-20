@@ -13,7 +13,7 @@ import { createPipeline, listPipelines, pipelineExists } from "@/lib/services/pi
 import { visiblePipelineSlugs } from "@/lib/auth/pipeline-access";
 
 async function handleGet(_request: Request, _context: unknown, principal: Principal) {
-  return withS3("GET /api/pipelines", async (client, config) => {
+  return withS3("GET /api/pipelines", async (_client, _config) => {
     // Members-only pipelines are invisible to non-members, so the list is
     // filtered rather than the cards being 404s.
     const user = principal.service ? null : await findUserByUsername(principal.username);

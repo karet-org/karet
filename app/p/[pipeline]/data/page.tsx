@@ -162,7 +162,7 @@ export default function DataPage() {
         setRestoring(null);
       }
     },
-    [pipeline, versionsFor, openVersions],
+    [pipeline, versionsFor, openVersions, loadTables],
   );
 
   // Resolve every table to its query slug and flag slug collisions.

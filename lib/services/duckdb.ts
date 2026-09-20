@@ -19,10 +19,9 @@ function getConn(): Promise<DuckDBConnection> {
   if (initializing) return initializing;
 
   initializing = (async () => {
-    // Required, not imported, so the native addon only loads on first use
-    // (never at build time or during page-data collection).
-    const { DuckDBInstance } =
-      require("@duckdb/node-api") as typeof import("@duckdb/node-api");
+    // Imported here, not at module scope, so the native addon only loads on first
+    // use and never at build time or during page-data collection.
+    const { DuckDBInstance } = await import("@duckdb/node-api");
     const instance = await DuckDBInstance.create(":memory:");
     const candidate = await instance.connect();
 

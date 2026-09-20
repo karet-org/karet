@@ -44,7 +44,9 @@ export default function YamlEditor({
     const cleaned =
       source.slice(0, line.from) + " ".repeat(line.length) + source.slice(line.to);
     const anchor = Math.max(line.from - 1, 0);
-    let { path, kind } = pathInfoAtOffset(cleaned, anchor);
+    const at = pathInfoAtOffset(cleaned, anchor);
+    const kind = at.kind;
+    let path = at.path;
     // A scalar anchor means a sibling key in its parent map.
     if (kind === "scalar" && path.length > 0) path = path.slice(0, -1);
     // The live path (unblanked) wins inside multiline scalars.

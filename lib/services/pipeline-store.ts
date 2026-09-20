@@ -34,7 +34,7 @@ export interface ConfigVersion {
   live: boolean;
 }
 
-export interface ConfigVersionMeta extends Omit<ConfigVersion, "config"> {}
+export type ConfigVersionMeta = Omit<ConfigVersion, "config">;
 
 interface VersionRow {
   id: string | number;

@@ -44,7 +44,7 @@ function buildStubClient(initial: Record<string, Stored> = {}): S3Client {
   const client = new S3Client({ region: "us-east-1" });
   let nextEtag = 1;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   (client as any).send = async (command: unknown) => {
     if (command instanceof GetObjectCommand) {
       const key = command.input.Key!;

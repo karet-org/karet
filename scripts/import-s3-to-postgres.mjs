@@ -15,7 +15,6 @@
 // manifests.
 
 import { GetObjectCommand, ListObjectsV2Command, S3Client } from "@aws-sdk/client-s3";
-import { randomUUID } from "node:crypto";
 import pg from "pg";
 
 const PIPELINES_BUCKET = process.env.S3_BUCKET_PIPELINES || "karet-pipelines";

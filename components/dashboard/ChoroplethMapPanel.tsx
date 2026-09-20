@@ -56,7 +56,9 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
 
   useEffect(() => {
     if (!features || !containerRef.current) return;
-    // Required, not imported: Leaflet touches `window` at module scope.
+    // Required, not imported: Leaflet touches `window` at module scope, and this
+    // effect is synchronous so there is nowhere to await a dynamic import.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const L = require("leaflet") as typeof LeafletNS;
 
     mapRef.current?.remove();
