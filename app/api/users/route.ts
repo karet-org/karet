@@ -8,13 +8,12 @@ import { NextResponse } from "next/server";
 import { withRole } from "@/lib/auth/guard";
 import { hashPassword } from "@/lib/auth/password";
 import { isRole } from "@/lib/auth/roles";
+import { passwordProblem, usernameProblem } from "@/lib/auth/account-rules";
 import {
   createUser,
   findUserByUsername,
   getAdminUsername,
   listUsers,
-  passwordProblem,
-  usernameProblem,
 } from "@/lib/auth/users";
 
 export const dynamic = "force-dynamic";

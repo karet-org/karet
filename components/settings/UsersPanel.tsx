@@ -12,6 +12,7 @@ import {
   primaryButtonClass,
 } from "@/components/ui/controls";
 import { useCan, useCurrentUser } from "@/lib/client/use-current-user";
+import { passwordProblem, usernameProblem } from "@/lib/auth/account-rules";
 import { ROLES, type Role } from "@/lib/auth/roles";
 
 interface Account {
@@ -336,7 +337,11 @@ export default function UsersPanel() {
           </Select>
           <button
             type="button"
-            disabled={pending === "create" || !username.trim() || password.length === 0}
+            disabled={
+              pending === "create" ||
+              usernameProblem(username.trim()) !== null ||
+              passwordProblem(password) !== null
+            }
             onClick={() => void create()}
             data-testid="create-user"
             className={primaryButtonClass()}
@@ -390,7 +395,7 @@ export default function UsersPanel() {
           </button>
           <button
             type="button"
-            disabled={pending !== null || newPassword.length < 8}
+            disabled={pending !== null || passwordProblem(newPassword) !== null}
             onClick={() => void resetPassword()}
             data-testid="confirm-reset-password"
             className={primaryButtonClass()}

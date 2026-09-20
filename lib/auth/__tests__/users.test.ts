@@ -52,8 +52,8 @@ const {
   setRole,
   upsertBootstrapAdmin,
   isRole,
-  USERNAME_PATTERN,
 } = await import("../users");
+const { USERNAME_PATTERN } = await import("../account-rules");
 
 const USER_ROW = {
   id: "u1",

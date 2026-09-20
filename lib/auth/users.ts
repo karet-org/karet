@@ -99,25 +99,6 @@ export async function revokeSessions(userId: string): Promise<number> {
   return rows.length;
 }
 
-/** What better-auth's username plugin accepts. A hyphen is not in it. */
-export const USERNAME_PATTERN = /^[a-zA-Z0-9_.]{3,32}$/;
-const MIN_PASSWORD_LENGTH = 8;
-
-/** Why this username is unusable, or null. Rejecting here turns a confusing
- * sign-in failure into a message at the point of typing. */
-export function usernameProblem(username: string): string | null {
-  return USERNAME_PATTERN.test(username)
-    ? null
-    : "Use 3 to 32 letters, numbers, underscores or dots.";
-}
-
-/** Why this password is unusable, or null. */
-export function passwordProblem(password: string): string | null {
-  return password.length >= MIN_PASSWORD_LENGTH
-    ? null
-    : `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
-}
-
 /**
  * Create an account with a credential, in one transaction.
  *

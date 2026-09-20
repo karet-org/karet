@@ -7,11 +7,11 @@ import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
 import { isRole } from "@/lib/auth/roles";
 import { hashPassword } from "@/lib/auth/password";
+import { passwordProblem } from "@/lib/auth/account-rules";
 import {
   deleteUser,
   findUserByUsername,
   getAdminUsername,
-  passwordProblem,
   pipelinesOwnedBy,
   setPassword,
   setRole,

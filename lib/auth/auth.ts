@@ -38,7 +38,7 @@ function authPool(): Pool {
  * username plugin needs an email column anyway, so accounts get a synthetic
  * local address that nothing sends to.
  */
-export const USERNAME_EMAIL_DOMAIN = "karet.local";
+const USERNAME_EMAIL_DOMAIN = "karet.local";
 
 export function syntheticEmail(user: string): string {
   return `${user.toLowerCase()}@${USERNAME_EMAIL_DOMAIN}`;

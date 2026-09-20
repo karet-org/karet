@@ -1,9 +1,8 @@
 // What role each request needs.
 //
-// One table, consulted twice: middleware uses it for a cheap edge gate off the
-// signed role claim, and `withRole` uses it again in the handler where the user
-// store is reachable and a demotion or deletion can be seen. Keeping both on
-// the same data is the point; two lists would drift.
+// One table, read by `withRole` in the route handler, where the database is
+// reachable and a demotion, a deletion or a per-pipeline grant can be seen.
+// Middleware only checks that a session cookie exists.
 //
 // Edge-safe: no Node built-ins, no S3.
 
