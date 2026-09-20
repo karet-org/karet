@@ -3,19 +3,17 @@
 // slugified table name.
 
 import { NextResponse } from "next/server";
-import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import { getPipelineConfig } from "@/lib/services/config-service";
+import { wrapS3Error } from "@/lib/config/s3-client";
+
 import { runPipelineQuery } from "@/lib/services/query-service";
 import { withRole } from "@/lib/auth/guard";
+import { getLiveConfig } from "@/lib/services/pipeline-store";
 
 async function handlePost(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
   const { pipeline } = await context.params;
-  const base = loadS3Config();
-  const cfg = pipelineS3Config(base, pipeline);
-  const client = createS3Client(base);
 
   const body = (await request.json().catch(() => null)) as {
     sql?: string;
@@ -38,7 +36,7 @@ async function handlePost(
   }
 
   return wrapS3Error(async () => {
-    const pcfg = await getPipelineConfig(client, cfg);
+    const pcfg = await getLiveConfig(pipeline);
     if (!pcfg) {
       return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
     }

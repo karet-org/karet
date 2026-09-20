@@ -18,6 +18,7 @@ interface TableInfo { id: string; name: string; schema: Column[]; fileCount: num
 
 import { nameToSlug } from "@/lib/config/name-to-slug";
 import { useCan } from "@/lib/client/use-current-user";
+import { ghostButtonClass } from "@/components/ui/controls";
 
 interface Relation {
   key: string;
@@ -161,7 +162,7 @@ export default function DataPage() {
     return tables.map((t) => {
       const key = `t:${t.id}`;
       const slug = nameToSlug(t.name);
-      const meta = `${t.fileCount} file${t.fileCount !== 1 ? "s" : ""}${t.version ? ` · v${t.version}` : ""}`;
+      const meta = `${t.fileCount} file${t.fileCount !== 1 ? "s" : ""}${t.version ? `, v${t.version}` : ""}`;
       const owner = seen.get(slug);
       if (owner === undefined) {
         seen.set(slug, key);
@@ -595,8 +596,8 @@ export default function DataPage() {
           {versionsFor?.name} versions
         </h2>
         <p className="mt-1 text-[12.5px] text-[color:var(--color-ink-3)]">
-          Snapshots the worker still retains. Restoring makes one live again without
-          moving any data; the next run publishes on top of it.
+          Snapshots the worker still keeps. Restoring one makes it live again; no data
+          is copied.
         </p>
         {versionsError ? (
           <p className="mt-3 text-sm text-[color:var(--color-rose-deep)]" role="alert">
@@ -640,7 +641,7 @@ export default function DataPage() {
                         onClick={() => void restoreVersion(v.version)}
                         disabled={restoring !== null}
                         data-testid={`restore-table-v${v.version}`}
-                        className="rounded px-2 py-1 text-xs font-medium text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink-2)] disabled:opacity-50"
+                        className={ghostButtonClass()}
                       >
                         {restoring === v.version ? "Restoring…" : "Restore"}
                       </button>

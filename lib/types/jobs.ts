@@ -3,6 +3,8 @@
  * and key across `scheduled` (debounced webhook runs) → `running` → terminal.
  */
 export interface JobRecord {
+  /** Which config version produced this run. */
+  configVersion?: number;
   id: string;
   pipeline: string;
   status: "scheduled" | "queued" | "running" | "completed" | "failed" | "abandoned";

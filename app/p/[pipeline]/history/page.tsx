@@ -1,21 +1,28 @@
 "use client";
 
-// Config history: who changed this pipeline, when, what it changed, and a way
-// back. Reverting writes the old config forward as a new version rather than
-// winding history back, so the trail stays append-only.
+// Config history: who changed this pipeline, when, and a way back.
+//
+// Inspecting a version shows how it differs from the live config, which is the
+// question worth answering: "what would change if I restored this". Diffs
+// between adjacent versions are not shown — they cost a read per version and
+// answer a question nobody asks.
+//
+// Reverting writes the old config forward as a new version rather than winding
+// history back, so the trail stays append-only.
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Modal from "@/components/ui/Modal";
 import { useCan } from "@/lib/client/use-current-user";
-import type { EntityChange } from "@/lib/config/diff";
+import { ghostButtonClass, primaryButtonClass } from "@/components/ui/controls";
+import type { UnifiedDiff } from "@/lib/config/text-diff";
 
 interface VersionRow {
   version: number;
   saved_at: string;
   author: string;
   note?: string;
-  summary: string;
+  live: boolean;
 }
 
 interface VersionDetail {
@@ -23,8 +30,9 @@ interface VersionDetail {
   saved_at: string;
   author: string;
   note?: string;
-  config: unknown;
-  diffFromCurrent: { changes: EntityChange[]; onlyLayout: boolean };
+  live: boolean;
+  liveVersion: number | null;
+  diff: UnifiedDiff;
 }
 
 function when(iso: string): string {
@@ -32,12 +40,6 @@ function when(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
-function changeLabel(c: EntityChange): string {
-  const who = c.name ? `${c.entity} "${c.name}"` : `${c.entity} ${c.id}`;
-  if (c.kind === "added") return `Added ${who}`;
-  if (c.kind === "removed") return `Removed ${who}`;
-  return `Changed ${who}${c.fields?.length ? ` (${c.fields.join(", ")})` : ""}`;
-}
 
 export default function HistoryPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
@@ -109,8 +111,8 @@ export default function HistoryPage() {
         History
       </h1>
       <p className="mt-1 text-[13px] text-[color:var(--color-ink-3)]">
-        Every saved version of this pipeline&apos;s config, newest first. Layout-only
-        changes are recorded but not counted as changes.
+        Every saved version of this config, newest first. Inspect one to see how it
+        differs from the live version.
       </p>
 
       {error ? (
@@ -133,7 +135,7 @@ export default function HistoryPage() {
               <th className="py-2 pr-3 font-medium">Version</th>
               <th className="py-2 pr-3 font-medium">Saved</th>
               <th className="py-2 pr-3 font-medium">Author</th>
-              <th className="py-2 pr-3 font-medium">Changes</th>
+              <th className="py-2 pr-3 font-medium">Note</th>
               <th className="py-2 font-medium" />
             </tr>
           </thead>
@@ -153,26 +155,28 @@ export default function HistoryPage() {
                 </td>
                 <td className="py-2 pr-3 whitespace-nowrap">{when(v.saved_at)}</td>
                 <td className="py-2 pr-3">{v.author}</td>
-                <td className="py-2 pr-3">
-                  {v.summary}
-                  {v.note ? (
-                    <span className="text-[color:var(--color-ink-3)]"> · {v.note}</span>
-                  ) : null}
+                <td className="py-2 pr-3 text-[color:var(--color-ink-3)]">
+                  {v.note ?? ""}
                 </td>
                 <td className="py-2 text-right whitespace-nowrap">
                   <button
                     type="button"
                     onClick={() => void openDetail(v.version)}
-                    className="rounded-md px-2 py-1 text-xs font-medium text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink-2)]"
+                    className={ghostButtonClass()}
                   >
                     Inspect
                   </button>
+                  {canEdit && v.version === current && (
+                    <span className="ml-1 inline-block px-2 py-1 text-xs text-[color:var(--color-ink-4)]">
+                      in use
+                    </span>
+                  )}
                   {canEdit && v.version !== current && (
                     <button
                       type="button"
                       onClick={() => setRevertTarget(v.version)}
                       data-testid={`revert-v${v.version}`}
-                      className="ml-1 rounded-md px-2 py-1 text-xs font-medium text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink-2)]"
+                      className={ghostButtonClass("ml-1")}
                     >
                       Restore
                     </button>
@@ -194,26 +198,59 @@ export default function HistoryPage() {
           <p className="text-sm text-[color:var(--color-rose-deep)]">{detailError}</p>
         ) : detail ? (
           <div className="max-h-[70vh] overflow-auto">
-            <h2 className="text-[15px] font-semibold text-[color:var(--color-ink)]">
-              v{detail.version} · {detail.author} · {when(detail.saved_at)}
-            </h2>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="text-[15px] font-semibold text-[color:var(--color-ink)]">
+                v{detail.version}, saved by {detail.author} on {when(detail.saved_at)}
+              </h2>
+              {!detail.diff.identical && (
+                <span className="font-mono text-[12px]">
+                  <span className="text-[color:var(--color-leaf)]">+{detail.diff.additions}</span>
+                  {" "}
+                  <span className="text-[color:var(--color-rose-deep)]">−{detail.diff.deletions}</span>
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-[12.5px] text-[color:var(--color-ink-3)]">
-              Difference from the config that is live now.
+              {detail.live
+                ? "This is the live config."
+                : `Changes restoring this would make to the live config (v${detail.liveVersion ?? "?"}). Node positions are ignored.`}
             </p>
-            {detail.diffFromCurrent.changes.length === 0 ? (
+
+            {detail.diff.identical ? (
               <p className="mt-3 text-sm text-[color:var(--color-ink-2)]">
-                Identical to the live config, apart from layout.
+                No differences from the live config.
               </p>
             ) : (
-              <ul className="mt-3 list-inside list-disc text-[13px] text-[color:var(--color-ink-2)]">
-                {detail.diffFromCurrent.changes.map((c, i) => (
-                  <li key={i}>{changeLabel(c)}</li>
+              <div className="mt-3 overflow-x-auto rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)]">
+                {detail.diff.hunks.map((hunk, hi) => (
+                  <div key={hi} className="border-b border-[color:var(--color-rule-soft)] last:border-b-0">
+                    <div className="bg-[color:var(--color-surface)] px-3 py-1 font-mono text-[11px] text-[color:var(--color-ink-3)]">
+                      {hunk.header}
+                    </div>
+                    <pre className="m-0 whitespace-pre px-0 py-1 font-mono text-[11.5px] leading-[1.55]">
+                      {hunk.lines.map((line, li) => (
+                        <div
+                          key={li}
+                          className={
+                            "px-3 " +
+                            (line.kind === "added"
+                              ? "bg-[color:var(--color-leaf-soft)] text-[color:var(--color-ink)]"
+                              : line.kind === "removed"
+                                ? "bg-[color:var(--color-rose-soft)] text-[color:var(--color-ink)]"
+                                : "text-[color:var(--color-ink-3)]")
+                          }
+                        >
+                          <span className="select-none pr-2 text-[color:var(--color-ink-3)]">
+                            {line.kind === "added" ? "+" : line.kind === "removed" ? "-" : " "}
+                          </span>
+                          {line.text}
+                        </div>
+                      ))}
+                    </pre>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
-            <pre className="mt-4 max-h-[38vh] overflow-auto rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface-2)] p-3 text-[11.5px] leading-[1.5] text-[color:var(--color-ink-2)]">
-              {JSON.stringify(detail.config, null, 2)}
-            </pre>
           </div>
         ) : null}
       </Modal>
@@ -224,14 +261,14 @@ export default function HistoryPage() {
             Restore v{revertTarget}?
           </h2>
           <p className="mt-2 text-[13px] text-[color:var(--color-ink-2)]">
-            This writes v{revertTarget}&apos;s config forward as a new version, so the
-            current one stays in the history. The next run uses the restored config.
+            v{revertTarget} becomes the live config, and the current one stays in
+            history.
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setRevertTarget(null)}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)]"
+              className={ghostButtonClass("px-3 py-1.5 text-sm")}
             >
               Cancel
             </button>
@@ -240,7 +277,7 @@ export default function HistoryPage() {
               onClick={() => void confirmRevert()}
               disabled={reverting}
               data-testid="confirm-revert"
-              className="rounded-md bg-[color:var(--color-carrot)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+              className={primaryButtonClass("text-sm")}
             >
               {reverting ? "Restoring…" : "Restore"}
             </button>

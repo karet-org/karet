@@ -22,6 +22,7 @@ const MOBILE_NAV_HEIGHT_PX = 48;
 
 import { pipelineHue } from "@/lib/config/pipeline-hue";
 import { formatRelative } from "@/lib/format/relative-time";
+import { useCan } from "@/lib/client/use-current-user";
 
 export default function SideNav({ pipeline }: { pipeline: string }) {
   const pathname = usePathname() ?? "/";
@@ -30,7 +31,6 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
   const [statusLine, setStatusLine] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState(pipeline);
   const [creating, setCreating] = useState(false);
-  const [pipelines, setPipelines] = useState<{ id: string; name: string }[]>([]);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -41,9 +41,8 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
   const [renameValue, setRenameValue] = useState("");
   const [renaming, setRenaming] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const isAdmin = useCan("admin");
   const switcherRef = useRef<HTMLDivElement>(null);
-  const settingsRef = useRef<HTMLDivElement>(null);
 
   const base = `/p/${pipeline}`;
 
@@ -98,38 +97,15 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
     };
   }, [pipeline]);
 
-  // Load the pipeline list lazily when the switcher opens.
-  useEffect(() => {
-    if (!switcherOpen) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/pipelines");
-        if (!res.ok) return;
-        const body = (await res.json()) as {
-          pipelines?: { id: string; name: string }[];
-        };
-        if (!cancelled && Array.isArray(body.pipelines))
-          setPipelines(body.pipelines);
-      } catch {
-        // Silent.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [switcherOpen]);
 
   useEffect(() => {
-    if (!switcherOpen && !settingsOpen) return;
+    if (!switcherOpen) return;
     const onClick = (e: MouseEvent) => {
       if (!switcherRef.current?.contains(e.target as Node)) setSwitcherOpen(false);
-      if (!settingsRef.current?.contains(e.target as Node)) setSettingsOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setSwitcherOpen(false);
-        setSettingsOpen(false);
       }
     };
     document.addEventListener("mousedown", onClick);
@@ -138,7 +114,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
       document.removeEventListener("mousedown", onClick);
       document.removeEventListener("keydown", onKey);
     };
-  }, [switcherOpen, settingsOpen]);
+  }, [switcherOpen]);
 
   const isActive = (href: string) => pathname.startsWith(href);
   const itemClass = (active: boolean) =>
@@ -168,7 +144,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
           aria-haspopup="menu"
           aria-expanded={switcherOpen}
           data-testid="side-nav-pipeline-pill"
-          title="Switch pipeline"
+          title="Pipeline actions"
           className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-[color:var(--color-surface-2)]"
         >
           <span
@@ -196,24 +172,58 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
             data-testid="side-nav-pipeline-menu"
             className="absolute left-1 right-1 top-full z-30 mt-1 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] py-1 shadow-[0_8px_28px_rgba(0,0,0,0.45)]"
           >
-            {pipelines.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-[color:var(--color-ink-3)]">Loading…</div>
-            ) : (
-              pipelines.map(({ id, name }) => (
-                <Link
-                  key={id}
-                  href={`/p/${id}/graph`}
-                  onClick={() => setSwitcherOpen(false)}
+            {/* This pipeline's actions. Switching pipelines is "All pipelines"
+                above, so listing them here as well was two doors to one room. */}
+            <a
+              href={`/api/p/${pipeline}/export`}
+              download
+              role="menuitem"
+              data-testid="side-nav-export"
+              onClick={() => setSwitcherOpen(false)}
+              className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-rule-soft)] hover:text-[color:var(--color-ink)]"
+            >
+              <IconDownload size={14} className="text-[color:var(--color-ink-3)]" />
+              Export .zip
+            </a>
+            {/* Renaming and deleting need admin, so offering them to everyone was
+                an invitation to a 403. */}
+            {isAdmin && (
+              <>
+                <div className="my-1 border-t border-[color:var(--color-rule-soft)]" />
+                <button
+                  type="button"
                   role="menuitem"
-                  className={`block truncate px-3 py-1.5 text-[12px] ${
-                    id === pipeline
-                      ? "bg-[color:var(--color-carrot-soft)] text-[color:var(--color-carrot-deep)]"
-                      : "text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-rule-soft)]"
-                  }`}
+                  data-testid="side-nav-rename-pipeline"
+                  onClick={() => {
+                    setSwitcherOpen(false);
+                    setRenameValue(displayName);
+                    setRenameError(null);
+                    setRenameOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-rule-soft)] hover:text-[color:var(--color-ink)]"
                 >
-                  {name}
-                </Link>
-              ))
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                    <path d="M11.1 2.4a1.4 1.4 0 0 1 2 2L5.5 12l-2.8.8.8-2.8 7.6-7.6Z" />
+                  </svg>
+                  Rename pipeline
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="side-nav-delete-pipeline"
+                  disabled={deleting}
+                  onClick={() => {
+                    setSwitcherOpen(false);
+                    setDeleteConfirm("");
+                    setDeleteError(null);
+                    setDeleteOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)] disabled:opacity-50"
+                >
+                  <IconTrash size={14} />
+                  Delete pipeline…
+                </button>
+              </>
             )}
           </div>
         ) : null}
@@ -242,6 +252,15 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
           </svg>
           Data
         </Link>
+        {isAdmin && (
+          <Link href={`${base}/access`} className={itemClass(isActive(`${base}/access`))}>
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={iconClass(isActive(`${base}/access`))} aria-hidden>
+              <circle cx="6" cy="6" r="2.4" /><path d="M2.2 13.2c.5-2 2-3.2 3.8-3.2s3.3 1.2 3.8 3.2" />
+              <path d="M11 5.5h3.2M11 8h3.2M11 10.5h2" />
+            </svg>
+            Access
+          </Link>
+        )}
         <Link href={`${base}/history`} className={itemClass(isActive(`${base}/history`))}>
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={iconClass(isActive(`${base}/history`))} aria-hidden>
             <path d="M3 8a5 5 0 1 0 5-5" /><path d="M3 3v3h3" /><path d="M8 5.5V8l2.2 1.4" />
@@ -317,68 +336,6 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
         })}
       </div>
 
-      {/* Footer: Export and Settings */}
-      <div ref={settingsRef} className="relative mt-auto flex flex-col gap-0.5 border-t border-[color:var(--color-rule-soft)] pt-2">
-        {settingsOpen && (
-          <div
-            role="menu"
-            data-testid="side-nav-settings-menu"
-            className="absolute bottom-[76px] left-1 right-1 z-30 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] p-1 shadow-[0_8px_28px_rgba(0,0,0,0.45)]"
-          >
-            <button
-              type="button"
-              role="menuitem"
-              data-testid="side-nav-rename-pipeline"
-              onClick={() => {
-                setSettingsOpen(false);
-                setRenameValue(displayName);
-                setRenameError(null);
-                setRenameOpen(true);
-              }}
-              className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-[7px] text-left text-[13px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-rule-soft)] hover:text-[color:var(--color-ink)]"
-            >
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-                <path d="M11.1 2.4a1.4 1.4 0 0 1 2 2L5.5 12l-2.8.8.8-2.8 7.6-7.6Z" />
-              </svg>
-              Rename pipeline
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              data-testid="side-nav-delete-pipeline"
-              disabled={deleting}
-              onClick={() => {
-                setSettingsOpen(false);
-                setDeleteConfirm("");
-                setDeleteError(null);
-                setDeleteOpen(true);
-              }}
-              className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-[7px] text-left text-[13px] text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)] disabled:opacity-50"
-            >
-              <IconTrash size={15} />
-              Delete pipeline…
-            </button>
-          </div>
-        )}
-        <a href={`/api/p/${pipeline}/export`} download className={itemClass(false)}>
-          <IconDownload size={15} className="text-[color:var(--color-ink-3)]" />
-          Export .zip
-        </a>
-        <button
-          type="button"
-          onClick={() => setSettingsOpen((o) => !o)}
-          aria-haspopup="menu"
-          aria-expanded={settingsOpen}
-          data-testid="side-nav-settings"
-          className={`${itemClass(false)} w-full text-left`}
-        >
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[color:var(--color-ink-3)]" aria-hidden>
-            <circle cx="8" cy="8" r="2.2" />
-            <path d="M8 2v1.6M8 12.4V14M2 8h1.6M12.4 8H14M3.8 3.8l1.1 1.1M11.1 11.1l1.1 1.1M12.2 3.8l-1.1 1.1M4.9 11.1l-1.1 1.1" />
-          </svg>
-          Settings
-        </button>
-      </div>
     </div>
   );
 

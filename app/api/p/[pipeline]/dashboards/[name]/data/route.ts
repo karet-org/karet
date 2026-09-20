@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import {
   getDashboardV2,
-  getPipelineConfig,
   getQuery,
 } from "@/lib/services/config-service";
 import { coerceParams, executeDashboard } from "@/lib/services/dashboard-data";
 import type { SavedQuery } from "@/lib/types/query";
 import { withRole } from "@/lib/auth/guard";
+import { getLiveConfig } from "@/lib/services/pipeline-store";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ async function handlePost(
   return wrapS3Error(async () => {
     const [dash, pipelineCfg] = await Promise.all([
       getDashboardV2(client, config, name, { draft }),
-      getPipelineConfig(client, config),
+      getLiveConfig(pipeline),
     ]);
     if (!dash) {
       return NextResponse.json({ error: "dashboard_not_found", name }, { status: 404 });

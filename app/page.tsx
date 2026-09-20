@@ -1,17 +1,5 @@
-import {
-  createS3Client,
-  isNoSuchBucket,
-  loadS3Config,
-  pipelineS3Config,
-  type S3Config,
-} from "@/lib/config/s3-client";
-import {
-  getPipelineConfig,
-  listPipelines,
-} from "@/lib/services/config-service";
-import { listAllObjects, readBodyToBuffer, type ListedObject } from "@/lib/services/s3-helpers";
-import { GetObjectCommand, type S3Client } from "@aws-sdk/client-s3";
-import type { JobRecord } from "@/lib/types/jobs";
+import { createS3Client, isNoSuchBucket, loadS3Config } from "@/lib/config/s3-client";
+
 import ImportButton from "@/components/layout/ImportButton";
 import CreatePipelineButton from "@/components/layout/CreatePipelineButton";
 import LandingRail, { MobileRailToggle } from "@/components/layout/LandingRail";
@@ -21,6 +9,11 @@ import type { ThumbGraph, ThumbNode } from "@/components/layout/DagThumbnail";
 import { buildGraph, NODE_TYPE } from "@/lib/graph/build";
 import { getUiSettings } from "@/lib/services/ui-settings";
 import { formatRelative } from "@/lib/format/relative-time";
+import { getLiveConfig, listPipelines } from "@/lib/services/pipeline-store";
+import { latestTerminalJob as loadLatestTerminalJob } from "@/lib/services/job-store";
+import { currentPrincipal } from "@/lib/auth/current-user";
+import { findUserByUsername } from "@/lib/auth/users";
+import { visiblePipelineSlugs } from "@/lib/auth/pipeline-access";
 
 export const dynamic = "force-dynamic";
 
@@ -47,11 +40,18 @@ interface PipelineResult {
 
 async function getPipelines(): Promise<PipelineResult> {
   try {
-    const cfg = loadS3Config();
-    const client = createS3Client(cfg);
-    const slugs = await listPipelines(client, cfg);
+    // The registry lists pipelines now, so one unparseable config can no
+    // longer take the whole landing page down. Members-only pipelines are
+    // filtered out here rather than rendering cards that 404 when clicked.
+    const principal = await currentPrincipal();
+    const user =
+      principal && !principal.service ? await findUserByUsername(principal.username) : null;
+    const visible = principal
+      ? await visiblePipelineSlugs(principal, user?.id ?? null)
+      : ([] as string[]);
+    const registered = await listPipelines(visible === "all" ? undefined : visible);
     const summaries = await Promise.all(
-      slugs.map((slug) => loadSummary(client, cfg, slug)),
+      registered.map((p) => loadSummary(p.slug)),
     );
     return { pipelines: summaries };
   } catch (err) {
@@ -71,19 +71,11 @@ async function getPipelines(): Promise<PipelineResult> {
   }
 }
 
-async function loadSummary(
-  client: S3Client,
-  base: S3Config,
-  slug: string,
-): Promise<PipelineSummary> {
-  const cfg = pipelineS3Config(base, slug);
+async function loadSummary(slug: string): Promise<PipelineSummary> {
   const [configResult, latestTerminalJob] = await Promise.all([
-    getPipelineConfig(client, cfg).catch(() => null),
-    loadLatestTerminalJob(
-      client,
-      base.pipelinesBucket,
-      `${base.pipelinesPrefix}${slug}/jobs/`,
-    ),
+    getLiveConfig(slug).catch(() => null),
+    // One indexed query instead of listing and reading job objects.
+    loadLatestTerminalJob(slug).catch(() => null),
   ]);
 
   // Only terminal runs count: `scheduled`/`running` collapse into the
@@ -129,45 +121,14 @@ async function loadSummary(
     name: c?.name?.trim() || slug,
     tableCount: c?.analytic_tables.length ?? 0,
     lastRunAt: latestTerminalJob?.startedAt ?? null,
-    activityAt: latestTerminalJob?.startedAt ?? configResult?.lastModified ?? null,
+    // No runs yet: fall back to when the live config was saved.
+    activityAt: latestTerminalJob?.startedAt ?? configResult?.createdAt ?? null,
     status,
     graph,
   };
 }
 
 /** Newest-first scan for the first `completed`/`failed` job, capped at 5 reads. */
-async function loadLatestTerminalJob(
-  client: S3Client,
-  bucket: string,
-  prefix: string,
-): Promise<JobRecord | null> {
-  let listed: ListedObject[];
-  try {
-    listed = await listAllObjects(client, bucket, prefix);
-  } catch {
-    return null;
-  }
-  // Newest-first by the record's write time; ids stay opaque.
-  const jsonKeys = listed
-    .filter((o) => o.key.endsWith(".json"))
-    .sort((a, b) => Date.parse(b.lastModified ?? "") - Date.parse(a.lastModified ?? ""))
-    .map((o) => o.key);
-  if (jsonKeys.length === 0) return null;
-  const limit = Math.min(jsonKeys.length, 5);
-  for (let i = 0; i < limit; i++) {
-    try {
-      const r = await client.send(
-        new GetObjectCommand({ Bucket: bucket, Key: jsonKeys[i] }),
-      );
-      const buf = await readBodyToBuffer(r.Body);
-      const job = JSON.parse(buf.toString("utf-8")) as JobRecord;
-      if (job.status === "completed" || job.status === "failed") return job;
-    } catch {
-      continue;
-    }
-  }
-  return null;
-}
 
 export default async function Home() {
   const [{ pipelines, bucketError, loadError }, settings] = await Promise.all([
@@ -198,14 +159,14 @@ export default async function Home() {
 
   return (
     <SearchProvider>
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       <LandingRail
         displayName={settings.displayName}
         workspaceName={settings.workspaceName}
         starred={starred}
       />
-      <main className="min-w-0 flex-1">
-        <div className="sticky top-0 z-20 flex h-[52px] items-center justify-between border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 sm:px-6">
+      <main className="flex min-w-0 flex-1 flex-col">
+        <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             <MobileRailToggle
               displayName={settings.displayName}
@@ -222,7 +183,7 @@ export default async function Home() {
           </div>
         </div>
 
-        <div className="px-4 py-5 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
           {bucketError ? (
             <div
               className="rounded-md border border-[color:var(--color-rose-soft)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]"

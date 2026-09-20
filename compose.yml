@@ -1,6 +1,21 @@
 name: karet
 
 services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-karet}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD (e.g. openssl rand -hex 24)}
+      POSTGRES_DB: ${POSTGRES_DB:-karet}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-karet} -d ${POSTGRES_DB:-karet}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   valkey:
     image: valkey/valkey:8-alpine
     restart: unless-stopped
@@ -58,10 +73,13 @@ services:
       REDIS_URL: redis://valkey:6379
       KARET_WEBHOOK_SECRET: ${KARET_WEBHOOK_SECRET:?set KARET_WEBHOOK_SECRET (e.g. openssl rand -hex 32)}
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
+      DATABASE_URL: ${DATABASE_URL:-postgres://karet:${POSTGRES_PASSWORD}@postgres:5432/karet}
     depends_on:
       rustfs:
         condition: service_started
       valkey:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
 
   web:
@@ -84,6 +102,9 @@ services:
       KARET_WORKER_TOKEN: ${KARET_WORKER_TOKEN:?set KARET_WORKER_TOKEN (e.g. openssl rand -hex 32)}
       REDIS_URL: redis://valkey:6379
       S3_CONSOLE_URL: ${S3_CONSOLE_URL:-http://localhost:9001}
+      DATABASE_URL: ${DATABASE_URL:-postgres://karet:${POSTGRES_PASSWORD}@postgres:5432/karet}
+      BETTER_AUTH_SECRET: ${KARET_SESSION_SECRET}
+      BETTER_AUTH_URL: ${KARET_PUBLIC_URL:-http://localhost:3000}
     depends_on:
       rustfs:
         condition: service_started
@@ -91,7 +112,10 @@ services:
         condition: service_started
       valkey:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
 
 volumes:
   rustfs-data:
   valkey-data:
+  postgres-data:

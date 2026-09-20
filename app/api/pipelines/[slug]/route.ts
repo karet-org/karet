@@ -3,16 +3,21 @@ import { DeleteObjectsCommand, type ObjectIdentifier } from "@aws-sdk/client-s3"
 import {
   createS3Client,
   loadS3Config,
-  pipelineS3Config,
   wrapS3Error,
 } from "@/lib/config/s3-client";
 import { sanitizeSlug } from "@/lib/config/slug";
-import {
-  getPipelineConfig,
-  putPipelineConfig,
-} from "@/lib/services/config-service";
+
 import { listAllObjectKeys } from "@/lib/services/s3-helpers";
 import { withRole } from "@/lib/auth/guard";
+import type { Principal } from "@/lib/auth/service-token";
+import { findUserByUsername } from "@/lib/auth/users";
+import {
+  deletePipeline,
+  getLiveConfig,
+  pipelineExists,
+  renamePipeline,
+  saveConfig,
+} from "@/lib/services/pipeline-store";
 
 /** Removes every object under `pipelines/<slug>/` in the pipelines and warehouse bucket. */
 async function handleDelete(
@@ -24,7 +29,6 @@ async function handleDelete(
   if (!safeSlug) {
     return NextResponse.json({ error: "invalid_slug" }, { status: 422 });
   }
-
   const config = loadS3Config();
   const client = createS3Client(config);
   const prefix = `${config.pipelinesPrefix}${safeSlug}/`;
@@ -48,7 +52,12 @@ async function handleDelete(
       totalDeleted += keys.length;
     }
 
-    if (totalDeleted === 0) {
+    // The registry row, its config versions and its job rows cascade from here.
+    // Without this the pipeline kept appearing on the landing page with no data.
+    const registered = await pipelineExists(safeSlug);
+    if (registered) await deletePipeline(safeSlug);
+
+    if (totalDeleted === 0 && !registered) {
       return NextResponse.json(
         { error: "not_found", pipeline: safeSlug },
         { status: 404 },
@@ -63,6 +72,7 @@ async function handleDelete(
 async function handlePatch(
   request: Request,
   context: { params: Promise<{ slug: string }> },
+  principal: Principal,
 ) {
   const { slug } = await context.params;
   const safeSlug = sanitizeSlug(slug);
@@ -78,19 +88,25 @@ async function handlePatch(
     return NextResponse.json({ error: "invalid_name" }, { status: 422 });
   }
 
-  const config = pipelineS3Config(loadS3Config(), safeSlug);
-  const client = createS3Client(config);
-
+  // A rename is a config change, so it touches no objects.
   return wrapS3Error(async () => {
-    const current = await getPipelineConfig(client, config);
+    const current = await getLiveConfig(safeSlug);
     if (!current) {
       return NextResponse.json(
         { error: "not_found", pipeline: safeSlug },
         { status: 404 },
       );
     }
-    const updated = { ...current.config, name };
-    await putPipelineConfig(client, config, JSON.stringify(updated, null, 2));
+    // A rename is a config change like any other, so it becomes a version with
+    // an author rather than an untracked edit.
+    const author = principal.service ? null : await findUserByUsername(principal.username);
+    await saveConfig(
+      safeSlug,
+      { ...current.config, name },
+      { id: author?.id ?? null, name: principal.username },
+      "renamed",
+    );
+    await renamePipeline(safeSlug, name);
     return NextResponse.json({ ok: true, pipeline: safeSlug, name });
   }, `PATCH /api/pipelines/${safeSlug}`);
 }

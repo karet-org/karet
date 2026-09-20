@@ -6,8 +6,8 @@ import {
   type S3Client,
 } from "@aws-sdk/client-s3";
 import type { S3Config } from "@/lib/config/s3-client";
-import { getPipelineConfig } from "@/lib/services/config-service";
 import { readBodyToBuffer } from "@/lib/services/s3-helpers";
+import { getLiveConfig } from "@/lib/services/pipeline-store";
 
 export interface UiSettings {
   displayName: string;
@@ -89,20 +89,13 @@ export async function putUiSettings(
  * are dropped: they no longer exist, so the rail shouldn't link to them.
  */
 export async function starredListings(
-  client: S3Client,
-  config: S3Config,
   starred: string[],
 ): Promise<{ id: string; name: string }[]> {
   const listings = await Promise.all(
-    starred.map(async (id) => {
-      const scoped: S3Config = {
-        ...config,
-        pipelineConfigKey: `${config.pipelinesPrefix}${id}/pipeline.json`,
-      };
-      try {
-        const pc = await getPipelineConfig(client, scoped);
-        if (!pc) return null;
-        return { id, name: pc.config.name?.trim() || id };
+    starred.map(async (id) => {      try {
+        const live = await getLiveConfig(id);
+        if (!live) return null;
+        return { id, name: live.config.name?.trim() || id };
       } catch {
         return null;
       }

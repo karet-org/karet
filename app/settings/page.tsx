@@ -12,18 +12,18 @@ export default async function SettingsPage() {
   const settings = await getUiSettings(client, config).catch(
     () => ({ displayName: "", workspaceName: "", starred: [] }),
   );
-  const starred = await starredListings(client, config, settings.starred).catch(() => []);
+  const starred = await starredListings(settings.starred).catch(() => []);
 
   return (
     <SearchProvider>
-      <div className="flex min-h-screen">
+      <div className="flex h-screen overflow-hidden">
         <LandingRail
           displayName={settings.displayName}
           workspaceName={settings.workspaceName}
           starred={starred}
         />
-        <main className="min-w-0 flex-1">
-          <div className="sticky top-0 z-20 flex h-[52px] items-center border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 sm:px-6">
+        <main className="flex min-w-0 flex-1 flex-col">
+          <div className="flex h-[52px] shrink-0 items-center border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 sm:px-6">
             <MobileRailToggle
               displayName={settings.displayName}
               workspaceName={settings.workspaceName}
@@ -33,7 +33,7 @@ export default async function SettingsPage() {
               Settings
             </h1>
           </div>
-          <div className="px-4 py-5 sm:px-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
             <SettingsForm />
           </div>
         </main>

@@ -25,7 +25,7 @@ function RailContent({ displayName, workspaceName, starred }: RailProps) {
         : "text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
     }`;
   return (
-    <div className="flex h-full w-full flex-col p-2.5">
+    <div className="flex h-full w-full flex-col overflow-y-auto p-2.5">
       <Link href="/" className="flex items-center gap-2.5 px-2 pb-3 pt-1.5">
         <KaretLogo size={26} />
         <span className="min-w-0">
