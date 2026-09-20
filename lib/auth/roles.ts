@@ -18,22 +18,3 @@ export function isRole(value: unknown): value is Role {
 export function roleAtLeast(role: Role, required: Role): boolean {
   return RANK[role] >= RANK[required];
 }
-
-/** The parts of a user that identify a credential. */
-export interface CredentialIdentity {
-  role: Role;
-  passwordHash: string;
-}
-
-/**
- * Fingerprint of a credential, carried in the session as `cv` so that changing
- * a password or a role invalidates that user's outstanding sessions without
- * touching anyone else's.
- */
-export async function credentialVersion(user: CredentialIdentity): Promise<string> {
-  const bytes = new TextEncoder().encode(`${user.role}\n${user.passwordHash}`);
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-  let s = "";
-  for (const b of digest.subarray(0, 8)) s += String.fromCharCode(b);
-  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}

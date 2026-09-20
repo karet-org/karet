@@ -41,8 +41,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
   const [renameValue, setRenameValue] = useState("");
   const [renaming, setRenaming] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
-  // Admin *here*, not instance-wide: a pipeline's creator owns it at admin
-  // while holding a lesser role everywhere else.
+  // Admin *here*: an owner holds admin on their pipeline and less elsewhere.
   const isAdmin = useCanHere(pipeline, "admin");
   const switcherRef = useRef<HTMLDivElement>(null);
 
@@ -174,11 +173,8 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
             data-testid="side-nav-pipeline-menu"
             className="absolute left-1 right-1 top-full z-30 mt-1 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] py-1 shadow-[0_8px_28px_rgba(0,0,0,0.45)]"
           >
-            {/* This pipeline's actions, ordered by how often they're wanted and
-                how much they cost: rename, export, then delete. Switching
-                pipelines is "All pipelines" above, so listing them here as well
-                was two doors to one room. Rename and delete need admin, so
-                offering them to everyone was an invitation to a 403. */}
+            {/* Ordered by how often each is wanted and what it costs, which puts
+                delete last. Rename and delete need admin on this pipeline. */}
             {isAdmin && (
               <button
                 type="button"

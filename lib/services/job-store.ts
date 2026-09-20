@@ -108,11 +108,6 @@ export async function listJobs(options: ListJobsOptions): Promise<JobRow[]> {
   return rows.map(toJob);
 }
 
-export async function getJob(id: string): Promise<JobRow | null> {
-  const row = await queryOne<RawJobRow>(`${SELECT} WHERE j.id = $1`, [id]);
-  return row ? toJob(row) : null;
-}
-
 /**
  * The newest finished run, for the pipeline cards.
  *
@@ -147,19 +142,4 @@ export async function insertQueued(job: {
      ON CONFLICT (id) DO NOTHING`,
     [job.id, job.pipeline, job.configVersionId, job.trigger, job.enqueuedAt],
   );
-}
-
-/** Counts by status over a window, for alerting and the health summary. */
-export async function statusCounts(
-  since: string,
-): Promise<{ pipeline: string; status: string; count: number }[]> {
-  const rows = await query<{ pipeline: string; status: string; count: string }>(
-    `SELECT pipeline, status, count(*) AS count
-       FROM jobs
-      WHERE enqueued_at >= $1
-      GROUP BY pipeline, status
-      ORDER BY pipeline, status`,
-    [since],
-  );
-  return rows.map((r) => ({ pipeline: r.pipeline, status: r.status, count: Number(r.count) }));
 }

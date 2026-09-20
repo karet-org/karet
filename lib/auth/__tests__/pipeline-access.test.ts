@@ -58,9 +58,7 @@ describe("resolveEffectiveRole", () => {
   });
 
   it("keeps the owner admin on their own pipeline, whatever the list says", () => {
-    // Their access is read from `owner_id`, so it cannot be revoked or narrowed
-    // by an edit to the member list, including their own. Handing the pipeline to
-    // somebody else is the way it ends.
+    // Read from `owner_id`, so no edit to the member list can revoke or narrow it.
     const mine = { visibility: "members" as const, isOwner: true };
     expect(resolveEffectiveRole(viewer, { ...mine, memberRole: null })).toBe("admin");
     expect(resolveEffectiveRole(editor, { ...mine, memberRole: "viewer" })).toBe("admin");
@@ -82,11 +80,9 @@ describe("pipelineFromPath", () => {
   });
 
   it("finds the slug on the registry routes too", () => {
-    // Renaming and deleting used to resolve instance-wide, on the reading that
-    // they are decisions about the instance's pipelines rather than within one.
-    // Members-only-by-default retired that: every pipeline now has a creator who
-    // is admin on it and an editor elsewhere, and "admin here but may not rename
-    // it" is not a distinction anyone can hold in their head.
+    // These used to resolve instance-wide, on the reading that a pipeline's
+    // lifecycle is the instance's business. Pipelines have owners now, and "admin
+    // here but may not rename it" is not a distinction anyone can hold.
     expect(pipelineFromPath("/api/pipelines/p-abc123")).toBe("p-abc123");
   });
 

@@ -8,12 +8,10 @@
 //
 //   1. Instance admins are admin everywhere. An access list that can lock the
 //      operator out of a pipeline is a way to lose a pipeline.
-//   2. A pipeline's owner is admin on it, for the same reason one step down:
-//      they should not be able to lose the thing that is theirs, whether to
-//      somebody else's edit of the member list or their own. This is read from
-//      `pipelines.owner_id`, so it survives any change to that list. Ownership
-//      starts with whoever created the pipeline and can be handed over, which is
-//      what keeps "permanent access" from meaning "forever".
+//   2. A pipeline's owner is admin on it, for the same reason one step down: they
+//      should not lose the thing that is theirs to an edit of the member list.
+//      Read from `pipelines.owner_id`, and ownership can be handed over, which is
+//      what keeps that from meaning forever.
 //   3. An explicit membership row wins. It is the more specific statement, and
 //      it has to be able to narrow: "an editor who may only read finance" is the
 //      whole reason this exists.
@@ -32,7 +30,6 @@ export interface Member {
   userId: string;
   username: string;
   role: Role;
-  grantedAt: string;
 }
 
 /** Null means no access at all: the pipeline is members-only and they are not one. */
@@ -42,7 +39,6 @@ interface AccessInputs {
   visibility: Visibility;
   /** The caller's membership role for this pipeline, if any. */
   memberRole: Role | null;
-  /** True when the caller is the account recorded in `owner_id`. */
   isOwner: boolean;
 }
 
@@ -119,13 +115,8 @@ export async function visiblePipelineSlugs(
 }
 
 export async function listMembers(pipeline: string): Promise<Member[]> {
-  const rows = await query<{
-    user_id: string;
-    username: string | null;
-    role: string;
-    granted_at: Date;
-  }>(
-    `SELECT m.user_id, u.username, m.role, m.granted_at
+  const rows = await query<{ user_id: string; username: string | null; role: string }>(
+    `SELECT m.user_id, u.username, m.role
        FROM pipeline_members m
        JOIN "user" u ON u.id = m.user_id
       WHERE m.pipeline = $1
@@ -134,23 +125,12 @@ export async function listMembers(pipeline: string): Promise<Member[]> {
   );
   return rows.flatMap((r) =>
     r.username && isRole(r.role)
-      ? [
-          {
-            userId: r.user_id,
-            username: r.username,
-            role: r.role,
-            grantedAt: r.granted_at.toISOString(),
-          },
-        ]
+      ? [{ userId: r.user_id, username: r.username, role: r.role }]
       : [],
   );
 }
 
-/**
- * Whose pipeline this is, for a UI that has to explain why one row cannot be
- * removed. Null when the owning account was deleted, or for pipelines that
- * predate accounts.
- */
+/** Null when the owning account was deleted, or the pipeline predates accounts. */
 export async function getOwner(
   pipeline: string,
 ): Promise<{ userId: string; username: string } | null> {
@@ -165,13 +145,9 @@ export async function getOwner(
 }
 
 /**
- * Hand a pipeline to somebody else.
- *
- * Only the owner changes. A grant is a statement about somebody who is not the
- * owner, and the new owner does not need one: their admin comes from owning the
- * thing. The previous owner's grant, if they have one, is left alone, so their
- * access becomes ordinary and revocable rather than vanishing under them, and
- * removing it is a separate, visible act on the same screen.
+ * Only the owner changes. The new owner needs no grant, since their admin comes
+ * from owning the pipeline, and the old owner's grant is left for an admin to
+ * remove rather than vanishing under them.
  */
 export async function transferOwnership(pipeline: string, newOwnerId: string): Promise<void> {
   await query(`UPDATE pipelines SET owner_id = $2 WHERE slug = $1`, [pipeline, newOwnerId]);

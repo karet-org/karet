@@ -191,9 +191,8 @@ export async function saveConfig(
 /**
  * Register a pipeline and store its first config version.
  *
- * New pipelines are members-only (0004), so the creator is recorded as the owner
- * and granted admin here. Without that an editor would create a pipeline and
- * immediately 404 on it, and nobody but an instance admin could hand it back.
+ * New pipelines are members-only, so the author is recorded as the owner here.
+ * Without that an editor would create a pipeline and immediately 404 on it.
  */
 export async function createPipeline(
   slug: string,

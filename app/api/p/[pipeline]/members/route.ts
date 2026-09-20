@@ -13,22 +13,18 @@ import {
   transferOwnership,
 } from "@/lib/auth/pipeline-access";
 
-// The owner's access does not come from the member list, so the list must not
-// pretend to control it: narrowing or removing them would appear to work and
-// change nothing. Hand the pipeline over instead.
+export const dynamic = "force-dynamic";
+
+// The owner's admin comes from owning the pipeline, so this list must not pretend
+// to control it: narrowing or removing them would appear to work and do nothing.
 const OWNER_FIXED = {
   error: "owner_access_is_permanent",
   message: "A pipeline's owner keeps admin on it. Transfer ownership instead.",
 };
 
-export const dynamic = "force-dynamic";
-
 /**
- * What the access page draws, returned by reads and writes alike.
- *
- * A write answering with the resulting state means the page never has to refetch
- * to show what it just did, which is what kept it flashing its loading view
- * after every change.
+ * What the access page draws, returned by reads and writes alike, so a write
+ * never makes the page refetch to show what it just did.
  */
 async function currentState(pipeline: string) {
   const visibility = await getVisibility(pipeline);
@@ -38,6 +34,12 @@ async function currentState(pipeline: string) {
     owner: (await getOwner(pipeline))?.username ?? null,
     members: await listMembers(pipeline),
   };
+}
+
+async function changed(pipeline: string) {
+  const state = await currentState(pipeline);
+  if (!state) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  return NextResponse.json({ ok: true, ...state });
 }
 
 /** Who has explicit access here, and whether the pipeline is members-only. */
@@ -71,21 +73,21 @@ async function handlePut(
       return NextResponse.json({ error: "invalid_visibility" }, { status: 422 });
     }
     await setVisibility(pipeline, body.visibility);
-    return NextResponse.json({ ok: true, ...(await currentState(pipeline)) });
+    return changed(pipeline);
   }
 
   if (body?.owner !== undefined) {
     const next = await findUserByUsername(body.owner);
     if (!next) return NextResponse.json({ error: "no_such_user" }, { status: 404 });
 
-    // The route gate only asks for admin *here*, and an editor granted admin on
-    // one pipeline could otherwise make their own access permanent by taking
-    // ownership of it. Handing a pipeline over is the owner's decision, or the
-    // operator's when the owner is gone.
+    // Admin *here* is not enough: an editor granted admin on one pipeline could
+    // otherwise take ownership and make their own access permanent.
     const current = await getOwner(pipeline);
     const actor = principal.service ? null : await findUserByUsername(principal.username);
     const mayTransfer =
-      principal.service || principal.role === "admin" || (actor && current?.userId === actor.id);
+      principal.service ||
+      principal.role === "admin" ||
+      (actor !== null && current?.userId === actor.id);
     if (!mayTransfer) {
       return NextResponse.json(
         {
@@ -97,7 +99,7 @@ async function handlePut(
     }
 
     await transferOwnership(pipeline, next.id);
-    return NextResponse.json({ ok: true, ...(await currentState(pipeline)) });
+    return changed(pipeline);
   }
 
   if (!body?.username || !isRole(body.role)) {
@@ -113,7 +115,7 @@ async function handlePut(
 
   const granter = principal.service ? null : await findUserByUsername(principal.username);
   await grantMembership(pipeline, target.id, body.role, granter?.id ?? null);
-  return NextResponse.json({ ok: true, ...(await currentState(pipeline)) });
+  return changed(pipeline);
 }
 
 async function handleDelete(
@@ -132,7 +134,7 @@ async function handleDelete(
   }
 
   await revokeMembership(pipeline, target.id);
-  return NextResponse.json({ ok: true, ...(await currentState(pipeline)) });
+  return changed(pipeline);
 }
 
 export const GET = withRole(handleGet);

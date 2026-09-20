@@ -25,7 +25,6 @@ interface Member {
   userId: string;
   username: string;
   role: Role;
-  grantedAt: string;
 }
 
 interface Account {
@@ -44,30 +43,28 @@ const ROLES: Role[] = ["viewer", "editor", "admin"];
 
 export default function AccessPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
+  const me = useCurrentUser();
+  const isInstanceAdmin = useCan("admin");
+
   const [visibility, setVisibility] = useState<"instance" | "members">("instance");
   const [members, setMembers] = useState<Member[]>([]);
   const [owner, setOwner] = useState<string | null>(null);
-  const [nextOwner, setNextOwner] = useState("");
-  const me = useCurrentUser();
-  const isInstanceAdmin = useCan("admin");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  // Which control is mid-request, so one change disables that control rather than
-  // the whole page. Nothing else here is a reason to stop reading.
+  // Which control is mid-request, so one change disables that control, not the page.
   const [pending, setPending] = useState<string | null>(null);
   const [addUser, setAddUser] = useState("");
   const [addRole, setAddRole] = useState<Role>("viewer");
+  const [nextOwner, setNextOwner] = useState("");
 
-  const apply = useCallback((body: AccessState) => {
-    setVisibility(body.visibility);
-    setMembers(body.members ?? []);
-    setOwner(body.owner ?? null);
+  const apply = useCallback((state: AccessState) => {
+    setVisibility(state.visibility);
+    setMembers(state.members);
+    setOwner(state.owner);
   }, []);
 
-  // The only load that shows a loading view is the first one. A change already
-  // knows what it did, so redrawing the page from scratch afterwards threw the
-  // reader back to "Loading…" for no new information.
+  // Only the first load shows a loading view; a change applies its own response.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -77,7 +74,7 @@ export default function AccessPage() {
         if (!res.ok) throw new Error(body.message || body.error || `HTTP ${res.status}`);
         if (cancelled) return;
         apply(body);
-        setAccounts(body.accounts ?? []);
+        setAccounts(body.accounts);
       } catch (err) {
         if (!cancelled) setError((err as Error).message);
       } finally {
@@ -89,10 +86,7 @@ export default function AccessPage() {
     };
   }, [pipeline, apply]);
 
-  /**
-   * Send one change and take the resulting state from its response, so the page
-   * updates in place: the row changes, nothing else moves.
-   */
+  /** Send one change and apply the state it returns, so the row updates in place. */
   async function send(
     key: string,
     body: unknown,
@@ -118,9 +112,8 @@ export default function AccessPage() {
   }
 
   const unlisted = accounts.filter((a) => !members.some((m) => m.username === a.username));
-  // Matches the server's rule: the owner's decision, or the operator's when the
-  // owner has gone.
-  const canTransfer = isInstanceAdmin || (me?.username !== undefined && me.username === owner);
+  // Matches the server's rule.
+  const canTransfer = isInstanceAdmin || (owner !== null && me?.username === owner);
 
   return (
     <div className="mx-auto max-w-3xl px-8 py-8">
@@ -209,8 +202,7 @@ export default function AccessPage() {
                 <thead>
                   <tr className="border-b border-[color:var(--color-rule)] text-left text-[11px] text-[color:var(--color-ink-3)]">
                     <th className="pb-1.5 pr-3 font-medium">Person</th>
-                    {/* Inset to the control's text: the reader compares the words
-                        in this column, not the edges of the boxes around them. */}
+                    {/* Inset to the control's text, which is what rows line up on. */}
                     <th className="pb-1.5 pl-[11px] pr-3 font-medium">Role here</th>
                     <th className="pb-1.5 font-medium" />
                   </tr>
@@ -251,8 +243,7 @@ export default function AccessPage() {
                       </td>
                       <td className="py-2 text-right">
                         {m.username === owner ? (
-                          // Their access comes from having created the pipeline, not
-                          // from this list, so a control here would do nothing.
+                          // Their admin comes from owning it, not from this list.
                           <span className="text-[11.5px] text-[color:var(--color-ink-4)]">
                             Owner
                           </span>
