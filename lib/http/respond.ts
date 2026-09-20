@@ -6,7 +6,7 @@
 // tested without a request.
 
 import { NextResponse } from "next/server";
-import type { Outcome } from "@/lib/auth/account-admin";
+import type { Outcome } from "@/lib/outcome";
 
 export function respond<T>(
   outcome: Outcome<T>,

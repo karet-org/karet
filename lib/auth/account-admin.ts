@@ -8,6 +8,7 @@
 //
 // Node runtime only.
 
+import { refuse, type Outcome } from "@/lib/outcome";
 import { hashPassword } from "@/lib/auth/password";
 import { isRole, type Role } from "@/lib/auth/roles";
 import type { Principal } from "@/lib/auth/service-token";
@@ -23,19 +24,6 @@ import {
   setRole,
   type User,
 } from "@/lib/auth/users";
-
-/** A refusal carries the code and sentence the caller shows, and its status. */
-export interface Refusal {
-  error: string;
-  message: string;
-  status: number;
-}
-
-export type Outcome<T> = { ok: true; value: T } | { ok: false } & Refusal;
-
-function refuse(error: string, message: string, status = 422): Outcome<never> {
-  return { ok: false, error, message, status };
-}
 
 /** The environment sets this account's role and password on every start. */
 export function isBootstrap(username: string): boolean {
