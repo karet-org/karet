@@ -23,18 +23,33 @@ const OWNER_FIXED = {
 
 export const dynamic = "force-dynamic";
 
+/**
+ * What the access page draws, returned by reads and writes alike.
+ *
+ * A write answering with the resulting state means the page never has to refetch
+ * to show what it just did, which is what kept it flashing its loading view
+ * after every change.
+ */
+async function currentState(pipeline: string) {
+  const visibility = await getVisibility(pipeline);
+  if (!visibility) return null;
+  return {
+    visibility,
+    owner: (await getOwner(pipeline))?.username ?? null,
+    members: await listMembers(pipeline),
+  };
+}
+
 /** Who has explicit access here, and whether the pipeline is members-only. */
 async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
   const { pipeline } = await context.params;
-  const visibility = await getVisibility(pipeline);
-  if (!visibility) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const state = await currentState(pipeline);
+  if (!state) return NextResponse.json({ error: "not_found" }, { status: 404 });
   return NextResponse.json({
-    visibility,
-    owner: (await getOwner(pipeline))?.username ?? null,
-    members: await listMembers(pipeline),
+    ...state,
     // Offered so the UI can populate a picker without a second endpoint.
     accounts: (await listUsers()).map((u) => ({ username: u.username, role: u.role })),
   });
@@ -56,7 +71,7 @@ async function handlePut(
       return NextResponse.json({ error: "invalid_visibility" }, { status: 422 });
     }
     await setVisibility(pipeline, body.visibility);
-    return NextResponse.json({ ok: true, visibility: body.visibility });
+    return NextResponse.json({ ok: true, ...(await currentState(pipeline)) });
   }
 
   if (body?.owner !== undefined) {
@@ -82,7 +97,7 @@ async function handlePut(
     }
 
     await transferOwnership(pipeline, next.id);
-    return NextResponse.json({ ok: true, owner: next.username });
+    return NextResponse.json({ ok: true, ...(await currentState(pipeline)) });
   }
 
   if (!body?.username || !isRole(body.role)) {
@@ -98,7 +113,7 @@ async function handlePut(
 
   const granter = principal.service ? null : await findUserByUsername(principal.username);
   await grantMembership(pipeline, target.id, body.role, granter?.id ?? null);
-  return NextResponse.json({ ok: true, username: target.username, role: body.role });
+  return NextResponse.json({ ok: true, ...(await currentState(pipeline)) });
 }
 
 async function handleDelete(
@@ -117,7 +132,7 @@ async function handleDelete(
   }
 
   await revokeMembership(pipeline, target.id);
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, ...(await currentState(pipeline)) });
 }
 
 export const GET = withRole(handleGet);
