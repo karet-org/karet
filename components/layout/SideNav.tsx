@@ -172,8 +172,30 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
             data-testid="side-nav-pipeline-menu"
             className="absolute left-1 right-1 top-full z-30 mt-1 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] py-1 shadow-[0_8px_28px_rgba(0,0,0,0.45)]"
           >
-            {/* This pipeline's actions. Switching pipelines is "All pipelines"
-                above, so listing them here as well was two doors to one room. */}
+            {/* This pipeline's actions, ordered by how often they're wanted and
+                how much they cost: rename, export, then delete. Switching
+                pipelines is "All pipelines" above, so listing them here as well
+                was two doors to one room. Rename and delete need admin, so
+                offering them to everyone was an invitation to a 403. */}
+            {isAdmin && (
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="side-nav-rename-pipeline"
+                onClick={() => {
+                  setSwitcherOpen(false);
+                  setRenameValue(displayName);
+                  setRenameError(null);
+                  setRenameOpen(true);
+                }}
+                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-rule-soft)] hover:text-[color:var(--color-ink)]"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                  <path d="M11.1 2.4a1.4 1.4 0 0 1 2 2L5.5 12l-2.8.8.8-2.8 7.6-7.6Z" />
+                </svg>
+                Rename pipeline
+              </button>
+            )}
             <a
               href={`/api/p/${pipeline}/export`}
               download
@@ -185,45 +207,23 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
               <IconDownload size={14} className="text-[color:var(--color-ink-3)]" />
               Export .zip
             </a>
-            {/* Renaming and deleting need admin, so offering them to everyone was
-                an invitation to a 403. */}
             {isAdmin && (
-              <>
-                <div className="my-1 border-t border-[color:var(--color-rule-soft)]" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  data-testid="side-nav-rename-pipeline"
-                  onClick={() => {
-                    setSwitcherOpen(false);
-                    setRenameValue(displayName);
-                    setRenameError(null);
-                    setRenameOpen(true);
-                  }}
-                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-rule-soft)] hover:text-[color:var(--color-ink)]"
-                >
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-                    <path d="M11.1 2.4a1.4 1.4 0 0 1 2 2L5.5 12l-2.8.8.8-2.8 7.6-7.6Z" />
-                  </svg>
-                  Rename pipeline
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  data-testid="side-nav-delete-pipeline"
-                  disabled={deleting}
-                  onClick={() => {
-                    setSwitcherOpen(false);
-                    setDeleteConfirm("");
-                    setDeleteError(null);
-                    setDeleteOpen(true);
-                  }}
-                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)] disabled:opacity-50"
-                >
-                  <IconTrash size={14} />
-                  Delete pipeline…
-                </button>
-              </>
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="side-nav-delete-pipeline"
+                disabled={deleting}
+                onClick={() => {
+                  setSwitcherOpen(false);
+                  setDeleteConfirm("");
+                  setDeleteError(null);
+                  setDeleteOpen(true);
+                }}
+                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)] disabled:opacity-50"
+              >
+                <IconTrash size={14} />
+                Delete pipeline…
+              </button>
             )}
           </div>
         ) : null}
