@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import Modal from "@/components/ui/Modal";
 import SqlEditor from "@/components/data/SqlEditor";
 import type { SavedQuery } from "@/lib/types/query";
@@ -15,6 +16,10 @@ interface TableVersion {
   live: boolean;
 }
 interface TableInfo { id: string; name: string; schema: Column[]; fileCount: number; version: number }
+
+function emptyTableNotice(relation: { name: string }): string {
+  return `${relation.name} has no data yet.`;
+}
 
 import { nameToSlug } from "@/lib/config/name-to-slug";
 import { useCanHere } from "@/lib/client/use-current-user";
@@ -30,6 +35,8 @@ interface Relation {
   slug: string;
   /** Warehouse part count. */
   meta: string;
+  /** False until a run has published the table, when it is not queryable yet. */
+  published: boolean;
   /** id of the relation this one's slug collides with, else null. */
   collidesWith: string | null;
 }
@@ -44,6 +51,8 @@ export default function DataPage() {
   const [result, setResult] = useState<Record<string, unknown>[] | null>(null);
   const [resultCols, setResultCols] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Not an error: the table exists in the pipeline and simply has not run yet.
+  const [notice, setNotice] = useState<string | null>(null);
   const [tablesOpen, setTablesOpen] = useState(false);
   const [bucketError, setBucketError] = useState<string | null>(null);
 
@@ -163,12 +172,13 @@ export default function DataPage() {
       const key = `t:${t.id}`;
       const slug = nameToSlug(t.name);
       const meta = `${t.fileCount} file${t.fileCount !== 1 ? "s" : ""}${t.version ? `, v${t.version}` : ""}`;
+      const published = t.version > 0;
       const owner = seen.get(slug);
       if (owner === undefined) {
         seen.set(slug, key);
-        return { key, tableId: t.id, name: t.name, schema: t.schema, slug, meta, collidesWith: null };
+        return { key, tableId: t.id, name: t.name, schema: t.schema, slug, meta, published, collidesWith: null };
       }
-      return { key, tableId: t.id, name: t.name, schema: t.schema, slug, meta, collidesWith: owner };
+      return { key, tableId: t.id, name: t.name, schema: t.schema, slug, meta, published, collidesWith: owner };
     });
   }, [tables]);
 
@@ -186,6 +196,7 @@ export default function DataPage() {
     if (!q.trim()) return;
     setLoading(true);
     setError(null);
+    setNotice(null);
 
     try {
       const res = await fetch(`/api/p/${pipeline}/query`, {
@@ -217,18 +228,27 @@ export default function DataPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relations]);
 
-  // Auto-run the initial query once metadata loads.
+  // Auto-run the initial query once metadata loads. A table no run has published
+  // yet is not in DuckDB's catalog, so querying it would only produce a catalog
+  // error where "no data yet" is the whole story.
   useEffect(() => {
-    if (relations.length > 0 && !result && !error) {
-      const first = relations.find((r) => !r.collidesWith);
-      if (first) runQuery(`SELECT * FROM ${first.slug} LIMIT 50`);
-    }
+    if (relations.length === 0 || result || error || notice) return;
+    const first = relations.find((r) => !r.collidesWith);
+    if (!first) return;
+    if (first.published) runQuery(`SELECT * FROM ${first.slug} LIMIT 50`);
+    else setNotice(emptyTableNotice(first));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relations]);
 
-  const selectRelation = (slug: string) => {
-    const q = `SELECT * FROM ${slug} LIMIT 50`;
+  const selectRelation = (relation: Relation) => {
+    const q = `SELECT * FROM ${relation.slug} LIMIT 50`;
     setSql(q);
+    if (!relation.published) {
+      setResult(null);
+      setError(null);
+      setNotice(emptyTableNotice(relation));
+      return;
+    }
     runQuery(q);
   };
 
@@ -345,6 +365,25 @@ export default function DataPage() {
               <p className="px-3.5 py-3 text-xs text-[color:var(--color-rose-deep)]" role="alert">
                 {error}
               </p>
+            ) : notice ? (
+              <div
+                className="grid h-full place-items-center px-3.5 py-8 text-center"
+                data-testid="empty-table-notice"
+              >
+                <div>
+                  <p className="text-[12.5px] text-[color:var(--color-ink-2)]">{notice}</p>
+                  <p className="mx-auto mt-1 max-w-[46ch] text-[12px] text-[color:var(--color-ink-4)]">
+                    A table fills up when the pipeline runs. Run it once and its rows appear
+                    here.
+                  </p>
+                  <Link
+                    href={`/p/${pipeline}/jobs`}
+                    className="mt-3 inline-block text-[12px] text-[color:var(--color-carrot)] hover:underline"
+                  >
+                    Go to Jobs
+                  </Link>
+                </div>
+              </div>
             ) : !result ? (
               <p className="grid h-full place-items-center px-3.5 py-8 text-[12.5px] text-[color:var(--color-ink-4)]">
                 Run a query to see results
@@ -475,7 +514,7 @@ export default function DataPage() {
               <div key={r.key} className="border-b border-[color:var(--color-rule-soft)] py-2.5 last:border-b-0">
                 <button
                   type="button"
-                  onClick={() => selectRelation(r.slug)}
+                  onClick={() => selectRelation(r)}
                   disabled={r.collidesWith !== null}
                   title={r.collidesWith ? `Slug collides with ${r.collidesWith}` : `SELECT * FROM ${r.slug}`}
                   className="flex w-full items-center gap-2 text-left disabled:opacity-50"

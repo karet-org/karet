@@ -32,6 +32,34 @@ export async function relationsForConfig(
   return out;
 }
 
+/**
+ * A table only becomes a relation once a run has published it, so SQL naming one
+ * that has never run hits DuckDB's catalog rather than anything we control. Its
+ * answer ("Table with name transactions does not exist! Did you mean
+ * \"duckdb_constraints\"?") is true and useless: the table is in the pipeline, it
+ * just has no data. Say that instead, and keep DuckDB's wording for names that
+ * really are unknown.
+ */
+function explainMissingRelation(
+  message: string,
+  config: PipelineConfig,
+  relations: QueryRelation[],
+): string {
+  const missing = /Table with name ([A-Za-z0-9_]+) does not exist/.exec(message)?.[1];
+  if (!missing) return message;
+
+  const configured = config.analytic_tables.some(
+    (t) => nameToSlug(t.name) === missing || t.id === missing,
+  );
+  if (configured) {
+    return `Table "${missing}" has no data yet. Run the pipeline to load it.`;
+  }
+  const available = relations.map((r) => r.slug).sort();
+  return available.length > 0
+    ? `No table named "${missing}". Tables with data: ${available.join(", ")}.`
+    : `No table named "${missing}", and no table has data yet. Run the pipeline first.`;
+}
+
 /** Run a read-only SELECT against the pipeline's warehouse tables; `validateOnly`
  * plans without returning rows. */
 export async function runPipelineQuery(
@@ -46,7 +74,10 @@ export async function runPipelineQuery(
   } = {},
 ): ReturnType<typeof executeUserQuery> {
   const relations = await relationsForConfig(pipeline, config, options.versions);
-  return executeUserQuery(relations, sql, options);
+  const result = await executeUserQuery(relations, sql, options);
+  return "error" in result
+    ? { error: explainMissingRelation(result.error, config, relations) }
+    : result;
 }
 
 /** Column names a query would produce against this pipeline's warehouse. */
