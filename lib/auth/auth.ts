@@ -53,8 +53,8 @@ export function syntheticEmail(user: string): string {
 function build() {
   return betterAuth({
   database: authPool(),
-  secret: process.env.BETTER_AUTH_SECRET ?? process.env.KARET_SESSION_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL,
+  secret: process.env.KARET_SESSION_SECRET,
+  baseURL: process.env.KARET_PUBLIC_URL,
   emailAndPassword: {
     enabled: true,
     // Existing hashes are `scrypt$N$r$p$salt$hash` from before this migration.
@@ -86,11 +86,11 @@ function build() {
     },
   },
   advanced: {
-    // Karet runs behind TLS in production and plain HTTP locally; better-auth
-    // picks the right cookie flags from the base URL.
-    useSecureCookies: (process.env.BETTER_AUTH_URL ?? "").startsWith("https:"),
+    // Karet runs behind TLS in production and plain HTTP locally; the cookie
+    // flags follow the public URL.
+    useSecureCookies: (process.env.KARET_PUBLIC_URL ?? "").startsWith("https:"),
   },
-  trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"],
+  trustedOrigins: [process.env.KARET_PUBLIC_URL ?? "http://localhost:3000"],
   });
 }
 
