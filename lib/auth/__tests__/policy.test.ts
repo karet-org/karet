@@ -49,6 +49,14 @@ describe("requiredRole", () => {
     expect(requiredRole("POST", "/api/p/demo/config/history/2/revert")).toBe("editor");
   });
 
+  it("needs an admin to manage accounts", () => {
+    // Including the read: who else works here is not a viewer's business.
+    expect(requiredRole("GET", "/api/users")).toBe("admin");
+    expect(requiredRole("POST", "/api/users")).toBe("admin");
+    expect(requiredRole("GET", "/api/users/erin")).toBe("admin");
+    expect(requiredRole("DELETE", "/api/users/erin")).toBe("admin");
+  });
+
   it("needs an admin to delete or rename a pipeline, or change settings", () => {
     expect(requiredRole("DELETE", "/api/pipelines/demo")).toBe("admin");
     expect(requiredRole("PATCH", "/api/pipelines/demo")).toBe("admin");

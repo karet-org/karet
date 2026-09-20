@@ -28,6 +28,13 @@ vi.mock("@/lib/db", () => ({
     calls.push({ sql, values });
     return matchFixture(sql)[0] ?? null;
   },
+  transaction: async (fn: (client: unknown) => Promise<unknown>) =>
+    fn({
+      query: async (sql: string, values: unknown[] = []) => {
+        calls.push({ sql, values });
+        return { rows: matchFixture(sql) };
+      },
+    }),
 }));
 
 // The auth instance opens a pool at import time; only the helper is needed here.
@@ -38,11 +45,14 @@ vi.mock("@/lib/auth/auth", () => ({
 const {
   getAdminPasswordHash,
   getAdminUsername,
+  createUser,
+  deleteUser,
   findUserByUsername,
   listUsers,
   setRole,
   upsertBootstrapAdmin,
   isRole,
+  USERNAME_PATTERN,
 } = await import("../users");
 
 const USER_ROW = {
@@ -181,5 +191,50 @@ describe("isRole", () => {
   it("accepts exactly the three roles", () => {
     expect(["viewer", "editor", "admin"].every(isRole)).toBe(true);
     expect(isRole("owner")).toBe(false);
+  });
+});
+
+describe("creating an account", () => {
+  beforeEach(() => {
+    calls.length = 0;
+    rows = { 'INSERT INTO "user"': [{ ...USER_ROW, username: "pat", role: "viewer" }] };
+  });
+
+  it("writes the account and its credential in one transaction", async () => {
+    const user = await createUser("pat", "viewer", "scrypt$hash");
+    expect(user.username).toBe("pat");
+    const sql = calls.map((c) => c.sql).join("\n");
+    expect(sql).toContain('INSERT INTO "user"');
+    expect(sql).toContain("INSERT INTO account");
+    // The hash goes in as given: hashing an already-hashed password locks the
+    // account out, which is why sign-up is not used here.
+    expect(calls.some((c) => c.values.includes("scrypt$hash"))).toBe(true);
+  });
+
+  it("gives the account a synthetic email, since nothing sends mail", async () => {
+    await createUser("pat", "viewer", "scrypt$hash");
+    expect(calls[0].values).toContain("pat@karet.local");
+  });
+});
+
+describe("deleting an account", () => {
+  it("deletes the row and lets the schema cascade the rest", async () => {
+    calls.length = 0;
+    await deleteUser("u1");
+    expect(calls).toHaveLength(1);
+    expect(calls[0].sql).toContain('DELETE FROM "user"');
+    expect(calls[0].values).toEqual(["u1"]);
+  });
+});
+
+describe("USERNAME_PATTERN", () => {
+  it("accepts what better-auth's username plugin accepts", () => {
+    expect(USERNAME_PATTERN.test("pat")).toBe(true);
+    expect(USERNAME_PATTERN.test("pat.smith_2")).toBe(true);
+    expect(USERNAME_PATTERN.test("ab")).toBe(false);
+    // A hyphen is rejected by the plugin, so rejecting it here turns a confusing
+    // sign-in failure into a message at the point of typing.
+    expect(USERNAME_PATTERN.test("pat-smith")).toBe(false);
+    expect(USERNAME_PATTERN.test("a".repeat(33))).toBe(false);
   });
 });

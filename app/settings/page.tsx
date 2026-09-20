@@ -3,6 +3,7 @@ import { getUiSettings, starredListings } from "@/lib/services/ui-settings";
 import LandingRail, { MobileRailToggle } from "@/components/layout/LandingRail";
 import { SearchProvider } from "@/components/layout/LandingSearch";
 import SettingsForm from "@/components/settings/SettingsForm";
+import UsersPanel from "@/components/settings/UsersPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export default async function SettingsPage() {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
             <SettingsForm />
+            <UsersPanel />
           </div>
         </main>
       </div>

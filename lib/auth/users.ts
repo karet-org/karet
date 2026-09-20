@@ -10,7 +10,7 @@
 // password the environment says it has.
 
 import { randomUUID } from "node:crypto";
-import { query, queryOne } from "@/lib/db";
+import { query, queryOne, transaction } from "@/lib/db";
 import { isRole, type Role } from "./roles";
 import { syntheticEmail } from "./auth";
 
@@ -99,6 +99,64 @@ export async function revokeSessions(userId: string): Promise<number> {
     [userId],
   );
   return rows.length;
+}
+
+/** What a username may be: what better-auth's username plugin accepts. */
+export const USERNAME_PATTERN = /^[a-zA-Z0-9_.]{3,32}$/;
+export const MIN_PASSWORD_LENGTH = 8;
+
+/**
+ * Create an account with a credential, in one transaction.
+ *
+ * The rows are written directly rather than through better-auth's sign-up API,
+ * for the same reason the bootstrap admin is: sign-up would hash an
+ * already-hashed password, and it would sign the new person in as a side effect
+ * of an admin creating their account.
+ */
+export async function createUser(
+  username: string,
+  role: Role,
+  passwordHash: string,
+): Promise<User> {
+  const id = randomUUID();
+  const row = await transaction(async (client) => {
+    const inserted = await client.query<UserRow>(
+      `INSERT INTO "user" (id, name, email, "emailVerified", username, "displayUsername", role)
+       VALUES ($1, $2, $3, true, $2, $2, $4)
+       RETURNING id, username, role, "createdAt"`,
+      [id, username, syntheticEmail(username), role],
+    );
+    await client.query(
+      `INSERT INTO account (id, "accountId", "providerId", "userId", password)
+       VALUES ($1, $2, 'credential', $2, $3)`,
+      [randomUUID(), id, passwordHash],
+    );
+    return inserted.rows[0];
+  });
+  const user = toUser(row);
+  if (!user) throw new Error("created a user the store cannot read back");
+  return user;
+}
+
+/**
+ * Delete an account and everything that belongs to it.
+ *
+ * Sessions, credentials and per-pipeline grants cascade. Pipelines they own do
+ * not: `owner_id` becomes null, leaving the pipeline reachable by instance
+ * admins so it can be handed to somebody else rather than disappearing with its
+ * author.
+ */
+export async function deleteUser(userId: string): Promise<void> {
+  await query(`DELETE FROM "user" WHERE id = $1`, [userId]);
+}
+
+/** Pipelines this account owns, which lose their owner if it is deleted. */
+export async function pipelinesOwnedBy(userId: string): Promise<string[]> {
+  const rows = await query<{ name: string }>(
+    `SELECT name FROM pipelines WHERE owner_id = $1 ORDER BY name`,
+    [userId],
+  );
+  return rows.map((r) => r.name);
 }
 
 /**
