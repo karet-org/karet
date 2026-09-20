@@ -66,8 +66,8 @@ export function resolveEffectiveRole(
 export async function effectiveRoleFor(
   principal: Principal,
   pipeline: string,
-  userId: string | null,
 ): Promise<EffectiveRole> {
+  const userId = principal.userId;
   if (principal.service || principal.role === "admin") return "admin";
 
   const row = await queryOne<{
@@ -99,11 +99,9 @@ export async function effectiveRoleFor(
  * One query rather than resolving per pipeline: the landing page would otherwise
  * make a round trip per card.
  */
-export async function visiblePipelineSlugs(
-  principal: Principal,
-  userId: string | null,
-): Promise<string[] | "all"> {
+export async function visiblePipelineSlugs(principal: Principal): Promise<string[] | "all"> {
   if (principal.service || principal.role === "admin") return "all";
+  const userId = principal.userId;
   const rows = await query<{ slug: string }>(
     `SELECT p.slug
        FROM pipelines p

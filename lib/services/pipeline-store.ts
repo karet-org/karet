@@ -1,14 +1,8 @@
 // The pipeline registry and its config versions.
 //
-// Configs used to be a single object per pipeline in S3, with history beside it
-// and the live one read directly by the worker. That meant two sources of truth
-// for one document once history existed, and it meant a run read whatever the
-// head said at the moment it started — so a save partway through a run left the
-// result unattributable.
-//
-// Now: one append-only table of versions, and a pointer saying which is live. A
-// run carries the version id it should use, so "which config produced these
-// rows" has an answer, and a save during a run cannot change it.
+// One append-only table of versions, and a pointer saying which is live. A run
+// carries the version id it should use, so "which config produced these rows"
+// has an answer and a save partway through a run cannot change it.
 //
 // Node runtime only.
 

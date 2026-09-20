@@ -15,7 +15,6 @@
 import { NextResponse } from "next/server";
 import { currentPrincipal, type Principal } from "@/lib/auth/current-user";
 import { effectiveRoleFor } from "@/lib/auth/pipeline-access";
-import { findUserByUsername } from "@/lib/auth/users";
 import { pipelineFromPath, requiredRole } from "@/lib/auth/policy";
 import { roleAtLeast, type Role } from "@/lib/auth/roles";
 
@@ -45,8 +44,7 @@ export function withRole<C>(
     let held: Role | null = principal.role;
 
     if (pipeline) {
-      const user = principal.service ? null : await findUserByUsername(principal.username);
-      held = await effectiveRoleFor(principal, pipeline, user?.id ?? null);
+      held = await effectiveRoleFor(principal, pipeline);
     }
 
     if (held === null) {

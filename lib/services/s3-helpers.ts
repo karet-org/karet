@@ -6,14 +6,14 @@ import {
   type S3Client,
 } from "@aws-sdk/client-s3";
 
-export interface ListedObject {
+interface ListedObject {
   key: string;
   /** ISO write time from the listing. */
   lastModified?: string;
 }
 
 /** Every object under `prefix`, walking continuation tokens so the list is complete. */
-export async function listAllObjects(
+async function listAllObjects(
   client: S3Client,
   bucket: string,
   prefix: string,

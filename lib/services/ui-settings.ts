@@ -82,8 +82,8 @@ export async function putUiSettings(
 }
 
 /**
- * Resolve starred ids to `{id, name}`. Ids whose pipeline.json is unreadable
- * are dropped: they no longer exist, so the rail shouldn't link to them.
+ * Resolve starred ids to `{id, name}`, dropping ids with no pipeline: the rail
+ * should not link to something that has gone.
  */
 export async function starredListings(
   starred: string[],

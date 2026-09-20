@@ -51,9 +51,15 @@ vi.mock("@/lib/auth/password", () => ({
     stored === "stored-hash" && password === "right",
 }));
 
-const admin = { username: "admin", role: "admin" as const, service: false };
-const erin = { username: "erin", role: "admin" as const, service: false };
-const machine = { username: "service", role: "admin" as const, service: true };
+const admin = { username: "admin", displayName: "admin", userId: "u-admin", role: "admin" as const, service: false };
+const erin = { username: "erin", displayName: "erin", userId: "u-erin", role: "admin" as const, service: false };
+const machine = {
+  username: "service",
+  displayName: "service",
+  userId: null,
+  role: "admin" as const,
+  service: true,
+};
 
 const {
   changeOwnDisplayName,
@@ -195,7 +201,7 @@ describe("administering accounts", () => {
   });
 
   describe("your own display name", () => {
-    const vic = { username: "vic", role: "viewer" as const, service: false };
+    const vic = { username: "vic", displayName: "vic", userId: "u-vic", role: "viewer" as const, service: false };
 
     it("is yours to set, whatever your role", async () => {
       const out = await changeOwnDisplayName(vic, "  Vic Fuentes  ");
@@ -219,7 +225,7 @@ describe("administering accounts", () => {
   });
 
   describe("your own password", () => {
-    const vic = { username: "vic", role: "viewer" as const, service: false };
+    const vic = { username: "vic", displayName: "vic", userId: "u-vic", role: "viewer" as const, service: false };
 
     it("changes when the current one is right", async () => {
       const out = await changeOwnPassword(vic, "right", "long-enough-password");

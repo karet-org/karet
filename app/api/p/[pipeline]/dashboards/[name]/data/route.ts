@@ -3,7 +3,7 @@ import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/l
 import {
   getDashboardV2,
   getQuery,
-} from "@/lib/services/config-service";
+} from "@/lib/services/document-store";
 import { coerceParams, executeDashboard } from "@/lib/services/dashboard-data";
 import type { SavedQuery } from "@/lib/types/query";
 import { withRole } from "@/lib/auth/guard";

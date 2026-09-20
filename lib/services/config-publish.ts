@@ -1,9 +1,8 @@
 // What may become a config version, and what happens when it does.
 //
-// The sequence, shape-check then validate then version, used to be re-assembled
-// per route. Three routes publish: a save, a revert, and a rename. The rename did
-// neither check, and `configShapeError` was private to the save route, so the
-// `{}`-accepted defect its comment describes was fixed on one path of three.
+// Three routes publish: a save, a revert and a rename. The sequence is one thing
+// here, so a new one cannot skip the shape check or the validator the way the
+// rename did when each route assembled it.
 //
 // Node runtime only.
 
@@ -27,9 +26,9 @@ export function configShapeError(value: unknown): string | null {
 /**
  * Publish a config as the next version, or refuse it.
  *
- * Valid JSON is not a valid pipeline: writing `{}` used to be accepted and left
- * every read of the pipeline failing. An old version can also be invalid under
- * today's rules, which is why a revert comes through here too.
+ * Valid JSON is not a valid pipeline: `{}` parses and leaves every read failing.
+ * An old version can also be invalid under today's rules, which is why a revert
+ * comes through here too.
  */
 export async function publishConfig(
   pipeline: string,

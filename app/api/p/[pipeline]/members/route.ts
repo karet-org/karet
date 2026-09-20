@@ -87,11 +87,10 @@ async function handlePut(
     // Admin *here* is not enough: an editor granted admin on one pipeline could
     // otherwise take ownership and make their own access permanent.
     const current = await getOwner(pipeline);
-    const actor = principal.service ? null : await findUserByUsername(principal.username);
     const mayTransfer =
       principal.service ||
       principal.role === "admin" ||
-      (actor !== null && current?.userId === actor.id);
+      (principal.userId !== null && current?.userId === principal.userId);
     if (!mayTransfer) {
       return NextResponse.json(
         {
@@ -117,8 +116,7 @@ async function handlePut(
     return NextResponse.json(OWNER_FIXED, { status: 422 });
   }
 
-  const granter = principal.service ? null : await findUserByUsername(principal.username);
-  await grantMembership(pipeline, target.id, body.role, granter?.id ?? null);
+  await grantMembership(pipeline, target.id, body.role, principal.userId);
   return changed(pipeline);
 }
 

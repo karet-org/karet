@@ -1,10 +1,9 @@
 // Administering accounts: who may do what to whom.
 //
-// The rules used to exist only as `NextResponse` constructions inside the route
-// handlers, which meant `users.ts` would happily demote the bootstrap admin or
-// delete the caller, and nothing could check the rules without an HTTP request.
-// They live here now, behind one interface, and the routes map an Outcome to a
-// status.
+// The rules live here rather than in the handlers: `users.ts` will happily demote
+// the bootstrap admin or delete the caller, so something above it has to refuse,
+// and a refusal is worth testing without an HTTP request. Routes map the Outcome
+// to a status.
 //
 // Node runtime only.
 
@@ -70,11 +69,10 @@ export async function changeOwnDisplayName(
   if (bad) return refuse("invalid_display_name", bad);
   const trimmed = cleanDisplayName(displayName);
 
-  const user = await findUserByUsername(actor.username);
-  if (!user) return refuse("no_such_user", "This session has no account.", 404);
+  if (!actor.userId) return refuse("service_principal", "The service token has no name.", 403);
 
-  await setDisplayName(user.id, trimmed);
-  return { ok: true, value: { displayName: trimmed || user.username } };
+  await setDisplayName(actor.userId, trimmed);
+  return { ok: true, value: { displayName: trimmed || actor.username } };
 }
 
 /**
@@ -98,19 +96,18 @@ export async function changeOwnPassword(
   const bad = passwordProblem(newPassword);
   if (bad) return refuse("weak_password", bad);
 
-  const user = await findUserByUsername(actor.username);
-  if (!user) return refuse("no_such_user", "This session has no account.", 404);
+  if (!actor.userId) return refuse("service_principal", "The service token has no password.", 403);
   // The environment re-asserts this account's password on every start, so a
   // change here would last until the next restart.
-  if (isBootstrap(user.username)) return bootstrapRefusal();
+  if (isBootstrap(actor.username)) return bootstrapRefusal();
 
-  const stored = await credentialHash(user.id);
+  const stored = await credentialHash(actor.userId);
   if (!stored || !(await verifyPassword(currentPassword, stored))) {
     return refuse("wrong_password", "That is not your current password.", 403);
   }
 
-  await setPassword(user.id, await hashPassword(newPassword));
-  return { ok: true, value: { username: user.username } };
+  await setPassword(actor.userId, await hashPassword(newPassword));
+  return { ok: true, value: { username: actor.username } };
 }
 
 export async function createAccount(

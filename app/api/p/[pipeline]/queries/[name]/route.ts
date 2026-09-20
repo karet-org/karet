@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import { deleteQuery, getQuery } from "@/lib/services/config-service";
+import { deleteQuery, getQuery } from "@/lib/services/document-store";
 import { withRole } from "@/lib/auth/guard";
 
 async function handleGet(

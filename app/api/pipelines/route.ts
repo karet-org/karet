@@ -8,7 +8,6 @@ import { isFileRows } from "@/lib/types/config";
 import type { PipelineConfig } from "@/lib/types/config";
 import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
-import { findUserByUsername } from "@/lib/auth/users";
 import { createPipeline, listPipelines, pipelineExists } from "@/lib/services/pipeline-store";
 import { visiblePipelineSlugs } from "@/lib/auth/pipeline-access";
 
@@ -16,8 +15,7 @@ async function handleGet(_request: Request, _context: unknown, principal: Princi
   return withS3("GET /api/pipelines", async (_client, _config) => {
     // Members-only pipelines are invisible to non-members, so the list is
     // filtered rather than the cards being 404s.
-    const user = principal.service ? null : await findUserByUsername(principal.username);
-    const visible = await visiblePipelineSlugs(principal, user?.id ?? null);
+    const visible = await visiblePipelineSlugs(principal);
     const pipelines = (await listPipelines(visible === "all" ? undefined : visible)).map((p) => ({
       id: p.slug,
       name: p.name,
@@ -61,8 +59,7 @@ async function handlePost(request: Request, _context: unknown, principal: Princi
     let slug = "";
     for (let attempt = 0; attempt < 3; attempt++) {
       const candidate = newId("p");
-      // Uniqueness is the registry's primary key now, so ask it rather than
-      // probing for an object that no longer exists.
+      // The registry's primary key owns uniqueness, so ask it.
       if (!(await pipelineExists(candidate))) {
         slug = candidate;
         break;
@@ -79,13 +76,10 @@ async function handlePost(request: Request, _context: unknown, principal: Princi
         // The config is the pipeline's first version in Postgres, not an object.
         // Templates author source prefixes relative to the pipeline, so render
         // them absolute here.
-        const author = principal.service
-          ? null
-          : await findUserByUsername(principal.username);
         await createPipeline(
           slug,
           { ...absolutizeSourcePrefixes(content as PipelineConfig, prefix), name },
-          { id: author?.id ?? null, name: principal.username },
+          { id: principal.userId, name: principal.username },
         );
         continue;
       }

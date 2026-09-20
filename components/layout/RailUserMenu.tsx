@@ -1,10 +1,7 @@
 "use client";
 
 // Rail user row with a popover menu: what this person calls themselves, and the
-// role that says what they can do.
-//
-// The display name is per account. An instance-wide one, which this replaced,
-// would have labelled everyone on a shared instance the same.
+// role that says what they can do. Which account it is lives in the menu.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";

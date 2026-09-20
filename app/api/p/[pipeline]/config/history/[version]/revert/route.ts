@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
-import { findUserByUsername } from "@/lib/auth/users";
 import { getVersion } from "@/lib/services/pipeline-store";
 import { publishConfig } from "@/lib/services/config-publish";
 
@@ -26,11 +25,10 @@ async function handlePost(
   const entry = await getVersion(pipeline, n);
   if (!entry) return NextResponse.json({ error: "version_not_found" }, { status: 404 });
 
-  const author = principal.service ? null : await findUserByUsername(principal.username);
   const published = await publishConfig(
     pipeline,
     entry.config,
-    { id: author?.id ?? null, name: principal.username },
+    { id: principal.userId, name: principal.username },
     `reverted to v${n}`,
   );
   if (!published.ok) {

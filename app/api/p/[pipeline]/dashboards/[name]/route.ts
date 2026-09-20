@@ -4,7 +4,7 @@ import {
   deleteDashboardV2,
   getDashboardV2,
   putDashboardV2,
-} from "@/lib/services/config-service";
+} from "@/lib/services/document-store";
 import { fullDashboardGate } from "@/lib/services/dashboard-data";
 import { withRole } from "@/lib/auth/guard";
 

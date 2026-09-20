@@ -22,6 +22,8 @@ describe("serviceTokenPrincipal", () => {
   it("accepts the configured token", () => {
     expect(serviceTokenPrincipal("Bearer s3cret-worker-token")).toEqual({
       username: "service",
+      displayName: "service",
+      userId: null,
       role: "admin",
       service: true,
     });

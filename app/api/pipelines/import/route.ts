@@ -11,7 +11,6 @@ import {
 } from "@/lib/services/import-validation";
 import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
-import { findUserByUsername } from "@/lib/auth/users";
 import { createPipeline } from "@/lib/services/pipeline-store";
 import { normalizePipelineConfig } from "@/lib/config/migrate";
 
@@ -82,11 +81,8 @@ async function handlePost(request: Request, _context: unknown, principal: Princi
           if (!cfg.name?.trim()) {
             cfg.name = fallbackName || `Imported ${new Date().toISOString().slice(0, 10)}`;
           }
-          const author = principal.service
-            ? null
-            : await findUserByUsername(principal.username);
           await createPipeline(slug, cfg, {
-            id: author?.id ?? null,
+            id: principal.userId,
             name: principal.username,
           });
         } catch (err) {

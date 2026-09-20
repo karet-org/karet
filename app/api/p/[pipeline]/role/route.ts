@@ -7,7 +7,6 @@
 import { NextResponse } from "next/server";
 import { withRole } from "@/lib/auth/guard";
 import { effectiveRoleFor } from "@/lib/auth/pipeline-access";
-import { findUserByUsername } from "@/lib/auth/users";
 import type { Principal } from "@/lib/auth/service-token";
 
 export const dynamic = "force-dynamic";
@@ -18,8 +17,7 @@ async function handleGet(
   principal: Principal,
 ) {
   const { pipeline } = await context.params;
-  const user = principal.service ? null : await findUserByUsername(principal.username);
-  const role = await effectiveRoleFor(principal, pipeline, user?.id ?? null);
+  const role = await effectiveRoleFor(principal, pipeline);
   return NextResponse.json({ role });
 }
 

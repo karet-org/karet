@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
-import { findUserByUsername } from "@/lib/auth/users";
 import { getLiveConfig, pipelineExists } from "@/lib/services/pipeline-store";
 import { publishConfig } from "@/lib/services/config-publish";
 
@@ -61,9 +60,8 @@ async function handlePut(
     }
   }
 
-  const author = principal.service ? null : await findUserByUsername(principal.username);
   const published = await publishConfig(pipeline, parsed, {
-    id: author?.id ?? null,
+    id: principal.userId,
     name: principal.username,
   });
   if (!published.ok) {

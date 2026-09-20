@@ -14,7 +14,7 @@ export async function GET() {
     authenticated: true,
     user: {
       username: principal.username,
-      displayName: principal.displayName ?? principal.username,
+      displayName: principal.displayName,
       role: principal.role,
       service: principal.service,
     },

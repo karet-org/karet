@@ -10,7 +10,6 @@ import { sanitizeSlug } from "@/lib/config/slug";
 import { listAllObjectKeys } from "@/lib/services/s3-helpers";
 import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
-import { findUserByUsername } from "@/lib/auth/users";
 import { publishConfig } from "@/lib/services/config-publish";
 import {
   deletePipeline,
@@ -99,11 +98,10 @@ async function handlePatch(
     }
     // A rename is a config change like any other, so it becomes a version with
     // an author rather than an untracked edit, and it is validated like one.
-    const author = principal.service ? null : await findUserByUsername(principal.username);
     const published = await publishConfig(
       safeSlug,
       { ...current.config, name },
-      { id: author?.id ?? null, name: principal.username },
+      { id: principal.userId, name: principal.username },
       "renamed",
     );
     if (!published.ok) {

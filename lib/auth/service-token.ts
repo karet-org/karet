@@ -12,8 +12,10 @@ import type { Role } from "./roles";
 
 export interface Principal {
   username: string;
-  /** What this person calls themselves. Absent for the service token. */
-  displayName?: string;
+  /** What to call them. Always set: it falls back to the username. */
+  displayName: string;
+  /** Their `user` row id, null for the service token, which has no row. */
+  userId: string | null;
   role: Role;
   /** True for the service token: not a person, has no stored account. */
   service: boolean;
@@ -37,5 +39,11 @@ export function serviceTokenPrincipal(
     ? authorization.slice("Bearer ".length)
     : null;
   if (!presented || !tokensMatch(presented, expected)) return null;
-  return { username: "service", role: "admin", service: true };
+  return {
+    username: "service",
+    displayName: "service",
+    userId: null,
+    role: "admin",
+    service: true,
+  };
 }

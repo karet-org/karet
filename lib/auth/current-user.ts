@@ -38,6 +38,7 @@ export async function currentPrincipal(): Promise<Principal | null> {
   return {
     username: user.username,
     displayName: user.displayName,
+    userId: user.id,
     role: user.role,
     service: false,
   };

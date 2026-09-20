@@ -73,7 +73,7 @@ export default function PipelineGraphPage() {
           throw new Error(
             body.error === "bucket_not_found"
               ? `S3 bucket not found. ${body.message}`
-              : `Failed to load Pipeline_Config (${res.status})`,
+              : `Could not load this pipeline (${res.status})`,
           );
         }
         const version = res.headers?.get?.("X-Karet-Config-Version") ?? null;
@@ -227,10 +227,9 @@ export default function PipelineGraphPage() {
         return;
       }
 
-      // Send the version this editor loaded so a concurrent edit isn't
-      // overwritten; 412/5xx/network failures must stay dirty, not clear the
-      // banner. The ETag this used to send was an S3 header that Postgres-backed
-      // reads no longer set, so every save looked fresh and clobbered silently.
+      // Send the version this editor loaded, so a concurrent edit is not
+      // overwritten. A 412, a 5xx or a network failure must leave the editor
+      // dirty rather than clearing the banner.
       const version = useGraphStore.getState().configVersion;
       let res: Response;
       try {

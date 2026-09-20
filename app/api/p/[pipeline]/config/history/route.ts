@@ -7,10 +7,9 @@ export const dynamic = "force-dynamic";
 /**
  * Saved versions, newest first.
  *
- * Metadata only: one query, no configs read. Summaries used to be computed here
- * by walking every version and diffing it against its predecessor, which cost a
- * read per version and answered a question nobody asked — what matters is how a
- * version differs from what is live, and that is computed when one is inspected.
+ * Metadata only: one query, no configs read. How a version differs from what is
+ * live is computed when that version is inspected, which is the question anyone
+ * actually asks.
  */
 async function handleGet(
   _request: Request,

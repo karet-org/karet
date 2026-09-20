@@ -8,7 +8,7 @@ import {
   TargetExistsError,
   listQueries,
   putQuery,
-} from "@/lib/services/config-service";
+} from "@/lib/services/document-store";
 import { nameToSlug, runPipelineQuery } from "@/lib/services/query-service";
 import type { SavedQuery } from "@/lib/types/query";
 import { withRole } from "@/lib/auth/guard";
