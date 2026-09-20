@@ -53,9 +53,7 @@ export default function HistoryPage() {
   const [revertTarget, setRevertTarget] = useState<number | null>(null);
   const [reverting, setReverting] = useState(false);
 
-  // `quiet` for the reload after a revert: the table is already on screen and the
-  // reader is looking at it, so replacing it with "Loading…" loses their place to
-  // show them nothing they did not already know.
+  // `quiet` skips the loading view: after a revert the table is already on screen.
   const load = useCallback(
     async (opts?: { quiet?: boolean }) => {
       if (!opts?.quiet) setLoading(true);

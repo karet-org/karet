@@ -16,7 +16,6 @@ import { username } from "better-auth/plugins";
 import { Pool } from "pg";
 import { databaseUrl } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { ROLES } from "@/lib/auth/roles";
 
 /**
  * Better-auth manages its own pool: it opens connections lazily and expects to
@@ -110,5 +109,3 @@ export function getAuth(): ReturnType<typeof build> {
   instance ??= build();
   return instance;
 }
-
-export const VALID_ROLES = ROLES;

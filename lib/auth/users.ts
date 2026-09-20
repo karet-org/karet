@@ -74,14 +74,6 @@ export async function findUserByUsername(username: string): Promise<User | null>
   return row ? toUser(row) : null;
 }
 
-export async function findUserById(id: string): Promise<User | null> {
-  const row = await queryOne<UserRow>(
-    `SELECT id, username, role, "createdAt" FROM "user" WHERE id = $1`,
-    [id],
-  );
-  return row ? toUser(row) : null;
-}
-
 /**
  * Set a role, and end that person's sessions.
  *

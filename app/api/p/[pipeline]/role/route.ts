@@ -1,13 +1,8 @@
 // The caller's role on one pipeline, for drawing controls.
 //
-// `/api/auth/me` carries the instance role, which is the wrong answer once a
-// membership can widen or narrow it: the creator of a pipeline is admin on it
-// while being an editor everywhere else, so a sidebar keyed on the instance role
-// hides Rename and Delete from the one person who owns the thing.
-//
-// Presentation only, like the rest of the role plumbing in the client. The guard
-// has already 404'd a non-member by the time this handler runs, so the role it
-// returns is never null.
+// `/api/auth/me` carries the instance role, which is the wrong answer once
+// ownership or a membership changes it. Presentation only; the guard has already
+// 404'd a non-member, so the role returned here is never null.
 
 import { NextResponse } from "next/server";
 import { withRole } from "@/lib/auth/guard";
