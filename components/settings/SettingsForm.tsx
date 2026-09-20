@@ -2,10 +2,9 @@
 
 // Workspace settings; persists via /api/settings.
 //
-// Laid out like the pipeline Access page: a card with a heading, a sentence saying
-// what it is for, and the shared controls. Saves on blur rather than behind a
-// button, because it is one cosmetic string with nothing to validate against, and
-// the rest of the page commits as you go.
+// Laid out like the pipeline Access page, and saved on blur rather than behind a
+// button: one cosmetic string with nothing to validate against, on a page where
+// everything else commits as you go.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";

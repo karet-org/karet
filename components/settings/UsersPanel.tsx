@@ -1,7 +1,6 @@
 "use client";
 
-// Accounts, for an admin. Create, change a role, and delete, without reaching for
-// a terminal. Resetting a forgotten password is still `scripts/manage-users.mjs`.
+// Accounts, for an admin: create, change a role, reset a password, delete.
 
 import { useCallback, useEffect, useState } from "react";
 import Modal from "@/components/ui/Modal";
@@ -13,7 +12,7 @@ import {
   primaryButtonClass,
 } from "@/components/ui/controls";
 import { useCan, useCurrentUser } from "@/lib/client/use-current-user";
-import type { Role } from "@/lib/auth/roles";
+import { ROLES, type Role } from "@/lib/auth/roles";
 
 interface Account {
   username: string;
@@ -22,8 +21,6 @@ interface Account {
   /** Provisioned from the environment, so it cannot be deleted from here. */
   bootstrap: boolean;
 }
-
-const ROLES: Role[] = ["viewer", "editor", "admin"];
 
 export default function UsersPanel() {
   const isAdmin = useCan("admin");
@@ -104,8 +101,7 @@ export default function UsersPanel() {
       );
     } catch (err) {
       setError((err as Error).message);
-      // The select is driven by state, so a failure snaps it back to the role the
-      // server still holds.
+      // Reload so the select shows the role the server still holds.
       await load({ quiet: true });
     } finally {
       setPending(null);
@@ -134,7 +130,7 @@ export default function UsersPanel() {
     }
   }
 
-  /** Ask what the deletion costs before showing the confirmation. */
+  /** Ask what the deletion costs, so the confirmation can say. */
   async function askDelete(account: Account) {
     setTarget(account);
     setOwned(null);

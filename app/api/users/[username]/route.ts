@@ -8,10 +8,10 @@ import type { Principal } from "@/lib/auth/service-token";
 import { isRole } from "@/lib/auth/roles";
 import { hashPassword } from "@/lib/auth/password";
 import {
-  MIN_PASSWORD_LENGTH,
   deleteUser,
   findUserByUsername,
   getAdminUsername,
+  passwordProblem,
   pipelinesOwnedBy,
   setPassword,
   setRole,
@@ -43,10 +43,7 @@ async function handleGet(
   return NextResponse.json({ ownedPipelines: await pipelinesOwnedBy(user.id) });
 }
 
-/**
- * Change an account's role, or set a new password. Either ends that account's
- * sessions, so neither waits on a cookie to expire.
- */
+/** Change a role or set a password. Either ends that account's sessions. */
 async function handlePatch(
   request: Request,
   context: { params: Promise<{ username: string }> },
@@ -61,25 +58,15 @@ async function handlePatch(
   const user = await findUserByUsername(username);
   if (!user) return NextResponse.json({ error: "no_such_user" }, { status: 404 });
 
-  // The environment owns this account's password and role; a change here would
-  // last until the next restart and no longer.
+  // The environment owns both; a change here would last until the next restart.
   if (user.username.toLowerCase() === getAdminUsername().toLowerCase()) {
     return bootstrapRefusal();
   }
 
   if (body?.password !== undefined) {
-    if (body.password.length < MIN_PASSWORD_LENGTH) {
-      return NextResponse.json(
-        {
-          error: "weak_password",
-          message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
-        },
-        { status: 422 },
-      );
-    }
-    // Resetting your own password is allowed: it signs you out, which is honest
-    // about what a reset does, rather than being something only a colleague can
-    // do for you.
+    const bad = passwordProblem(body.password);
+    if (bad) return NextResponse.json({ error: "weak_password", message: bad }, { status: 422 });
+    // Your own is allowed. It signs you out, which is what a reset means.
     await setPassword(user.id, await hashPassword(body.password));
     return NextResponse.json({ ok: true, username: user.username });
   }
@@ -91,8 +78,7 @@ async function handlePatch(
     );
   }
 
-  // Demoting yourself takes away the page you are standing on, and ends the
-  // session doing it. Another admin can do it.
+  // Demoting yourself takes away the page you are standing on.
   if (!principal.service && user.username.toLowerCase() === principal.username.toLowerCase()) {
     return NextResponse.json(
       {

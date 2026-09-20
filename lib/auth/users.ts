@@ -21,7 +21,6 @@ export interface User {
   username: string;
   role: Role;
   createdAt: string;
-  disabledAt: string | null;
 }
 
 interface UserRow {
@@ -38,7 +37,6 @@ function toUser(row: UserRow): User | null {
     username: row.username,
     role: row.role,
     createdAt: row.createdAt.toISOString(),
-    disabledAt: null,
   };
 }
 
@@ -101,17 +99,30 @@ export async function revokeSessions(userId: string): Promise<number> {
   return rows.length;
 }
 
-/** What a username may be: what better-auth's username plugin accepts. */
+/** What better-auth's username plugin accepts. A hyphen is not in it. */
 export const USERNAME_PATTERN = /^[a-zA-Z0-9_.]{3,32}$/;
-export const MIN_PASSWORD_LENGTH = 8;
+const MIN_PASSWORD_LENGTH = 8;
+
+/** Why this username is unusable, or null. Rejecting here turns a confusing
+ * sign-in failure into a message at the point of typing. */
+export function usernameProblem(username: string): string | null {
+  return USERNAME_PATTERN.test(username)
+    ? null
+    : "Use 3 to 32 letters, numbers, underscores or dots.";
+}
+
+/** Why this password is unusable, or null. */
+export function passwordProblem(password: string): string | null {
+  return password.length >= MIN_PASSWORD_LENGTH
+    ? null
+    : `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+}
 
 /**
  * Create an account with a credential, in one transaction.
  *
- * The rows are written directly rather than through better-auth's sign-up API,
- * for the same reason the bootstrap admin is: sign-up would hash an
- * already-hashed password, and it would sign the new person in as a side effect
- * of an admin creating their account.
+ * Written directly rather than through better-auth's sign-up API, which would hash
+ * an already-hashed password and sign the admin in as the account they just made.
  */
 export async function createUser(
   username: string,
@@ -139,18 +150,14 @@ export async function createUser(
 }
 
 /**
- * Delete an account and everything that belongs to it.
- *
- * Sessions, credentials and per-pipeline grants cascade. Pipelines they own do
- * not: `owner_id` becomes null, leaving the pipeline reachable by instance
- * admins so it can be handed to somebody else rather than disappearing with its
- * author.
+ * Sessions, credentials and per-pipeline grants cascade. Pipelines they own do not:
+ * `owner_id` becomes null, so an admin can hand them on.
  */
 export async function deleteUser(userId: string): Promise<void> {
   await query(`DELETE FROM "user" WHERE id = $1`, [userId]);
 }
 
-/** Pipelines this account owns, which lose their owner if it is deleted. */
+/** Pipelines that would lose their owner if this account went. */
 export async function pipelinesOwnedBy(userId: string): Promise<string[]> {
   const rows = await query<{ name: string }>(
     `SELECT name FROM pipelines WHERE owner_id = $1 ORDER BY name`,
@@ -160,10 +167,8 @@ export async function pipelinesOwnedBy(userId: string): Promise<string[]> {
 }
 
 /**
- * Replace an account's password and sign it out everywhere.
- *
- * Ending the sessions is the point: a reset exists because somebody should no
- * longer be using the old password, and a live session would outlive it.
+ * Replace an account's password and sign it out everywhere. Ending the sessions is
+ * the point: a live session would outlive the password it was opened with.
  */
 export async function setPassword(userId: string, passwordHash: string): Promise<void> {
   await query(

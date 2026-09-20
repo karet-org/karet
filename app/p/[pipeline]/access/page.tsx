@@ -18,7 +18,7 @@ import {
   ghostButtonClass,
   primaryButtonClass,
 } from "@/components/ui/controls";
-import type { Role } from "@/lib/auth/roles";
+import { ROLES, type Role } from "@/lib/auth/roles";
 import { useCan, useCurrentUser } from "@/lib/client/use-current-user";
 
 interface Member {
@@ -38,8 +38,6 @@ interface AccessState {
   owner: string | null;
   members: Member[];
 }
-
-const ROLES: Role[] = ["viewer", "editor", "admin"];
 
 export default function AccessPage() {
   const { pipeline } = useParams<{ pipeline: string }>();

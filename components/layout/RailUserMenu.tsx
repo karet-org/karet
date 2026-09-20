@@ -1,11 +1,9 @@
 "use client";
 
-// Rail user row with a popover menu.
+// Rail user row with a popover menu: the signed-in account and its role.
 //
-// Shows the signed-in account and the role it holds. It used to show an
-// instance-wide "display name" from /api/settings, which was left over from
-// password-only login: with named accounts that name would label everyone on the
-// instance identically, and the account is the honest answer to "who am I".
+// It used to show an instance-wide "display name", which on a shared instance
+// would have labelled everyone the same.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";

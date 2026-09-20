@@ -1,9 +1,6 @@
-// Accounts, for an admin managing their team.
-//
-// This exists so running Karet does not require shell access to the host.
-// `scripts/manage-users.mjs` still does the same things for an operator who is
-// already at a terminal, and remains the only way in if every admin account is
-// lost, since the bootstrap admin is re-asserted from the environment.
+// Accounts, so running Karet does not require shell access to the host.
+// `scripts/manage-users.mjs` does the same for an operator at a terminal, and is
+// the way back in if every admin account is lost.
 //
 // Node runtime only.
 
@@ -12,19 +9,18 @@ import { withRole } from "@/lib/auth/guard";
 import { hashPassword } from "@/lib/auth/password";
 import { isRole } from "@/lib/auth/roles";
 import {
-  MIN_PASSWORD_LENGTH,
-  USERNAME_PATTERN,
   createUser,
   findUserByUsername,
   getAdminUsername,
   listUsers,
+  passwordProblem,
+  usernameProblem,
 } from "@/lib/auth/users";
 
 export const dynamic = "force-dynamic";
 
 async function handleGet() {
-  // The bootstrap admin is marked so the UI can explain why it cannot be
-  // deleted: the environment would recreate it on the next restart.
+  // Marked so the UI can say why that row has no controls.
   const bootstrap = getAdminUsername().toLowerCase();
   const users = (await listUsers()).map((u) => ({
     username: u.username,
@@ -45,23 +41,13 @@ async function handlePost(request: Request) {
   const username = body?.username?.trim() ?? "";
   const password = body?.password ?? "";
 
-  if (!USERNAME_PATTERN.test(username)) {
-    return NextResponse.json(
-      {
-        error: "invalid_username",
-        message: "Use 3 to 32 letters, numbers, underscores or dots.",
-      },
-      { status: 422 },
-    );
+  const badUsername = usernameProblem(username);
+  if (badUsername) {
+    return NextResponse.json({ error: "invalid_username", message: badUsername }, { status: 422 });
   }
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return NextResponse.json(
-      {
-        error: "weak_password",
-        message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
-      },
-      { status: 422 },
-    );
+  const badPassword = passwordProblem(password);
+  if (badPassword) {
+    return NextResponse.json({ error: "weak_password", message: badPassword }, { status: 422 });
   }
   if (!isRole(body?.role)) {
     return NextResponse.json(

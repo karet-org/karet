@@ -3,13 +3,9 @@
 // Middleware can only see whether a session cookie exists. This runs in Node
 // handlers, where the database is reachable, so it is the authoritative check.
 //
-// The role comes from the `user` row rather than the session, and a session whose
-// account has gone is no session at all. Better-auth caches a validated session in
-// the cookie for 30 seconds, which is a fine trade for its own lookup but not for
-// authorization: it would leave a demoted editor editing, and a deleted account
-// signed in, for half a minute after an admin thought otherwise. One indexed
-// lookup buys "at once", and the route guard already makes it for anything
-// addressing a pipeline.
+// The role comes from the `user` row rather than the session claim, and a session
+// whose account has gone is no session at all. That costs one indexed lookup and
+// makes a demotion or a deletion effective on the next request.
 //
 // Machine callers present `Authorization: Bearer $KARET_WORKER_TOKEN` instead of
 // a cookie; see `service-token.ts`, which middleware also uses.
