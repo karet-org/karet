@@ -13,6 +13,7 @@ const store = {
   deleted: [] as string[],
   passwords: [] as { userId: string; hash: string }[],
   created: [] as { username: string; role: string }[],
+  names: [] as { userId: string; name: string }[],
 };
 
 vi.mock("@/lib/auth/users", () => ({
@@ -36,17 +37,34 @@ vi.mock("@/lib/auth/users", () => ({
     return { id: "new", username, role, createdAt: "2026-09-20T00:00:00.000Z" };
   },
   pipelinesOwnedBy: async () => ["Homelab Traffic"],
+  credentialHash: async (userId: string) => (userId === "u-vic" ? "stored-hash" : null),
+  setDisplayName: async (userId: string, name: string) => {
+    store.names.push({ userId, name });
+  },
 }));
 
 // scrypt at OWASP cost takes ~0.5s per call; the hash is not what these assert.
-vi.mock("@/lib/auth/password", () => ({ hashPassword: async () => "scrypt$stub" }));
+vi.mock("@/lib/auth/password", () => ({
+  hashPassword: async () => "scrypt$stub",
+  // The stored hash in the stub is "stored-hash"; only "right" matches it.
+  verifyPassword: async (password: string, stored: string) =>
+    stored === "stored-hash" && password === "right",
+}));
 
 const admin = { username: "admin", role: "admin" as const, service: false };
 const erin = { username: "erin", role: "admin" as const, service: false };
 const machine = { username: "service", role: "admin" as const, service: true };
 
-const { changeRole, createAccount, deletionCost, isBootstrap, removeAccount, resetPassword } =
-  await import("../account-admin");
+const {
+  changeOwnDisplayName,
+  changeOwnPassword,
+  changeRole,
+  createAccount,
+  deletionCost,
+  isBootstrap,
+  removeAccount,
+  resetPassword,
+} = await import("../account-admin");
 
 describe("administering accounts", () => {
   let priorName: string | undefined;
@@ -63,6 +81,7 @@ describe("administering accounts", () => {
     store.deleted = [];
     store.passwords = [];
     store.created = [];
+    store.names = [];
   });
 
   afterEach(() => {
@@ -172,6 +191,67 @@ describe("administering accounts", () => {
       expect(await createAccount({ username: "pat", password: "long-enough", role: "root" }))
         .toMatchObject({ error: "invalid_role" });
       expect(store.created).toEqual([]);
+    });
+  });
+
+  describe("your own display name", () => {
+    const vic = { username: "vic", role: "viewer" as const, service: false };
+
+    it("is yours to set, whatever your role", async () => {
+      const out = await changeOwnDisplayName(vic, "  Vic Fuentes  ");
+      expect(out).toMatchObject({ ok: true, value: { displayName: "Vic Fuentes" } });
+      expect(store.names).toEqual([{ userId: "u-vic", name: "Vic Fuentes" }]);
+    });
+
+    it("reads back as the username when cleared, so there is always something to show", async () => {
+      const out = await changeOwnDisplayName(vic, "   ");
+      expect(out).toMatchObject({ ok: true, value: { displayName: "vic" } });
+      expect(store.names).toEqual([{ userId: "u-vic", name: "" }]);
+    });
+
+    it("refuses one over 64 characters, and anything that is not text", async () => {
+      expect(await changeOwnDisplayName(vic, "x".repeat(65))).toMatchObject({
+        error: "invalid_display_name",
+      });
+      expect(await changeOwnDisplayName(vic, 42)).toMatchObject({ error: "invalid_display_name" });
+      expect(store.names).toEqual([]);
+    });
+  });
+
+  describe("your own password", () => {
+    const vic = { username: "vic", role: "viewer" as const, service: false };
+
+    it("changes when the current one is right", async () => {
+      const out = await changeOwnPassword(vic, "right", "long-enough-password");
+      expect(out).toMatchObject({ ok: true, value: { username: "vic" } });
+      expect(store.passwords).toEqual([{ userId: "u-vic", hash: "scrypt$stub" }]);
+    });
+
+    it("refuses a wrong current password with 403 and writes nothing", async () => {
+      const out = await changeOwnPassword(vic, "wrong", "long-enough-password");
+      expect(out).toMatchObject({ ok: false, error: "wrong_password", status: 403 });
+      expect(store.passwords).toEqual([]);
+    });
+
+    it("refuses a short new password before checking the current one", async () => {
+      expect(await changeOwnPassword(vic, "right", "short")).toMatchObject({
+        error: "weak_password",
+      });
+      expect(store.passwords).toEqual([]);
+    });
+
+    it("refuses the bootstrap admin, whose password the environment restores", async () => {
+      expect(await changeOwnPassword(admin, "right", "long-enough-password")).toMatchObject({
+        error: "bootstrap_admin",
+      });
+      expect(store.passwords).toEqual([]);
+    });
+
+    it("refuses the service token, which has no password", async () => {
+      expect(await changeOwnPassword(machine, "right", "long-enough-password")).toMatchObject({
+        error: "service_principal",
+        status: 403,
+      });
     });
   });
 

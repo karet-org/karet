@@ -11,6 +11,32 @@ export const USERNAME_PATTERN = /^[a-zA-Z0-9_.]{3,32}$/;
 
 export const MIN_PASSWORD_LENGTH = 8;
 
+export const MAX_DISPLAY_NAME = 64;
+
+/**
+ * Letters, numbers, spaces and the punctuation names actually use, in any script:
+ * "Anne-Marie", "O’Neill", "J. R.", "李雷". Not a free text field, so it cannot be
+ * used to write a sentence, fake a role or smuggle markup into a list of people.
+ */
+const DISPLAY_NAME_PATTERN = /^[\p{L}\p{M}\p{N} '’.\-]+$/u;
+
+/** Collapses runs of whitespace, so two names cannot look the same but differ. */
+export function cleanDisplayName(displayName: string): string {
+  return displayName.trim().replace(/\s+/g, " ");
+}
+
+/** Why this display name is unusable, or null. Blank is allowed: it clears it. */
+export function displayNameProblem(displayName: string): string | null {
+  const clean = cleanDisplayName(displayName);
+  if (clean.length === 0) return null;
+  if (clean.length > MAX_DISPLAY_NAME) {
+    return `A display name must be ${MAX_DISPLAY_NAME} characters or fewer.`;
+  }
+  return DISPLAY_NAME_PATTERN.test(clean)
+    ? null
+    : "Use letters, numbers, spaces, apostrophes, hyphens or dots.";
+}
+
 /**
  * Why this username is unusable, or null. Rejecting a hyphen here turns a
  * confusing sign-in failure into a message at the point of typing.

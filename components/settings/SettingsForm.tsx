@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { invalidateCached } from "@/lib/client/fetch-cache";
 import { CARD, inputClass } from "@/components/ui/controls";
+import { useCan } from "@/lib/client/use-current-user";
 
 interface Settings {
   workspaceName: string;
@@ -18,6 +19,7 @@ interface Settings {
 
 export default function SettingsForm() {
   const router = useRouter();
+  const isAdmin = useCan("admin");
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -77,8 +79,11 @@ export default function SettingsForm() {
     [router],
   );
 
+  // Saving is admin-only, so a viewer is not shown a field that would 403.
+  if (!isAdmin) return null;
+
   return (
-    <section className={`mt-6 ${CARD}`}>
+    <section className={`mt-5 ${CARD}`}>
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-[14px] font-semibold text-[color:var(--color-ink)]">Workspace</h2>
         <span
@@ -89,9 +94,8 @@ export default function SettingsForm() {
           {saving ? "Saving…" : saved ? "Saved" : ""}
         </span>
       </div>
-      <p className="mt-1 max-w-[62ch] text-[12.5px] text-[color:var(--color-ink-3)]">
-        What this instance calls itself in the sidebar. Cosmetic, and saved as you leave the
-        field. Who you are signed in as comes from your account.
+      <p className="mt-1 text-[12.5px] text-[color:var(--color-ink-3)]">
+        The name in the sidebar, for everyone here.
       </p>
 
       {error ? (

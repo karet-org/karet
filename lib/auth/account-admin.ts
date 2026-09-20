@@ -12,14 +12,22 @@ import { refuse, type Outcome } from "@/lib/outcome";
 import { hashPassword } from "@/lib/auth/password";
 import { isRole, type Role } from "@/lib/auth/roles";
 import type { Principal } from "@/lib/auth/service-token";
-import { passwordProblem, usernameProblem } from "@/lib/auth/account-rules";
+import {
+  cleanDisplayName,
+  displayNameProblem,
+  passwordProblem,
+  usernameProblem,
+} from "@/lib/auth/account-rules";
+import { verifyPassword } from "@/lib/auth/password";
 import {
   createUser,
+  credentialHash,
   deleteUser,
   findUserByUsername,
   getAdminUsername,
   listUsers,
   pipelinesOwnedBy,
+  setDisplayName,
   setPassword,
   setRole,
   type User,
@@ -36,14 +44,73 @@ function isSelf(actor: Principal, username: string): boolean {
 
 /** Accounts, each marked if the environment owns it. */
 export async function accounts(): Promise<
-  { username: string; role: Role; createdAt: string; bootstrap: boolean }[]
+  { username: string; displayName: string; role: Role; createdAt: string; bootstrap: boolean }[]
 > {
   return (await listUsers()).map((u) => ({
     username: u.username,
+    displayName: u.displayName,
     role: u.role,
     createdAt: u.createdAt,
     bootstrap: isBootstrap(u.username),
   }));
+}
+
+/**
+ * What this person is called, set by them. Blank clears it, and a cleared name
+ * reads back as the username, so there is always something to show.
+ */
+export async function changeOwnDisplayName(
+  actor: Principal,
+  displayName: unknown,
+): Promise<Outcome<{ displayName: string }>> {
+  if (typeof displayName !== "string") {
+    return refuse("invalid_display_name", "A display name must be text.");
+  }
+  const bad = displayNameProblem(displayName);
+  if (bad) return refuse("invalid_display_name", bad);
+  const trimmed = cleanDisplayName(displayName);
+
+  const user = await findUserByUsername(actor.username);
+  if (!user) return refuse("no_such_user", "This session has no account.", 404);
+
+  await setDisplayName(user.id, trimmed);
+  return { ok: true, value: { displayName: trimmed || user.username } };
+}
+
+/**
+ * Change your own password, proving you know the current one.
+ *
+ * The proof is the point: a session someone else has picked up can already act as
+ * you, and without it that session could also lock you out of your own account.
+ * It signs every session out, this one included.
+ */
+export async function changeOwnPassword(
+  actor: Principal,
+  currentPassword: unknown,
+  newPassword: unknown,
+): Promise<Outcome<{ username: string }>> {
+  if (actor.service) {
+    return refuse("service_principal", "The service token has no password to change.", 403);
+  }
+  if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+    return refuse("weak_password", "Send the current password and a new one.");
+  }
+  const bad = passwordProblem(newPassword);
+  if (bad) return refuse("weak_password", bad);
+
+  const user = await findUserByUsername(actor.username);
+  if (!user) return refuse("no_such_user", "This session has no account.", 404);
+  // The environment re-asserts this account's password on every start, so a
+  // change here would last until the next restart.
+  if (isBootstrap(user.username)) return bootstrapRefusal();
+
+  const stored = await credentialHash(user.id);
+  if (!stored || !(await verifyPassword(currentPassword, stored))) {
+    return refuse("wrong_password", "That is not your current password.", 403);
+  }
+
+  await setPassword(user.id, await hashPassword(newPassword));
+  return { ok: true, value: { username: user.username } };
 }
 
 export async function createAccount(

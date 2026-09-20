@@ -58,6 +58,7 @@ const { USERNAME_PATTERN } = await import("../account-rules");
 const USER_ROW = {
   id: "u1",
   username: "erin",
+  name: "erin",
   role: "editor",
   createdAt: new Date("2026-09-17T00:00:00Z"),
 };
@@ -147,6 +148,17 @@ describe("reading accounts", () => {
       username: "erin",
       role: "editor",
     });
+  });
+
+  it("reads a set display name, and falls back to the username when it is blank", async () => {
+    rows = { 'FROM "user" WHERE lower(username)': [{ ...USER_ROW, name: "  Erin Hart  " }] };
+    expect((await findUserByUsername("erin"))?.displayName).toBe("Erin Hart");
+
+    rows = { 'FROM "user" WHERE lower(username)': [{ ...USER_ROW, name: "   " }] };
+    expect((await findUserByUsername("erin"))?.displayName).toBe("erin");
+
+    rows = { 'FROM "user" WHERE lower(username)': [{ ...USER_ROW, name: null }] };
+    expect((await findUserByUsername("erin"))?.displayName).toBe("erin");
   });
 
   it("is case-insensitive on username", async () => {

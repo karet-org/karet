@@ -12,6 +12,8 @@ import type { Role } from "./roles";
 
 export interface Principal {
   username: string;
+  /** What this person calls themselves. Absent for the service token. */
+  displayName?: string;
   role: Role;
   /** True for the service token: not a person, has no stored account. */
   service: boolean;

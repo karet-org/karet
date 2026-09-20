@@ -43,8 +43,12 @@ const RULES: Rule[] = [
   { methods: ["DELETE", "PATCH"], path: /^\/api\/pipelines\/[^/]+$/, role: "admin" },
   { methods: ["PUT", "POST", "DELETE"], path: /^\/api\/settings$/, role: "admin" },
 
-  // Accounts. Reading the list is an admin matter too: who else works here is
-  // not a viewer's business, and the list is only used by the admin screen.
+  // Your own account: display name and password. The username comes from the
+  // session, so a viewer editing themselves is not an admin action.
+  { methods: ["PATCH"], path: /^\/api\/account$/, role: "viewer" },
+
+  // Other people's accounts. Reading the list is an admin matter too: who else
+  // works here is not a viewer's business, and only the admin screen uses it.
   { methods: ["GET", "POST"], path: /^\/api\/users$/, role: "admin" },
   { methods: ["GET", "PATCH", "DELETE"], path: /^\/api\/users\/[^/]+$/, role: "admin" },
 

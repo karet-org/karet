@@ -29,6 +29,7 @@ export type Visibility = "instance" | "members";
 export interface Member {
   userId: string;
   username: string;
+  displayName: string;
   role: Role;
 }
 
@@ -114,18 +115,32 @@ export async function visiblePipelineSlugs(
   return rows.map((r) => r.slug);
 }
 
+/** The owner leads the list: their access is the one nobody can change here. */
 export async function listMembers(pipeline: string): Promise<Member[]> {
-  const rows = await query<{ user_id: string; username: string | null; role: string }>(
-    `SELECT m.user_id, u.username, m.role
+  const rows = await query<{
+    user_id: string;
+    username: string | null;
+    name: string | null;
+    role: string;
+  }>(
+    `SELECT m.user_id, u.username, u.name, m.role
        FROM pipeline_members m
        JOIN "user" u ON u.id = m.user_id
+       LEFT JOIN pipelines p ON p.slug = m.pipeline
       WHERE m.pipeline = $1
-      ORDER BY u.username`,
+      ORDER BY COALESCE(m.user_id = p.owner_id, false) DESC, u.username`,
     [pipeline],
   );
   return rows.flatMap((r) =>
     r.username && isRole(r.role)
-      ? [{ userId: r.user_id, username: r.username, role: r.role }]
+      ? [
+          {
+            userId: r.user_id,
+            username: r.username,
+            displayName: r.name?.trim() || r.username,
+            role: r.role,
+          },
+        ]
       : [],
   );
 }

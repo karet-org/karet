@@ -6,11 +6,13 @@
 // tampered client can misdraw its own buttons and change nothing.
 
 import { useEffect, useState } from "react";
-import { cachedJson } from "@/lib/client/fetch-cache";
+import { cachedJson, invalidateCached } from "@/lib/client/fetch-cache";
 import { roleAtLeast, type Role } from "@/lib/auth/roles";
 
 export interface CurrentUser {
   username: string;
+  /** Falls back to the username, so it is always something to show. */
+  displayName: string;
   role: Role;
   service: boolean;
 }
@@ -18,6 +20,14 @@ export interface CurrentUser {
 interface MeResponse {
   authenticated: boolean;
   user?: CurrentUser;
+}
+
+const subscribers = new Set<() => void>();
+
+/** Call after changing your own account, so the rail stops showing the old name. */
+export function notifyCurrentUserChanged(): void {
+  invalidateCached("/api/auth/me");
+  for (const fn of subscribers) fn();
 }
 
 /**
@@ -30,16 +40,20 @@ export function useCurrentUser(): CurrentUser | null {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const body = await cachedJson<MeResponse>("/api/auth/me");
-        if (!cancelled && body.user) setUser(body.user);
-      } catch {
-        // Leave it null: controls stay hidden until we know otherwise.
-      }
-    })();
+    const load = () => {
+      cachedJson<MeResponse>("/api/auth/me")
+        .then((body) => {
+          if (!cancelled && body.user) setUser(body.user);
+        })
+        .catch(() => {
+          // Leave it as it was: controls stay hidden until we know otherwise.
+        });
+    };
+    load();
+    subscribers.add(load);
     return () => {
       cancelled = true;
+      subscribers.delete(load);
     };
   }, []);
 

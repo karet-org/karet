@@ -35,5 +35,10 @@ export async function currentPrincipal(): Promise<Principal | null> {
   const user = await findUserByUsername(claimed);
   if (!user) return null;
 
-  return { username: user.username, role: user.role, service: false };
+  return {
+    username: user.username,
+    displayName: user.displayName,
+    role: user.role,
+    service: false,
+  };
 }

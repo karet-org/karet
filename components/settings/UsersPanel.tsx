@@ -17,6 +17,8 @@ import { ROLES, type Role } from "@/lib/auth/roles";
 
 interface Account {
   username: string;
+  /** What they call themselves; equals the username when unset. */
+  displayName: string;
   role: Role;
   createdAt: string;
   /** Provisioned from the environment, so it cannot be deleted from here. */
@@ -172,9 +174,8 @@ export default function UsersPanel() {
     <section className={`mt-5 ${CARD}`}>
       <h2 className="text-[14px] font-semibold text-[color:var(--color-ink)]">People</h2>
       <p className="mt-1 max-w-[62ch] text-[12.5px] text-[color:var(--color-ink-3)]">
-        Accounts on this instance, and what each may do across it. A role change applies on
-        their next request and signs them out. Access to a single pipeline is set on that
-        pipeline instead.
+        Who can sign in, and what they can do across every pipeline. Changing a role signs that
+        person out. Access to one pipeline is set on that pipeline.
       </p>
 
       {error ? (
@@ -214,11 +215,18 @@ export default function UsersPanel() {
                   key={a.username}
                   className="border-b border-[color:var(--color-rule-soft)] last:border-b-0"
                 >
-                  <td className="py-2 pr-3 font-medium text-[color:var(--color-ink)]">
-                    {a.username}
-                    {isMe ? (
-                      <span className="ml-1.5 text-[11.5px] font-normal text-[color:var(--color-ink-4)]">
-                        you
+                  <td className="py-2 pr-3">
+                    <span className="block truncate font-medium text-[color:var(--color-ink)]">
+                      {a.displayName}
+                      {isMe ? (
+                        <span className="ml-1.5 text-[11.5px] font-normal text-[color:var(--color-ink-4)]">
+                          you
+                        </span>
+                      ) : null}
+                    </span>
+                    {a.displayName !== a.username ? (
+                      <span className="block truncate text-[11.5px] text-[color:var(--color-ink-4)]">
+                        {a.username}
                       </span>
                     ) : null}
                   </td>

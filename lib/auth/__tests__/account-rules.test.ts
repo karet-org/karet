@@ -5,12 +5,7 @@
 // the reason the form's Create button and the endpoint's 422 agree.
 
 import { describe, expect, it } from "vitest";
-import {
-  MIN_PASSWORD_LENGTH,
-  USERNAME_PATTERN,
-  passwordProblem,
-  usernameProblem,
-} from "../account-rules";
+import { MIN_PASSWORD_LENGTH, USERNAME_PATTERN, cleanDisplayName, displayNameProblem, passwordProblem, usernameProblem } from "../account-rules";
 
 describe("usernameProblem", () => {
   it("accepts what better-auth's username plugin accepts", () => {
@@ -56,5 +51,33 @@ describe("passwordProblem", () => {
 
   it("rejects an empty password", () => {
     expect(passwordProblem("")).not.toBeNull();
+  });
+});
+
+describe("displayNameProblem", () => {
+  it("accepts names, in any script, with the punctuation names use", () => {
+    for (const ok of ["Joey", "Anne-Marie", "O’Neill", "J. R. Smith", "李雷", "José 3rd"]) {
+      expect(displayNameProblem(ok)).toBeNull();
+    }
+  });
+
+  it("allows blank, which clears it back to the username", () => {
+    expect(displayNameProblem("   ")).toBeNull();
+  });
+
+  it("rejects punctuation that is not part of a name", () => {
+    for (const bad of ["Hello?", "admin!", "a@b", "<b>x</b>", "Joey \u{1f600}", "name;drop"]) {
+      expect(displayNameProblem(bad)).toBe(
+        "Use letters, numbers, spaces, apostrophes, hyphens or dots.",
+      );
+    }
+  });
+
+  it("rejects one over 64 characters before looking at the characters", () => {
+    expect(displayNameProblem("x".repeat(65))).toContain("64 characters or fewer");
+  });
+
+  it("collapses whitespace, so two names cannot look the same but differ", () => {
+    expect(cleanDisplayName("  Anne   Marie \n")).toBe("Anne Marie");
   });
 });

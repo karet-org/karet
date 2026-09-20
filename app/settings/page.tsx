@@ -2,6 +2,7 @@ import { createS3Client, loadS3Config } from "@/lib/config/s3-client";
 import { getUiSettings, starredListings } from "@/lib/services/ui-settings";
 import LandingRail, { MobileRailToggle } from "@/components/layout/LandingRail";
 import { SearchProvider } from "@/components/layout/LandingSearch";
+import AccountPanel from "@/components/settings/AccountPanel";
 import SettingsForm from "@/components/settings/SettingsForm";
 import UsersPanel from "@/components/settings/UsersPanel";
 
@@ -34,6 +35,7 @@ export default async function SettingsPage() {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
+              <AccountPanel />
               <SettingsForm />
               <UsersPanel />
             </div>

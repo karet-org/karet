@@ -53,7 +53,11 @@ async function handleGet(
   return NextResponse.json({
     ...state,
     // Offered so the UI can populate a picker without a second endpoint.
-    accounts: (await listUsers()).map((u) => ({ username: u.username, role: u.role })),
+    accounts: (await listUsers()).map((u) => ({
+      username: u.username,
+      displayName: u.displayName,
+      role: u.role,
+    })),
   });
 }
 
