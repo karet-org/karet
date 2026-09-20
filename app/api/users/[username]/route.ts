@@ -1,125 +1,45 @@
-// One account: change its role, or delete it.
+// One account: its deletion cost, a role change, a password reset, a deletion.
+// The rules live in `lib/auth/account-admin.ts`.
 //
 // Node runtime only.
 
 import { NextResponse } from "next/server";
 import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
-import { isRole } from "@/lib/auth/roles";
-import { hashPassword } from "@/lib/auth/password";
-import { passwordProblem } from "@/lib/auth/account-rules";
-import {
-  deleteUser,
-  findUserByUsername,
-  getAdminUsername,
-  pipelinesOwnedBy,
-  setPassword,
-  setRole,
-} from "@/lib/auth/users";
-
-/** The environment re-asserts this account as admin on every start. */
-function bootstrapRefusal() {
-  return NextResponse.json(
-    {
-      error: "bootstrap_admin",
-      message:
-        "This account comes from the environment and is restored on restart. " +
-        "Change KARET_ADMIN_USERNAME to retire it.",
-    },
-    { status: 422 },
-  );
-}
+import { changeRole, deletionCost, removeAccount, resetPassword } from "@/lib/auth/account-admin";
+import { respond } from "@/lib/http/respond";
 
 export const dynamic = "force-dynamic";
 
-/** What deleting this account would cost, so the UI can say so before asking. */
-async function handleGet(
-  _request: Request,
-  context: { params: Promise<{ username: string }> },
-) {
+type Context = { params: Promise<{ username: string }> };
+
+async function handleGet(_request: Request, context: Context) {
   const { username } = await context.params;
-  const user = await findUserByUsername(username);
-  if (!user) return NextResponse.json({ error: "no_such_user" }, { status: 404 });
-  return NextResponse.json({ ownedPipelines: await pipelinesOwnedBy(user.id) });
+  return respond(await deletionCost(username), (cost) => NextResponse.json(cost));
 }
 
-/** Change a role or set a password. Either ends that account's sessions. */
-async function handlePatch(
-  request: Request,
-  context: { params: Promise<{ username: string }> },
-  principal: Principal,
-) {
+/** A role change or a password reset. Either ends that account's sessions. */
+async function handlePatch(request: Request, context: Context, principal: Principal) {
   const { username } = await context.params;
   const body = (await request.json().catch(() => null)) as {
     role?: string;
     password?: string;
   } | null;
 
-  const user = await findUserByUsername(username);
-  if (!user) return NextResponse.json({ error: "no_such_user" }, { status: 404 });
-
-  // The environment owns both; a change here would last until the next restart.
-  if (user.username.toLowerCase() === getAdminUsername().toLowerCase()) {
-    return bootstrapRefusal();
-  }
-
   if (body?.password !== undefined) {
-    const bad = passwordProblem(body.password);
-    if (bad) return NextResponse.json({ error: "weak_password", message: bad }, { status: 422 });
-    // Your own is allowed. It signs you out, which is what a reset means.
-    await setPassword(user.id, await hashPassword(body.password));
-    return NextResponse.json({ ok: true, username: user.username });
-  }
-
-  if (!isRole(body?.role)) {
-    return NextResponse.json(
-      { error: "invalid_role", message: "Role must be viewer, editor or admin." },
-      { status: 422 },
+    return respond(await resetPassword(username, body.password), (v) =>
+      NextResponse.json({ ok: true, username: v.username }),
     );
   }
 
-  // Demoting yourself takes away the page you are standing on.
-  if (!principal.service && user.username.toLowerCase() === principal.username.toLowerCase()) {
-    return NextResponse.json(
-      {
-        error: "self_role_change",
-        message: "You cannot change your own role. Ask another admin.",
-      },
-      { status: 422 },
-    );
-  }
-
-  const updated = await setRole(user.username, body.role);
-  return NextResponse.json({ ok: true, user: { username: user.username, role: updated?.role } });
+  return respond(await changeRole(principal, username, body?.role), (v) =>
+    NextResponse.json({ ok: true, user: v }),
+  );
 }
 
-async function handleDelete(
-  _request: Request,
-  context: { params: Promise<{ username: string }> },
-  principal: Principal,
-) {
+async function handleDelete(_request: Request, context: Context, principal: Principal) {
   const { username } = await context.params;
-  const user = await findUserByUsername(username);
-  if (!user) return NextResponse.json({ error: "no_such_user" }, { status: 404 });
-
-  // Deleting it would look like it worked and then quietly undo itself.
-  if (user.username.toLowerCase() === getAdminUsername().toLowerCase()) {
-    return bootstrapRefusal();
-  }
-
-  // Deleting your own account would end the session making the request.
-  if (!principal.service && user.username.toLowerCase() === principal.username.toLowerCase()) {
-    return NextResponse.json(
-      {
-        error: "self_delete",
-        message: "You cannot delete the account you are signed in as.",
-      },
-      { status: 422 },
-    );
-  }
-
-  await deleteUser(user.id);
-  return NextResponse.json({ ok: true });
+  return respond(await removeAccount(principal, username), () => NextResponse.json({ ok: true }));
 }
 
 export const GET = withRole(handleGet);
