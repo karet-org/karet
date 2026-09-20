@@ -76,12 +76,12 @@ export default function PipelineGraphPage() {
               : `Failed to load Pipeline_Config (${res.status})`,
           );
         }
-        const etag = res.headers?.get?.("ETag")?.replace(/^"|"$/g, "") ?? null;
+        const version = res.headers?.get?.("X-Karet-Config-Version") ?? null;
         const parsed = (await res.json()) as PipelineConfig;
         if (!cancelled) {
           savedConfigRef.current = parsed;
           setSavedFingerprint(configFingerprint(parsed));
-          setConfig(parsed, etag);
+          setConfig(parsed, version);
           const built = buildGraph(parsed);
           const hasLayout = parsed.layout && Object.keys(parsed.layout).length > 0;
           const positioned = hasLayout ? built.nodes : autoLayout(built.nodes, built.edges);
@@ -227,16 +227,18 @@ export default function PipelineGraphPage() {
         return;
       }
 
-      // Send the load-time ETag so a concurrent edit isn't overwritten;
-      // 412/5xx/network failures must stay dirty, not clear the banner.
-      const etag = useGraphStore.getState().etag;
+      // Send the version this editor loaded so a concurrent edit isn't
+      // overwritten; 412/5xx/network failures must stay dirty, not clear the
+      // banner. The ETag this used to send was an S3 header that Postgres-backed
+      // reads no longer set, so every save looked fresh and clobbered silently.
+      const version = useGraphStore.getState().configVersion;
       let res: Response;
       try {
         res = await fetch(`/api/p/${pipeline}/config`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            ...(etag ? { "If-Match": `"${etag}"` } : {}),
+            ...(version ? { "X-Karet-Config-Version": version } : {}),
           },
           body: JSON.stringify(cfg),
         });
@@ -271,7 +273,10 @@ export default function PipelineGraphPage() {
       const data = await res.json().catch(() => ({}));
       savedConfigRef.current = cfg;
       setSavedFingerprint(configFingerprint(cfg));
-      useGraphStore.setState({ config: cfg, etag: data.etag ?? null });
+      useGraphStore.setState({
+        config: cfg,
+        configVersion: data.version != null ? String(data.version) : null,
+      });
       clearDirty();
     } finally {
       setSaving(false);

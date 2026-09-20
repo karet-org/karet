@@ -16,14 +16,6 @@ import { listAllObjectKeys, readBodyToBuffer } from "./s3-helpers";
 
 // Errors
 
-/** Raised when the server-stored ETag does not match the client's `If-Match`. */
-export class PreconditionFailedError extends Error {
-  constructor(message = "ETag mismatch on PUT") {
-    super(message);
-    this.name = "PreconditionFailedError";
-  }
-}
-
 /** Rename target slug already has a pipeline.json; callers translate to 409. */
 export class TargetExistsError extends Error {
   constructor(message = "Target pipeline slug already exists") {

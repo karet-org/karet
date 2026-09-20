@@ -91,7 +91,7 @@ describe("NodeDetailPanel", () => {
           },
         ],
       },
-      etag: null,
+      configVersion: null,
     });
 
     const onEdit = vi.fn();

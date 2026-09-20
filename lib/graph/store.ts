@@ -10,9 +10,9 @@ export interface GraphStore {
   clear: () => void;
 
   config: PipelineConfig | null;
-  /** S3 ETag of the currently-loaded config, for optimistic concurrency. */
-  etag: string | null;
-  setConfig: (config: PipelineConfig | null, etag?: string | null) => void;
+  /** Version of the loaded config, sent back on save so a stale save is refused. */
+  configVersion: string | null;
+  setConfig: (config: PipelineConfig | null, configVersion?: string | null) => void;
 }
 
 export const useGraphStore = create<GraphStore>((set) => ({
@@ -21,6 +21,6 @@ export const useGraphStore = create<GraphStore>((set) => ({
   clear: () => set({ selectedNodeId: null }),
 
   config: null,
-  etag: null,
-  setConfig: (config, etag) => set({ config, etag: etag ?? null }),
+  configVersion: null,
+  setConfig: (config, configVersion) => set({ config, configVersion: configVersion ?? null }),
 }));
