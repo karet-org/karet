@@ -137,7 +137,7 @@ export default async function Home() {
       try {
         return await getUiSettings(createS3Client(), loadS3Config());
       } catch {
-        return { displayName: "", workspaceName: "", starred: [] };
+        return { workspaceName: "", starred: [] };
       }
     })(),
   ]);
@@ -161,7 +161,6 @@ export default async function Home() {
     <SearchProvider>
     <div className="flex h-screen overflow-hidden">
       <LandingRail
-        displayName={settings.displayName}
         workspaceName={settings.workspaceName}
         starred={starred}
       />
@@ -169,7 +168,6 @@ export default async function Home() {
         <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             <MobileRailToggle
-              displayName={settings.displayName}
               workspaceName={settings.workspaceName}
               starred={starred}
             />

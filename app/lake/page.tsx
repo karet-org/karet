@@ -10,7 +10,7 @@ export default async function LakePage() {
   const client = createS3Client();
   const config = loadS3Config();
   const settings = await getUiSettings(client, config).catch(
-    () => ({ displayName: "", workspaceName: "", starred: [] }),
+    () => ({ workspaceName: "", starred: [] }),
   );
   const starred = await starredListings(settings.starred).catch(() => []);
 
@@ -18,14 +18,12 @@ export default async function LakePage() {
     <SearchProvider>
       <div className="flex h-screen overflow-hidden">
         <LandingRail
-          displayName={settings.displayName}
           workspaceName={settings.workspaceName}
           starred={starred}
         />
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="flex h-[52px] shrink-0 items-center border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 sm:px-6">
             <MobileRailToggle
-              displayName={settings.displayName}
               workspaceName={settings.workspaceName}
               starred={starred}
             />

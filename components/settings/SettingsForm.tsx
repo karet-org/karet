@@ -4,8 +4,8 @@
 //
 // Laid out like the pipeline Access page: a card with a heading, a sentence saying
 // what it is for, and the shared controls. Saves on blur rather than behind a
-// button, because these are two independent cosmetic strings with nothing to
-// validate against each other, and the rest of the page commits as you go.
+// button, because it is one cosmetic string with nothing to validate against, and
+// the rest of the page commits as you go.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -13,7 +13,6 @@ import { invalidateCached } from "@/lib/client/fetch-cache";
 import { CARD, inputClass } from "@/components/ui/controls";
 
 interface Settings {
-  displayName: string;
   workspaceName: string;
   starred: string[];
 }
@@ -50,13 +49,7 @@ export default function SettingsForm() {
   const commit = useCallback(
     async (next: Settings) => {
       const before = persisted.current;
-      if (
-        before &&
-        before.displayName === next.displayName &&
-        before.workspaceName === next.workspaceName
-      ) {
-        return;
-      }
+      if (before && before.workspaceName === next.workspaceName) return;
       setSaving(true);
       setSaved(false);
       setError(null);
@@ -98,8 +91,8 @@ export default function SettingsForm() {
         </span>
       </div>
       <p className="mt-1 max-w-[62ch] text-[12.5px] text-[color:var(--color-ink-3)]">
-        How this instance labels itself. Both are cosmetic, and both save as you leave the
-        field.
+        What this instance calls itself in the sidebar. Cosmetic, and saved as you leave the
+        field. Who you are signed in as comes from your account.
       </p>
 
       {error ? (
@@ -114,26 +107,7 @@ export default function SettingsForm() {
       {!settings ? (
         <p className="mt-4 text-[12.5px] text-[color:var(--color-ink-4)]">Loading…</p>
       ) : (
-        <div className="mt-4 flex flex-col gap-4">
-          <label className="block">
-            <span className="text-[12px] font-medium text-[color:var(--color-ink-2)]">
-              Display name
-            </span>
-            <input
-              type="text"
-              maxLength={64}
-              value={settings.displayName}
-              onChange={(e) => setSettings({ ...settings, displayName: e.target.value })}
-              onBlur={() => void commit(settings)}
-              placeholder="admin"
-              data-testid="settings-display-name"
-              className={inputClass("mt-1.5 block w-full max-w-[320px]")}
-            />
-            <span className="mt-1.5 block text-[11.5px] text-[color:var(--color-ink-4)]">
-              Shown in the sidebar. Sign-in still uses the account username.
-            </span>
-          </label>
-
+        <div className="mt-4">
           <label className="block">
             <span className="text-[12px] font-medium text-[color:var(--color-ink-2)]">
               Workspace name

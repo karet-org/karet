@@ -10,13 +10,11 @@ import { readBodyToBuffer } from "@/lib/services/s3-helpers";
 import { getLiveConfig } from "@/lib/services/pipeline-store";
 
 export interface UiSettings {
-  displayName: string;
   workspaceName: string;
   starred: string[];
 }
 
 const DEFAULT_SETTINGS: UiSettings = {
-  displayName: "",
   workspaceName: "",
   starred: [],
 };
@@ -44,7 +42,6 @@ export function sanitizeSettings(raw: unknown): UiSettings {
       ].slice(0, MAX_STARRED)
     : [];
   return {
-    displayName: name(obj.displayName),
     workspaceName: name(obj.workspaceName),
     starred,
   };

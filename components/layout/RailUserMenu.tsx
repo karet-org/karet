@@ -1,7 +1,11 @@
 "use client";
 
-// Rail user row with a popover menu. displayName null fetches it from
-// /api/settings.
+// Rail user row with a popover menu.
+//
+// Shows the signed-in account and the role it holds. It used to show an
+// instance-wide "display name" from /api/settings, which was left over from
+// password-only login: with named accounts that name would label everyone on the
+// instance identically, and the account is the honest answer to "who am I".
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -11,37 +15,15 @@ import {
   IconSettings,
   IconSignOut,
 } from "@/components/icons";
-import { cachedJson } from "@/lib/client/fetch-cache";
 import { useCurrentUser } from "@/lib/client/use-current-user";
 import { authClient } from "@/lib/client/auth-client";
 
-export default function RailUserMenu({
-  displayName,
-}: {
-  displayName: string | null;
-}) {
+export default function RailUserMenu() {
   const router = useRouter();
   const user = useCurrentUser();
-  const [name, setName] = useState(displayName ?? "");
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (displayName !== null) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const body = await cachedJson<{ displayName?: string }>("/api/settings");
-        if (!cancelled && body.displayName) setName(body.displayName);
-      } catch {
-        // The row falls back to "admin".
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [displayName]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -59,8 +41,8 @@ export default function RailUserMenu({
     };
   }, [menuOpen]);
 
-  // The signed-in account, once known; the instance display name until then.
-  const shown = user?.username || name || "admin";
+  // Null until /api/auth/me lands, so the row shows nothing rather than a guess.
+  const shown = user?.username ?? "";
 
   return (
     <div ref={ref} className="relative">
@@ -109,14 +91,14 @@ export default function RailUserMenu({
         className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-[color:var(--color-surface-2)]"
       >
         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[color:var(--color-leaf)] text-[11px] font-semibold text-[#12210f]">
-          {shown[0].toUpperCase()}
+          {shown ? shown[0].toUpperCase() : ""}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-medium text-[color:var(--color-ink)]">
             {shown}
           </span>
           <span className="block text-[10.5px] text-[color:var(--color-ink-3)]">
-            admin
+            {user?.service ? "service token" : (user?.role ?? "")}
           </span>
         </span>
         <IconChevronDown
