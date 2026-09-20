@@ -6,11 +6,14 @@ import { NextResponse } from "next/server";
 import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
 import { isRole } from "@/lib/auth/roles";
+import { hashPassword } from "@/lib/auth/password";
 import {
+  MIN_PASSWORD_LENGTH,
   deleteUser,
   findUserByUsername,
   getAdminUsername,
   pipelinesOwnedBy,
+  setPassword,
   setRole,
 } from "@/lib/auth/users";
 
@@ -40,26 +43,52 @@ async function handleGet(
   return NextResponse.json({ ownedPipelines: await pipelinesOwnedBy(user.id) });
 }
 
-/** Change an account's role. Their sessions end, so it takes effect at once. */
+/**
+ * Change an account's role, or set a new password. Either ends that account's
+ * sessions, so neither waits on a cookie to expire.
+ */
 async function handlePatch(
   request: Request,
   context: { params: Promise<{ username: string }> },
   principal: Principal,
 ) {
   const { username } = await context.params;
-  const body = (await request.json().catch(() => null)) as { role?: string } | null;
+  const body = (await request.json().catch(() => null)) as {
+    role?: string;
+    password?: string;
+  } | null;
+
+  const user = await findUserByUsername(username);
+  if (!user) return NextResponse.json({ error: "no_such_user" }, { status: 404 });
+
+  // The environment owns this account's password and role; a change here would
+  // last until the next restart and no longer.
+  if (user.username.toLowerCase() === getAdminUsername().toLowerCase()) {
+    return bootstrapRefusal();
+  }
+
+  if (body?.password !== undefined) {
+    if (body.password.length < MIN_PASSWORD_LENGTH) {
+      return NextResponse.json(
+        {
+          error: "weak_password",
+          message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+        },
+        { status: 422 },
+      );
+    }
+    // Resetting your own password is allowed: it signs you out, which is honest
+    // about what a reset does, rather than being something only a colleague can
+    // do for you.
+    await setPassword(user.id, await hashPassword(body.password));
+    return NextResponse.json({ ok: true, username: user.username });
+  }
+
   if (!isRole(body?.role)) {
     return NextResponse.json(
       { error: "invalid_role", message: "Role must be viewer, editor or admin." },
       { status: 422 },
     );
-  }
-
-  const user = await findUserByUsername(username);
-  if (!user) return NextResponse.json({ error: "no_such_user" }, { status: 404 });
-
-  if (user.username.toLowerCase() === getAdminUsername().toLowerCase()) {
-    return bootstrapRefusal();
   }
 
   // Demoting yourself takes away the page you are standing on, and ends the

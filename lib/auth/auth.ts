@@ -80,10 +80,12 @@ function build() {
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
     cookieCache: {
-      // A short cache keeps the common path off the database while leaving
-      // revocation quick enough to be useful.
-      enabled: true,
-      maxAge: 30,
+      // Off. It saved one session lookup per request and cost a 30 second window
+      // in which a session that had been ended still worked, which made "signed
+      // out everywhere" and "deleted" untrue for half a minute after an admin
+      // acted. Every authenticated request already reads the account row for its
+      // role, so this is one more indexed lookup on the same connection.
+      enabled: false,
     },
   },
   advanced: {

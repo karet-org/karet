@@ -177,10 +177,6 @@ export default async function Home() {
               Pipelines
             </h1>
           </div>
-          <div className="flex items-center gap-2.5">
-            <ImportButton />
-            <CreatePipelineButton />
-          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
@@ -207,6 +203,12 @@ export default async function Home() {
               pipelines={cards}
               starred={starred.map((s) => s.id)}
               createSlot={<CreatePipelineButton variant="card" />}
+              actions={
+                <>
+                  <ImportButton />
+                  <CreatePipelineButton />
+                </>
+              }
             />
           )}
         </div>

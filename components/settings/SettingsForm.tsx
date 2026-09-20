@@ -2,14 +2,15 @@
 
 // Workspace settings; persists via /api/settings.
 //
-// Saves on blur rather than behind a button. These are two independent cosmetic
-// strings with nothing to validate against each other, and the rest of this page
-// commits as you go, so a Save button here was ceremony in one corner of a screen
-// that otherwise has none.
+// Laid out like the pipeline Access page: a card with a heading, a sentence saying
+// what it is for, and the shared controls. Saves on blur rather than behind a
+// button, because these are two independent cosmetic strings with nothing to
+// validate against each other, and the rest of the page commits as you go.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { invalidateCached } from "@/lib/client/fetch-cache";
+import { CARD, inputClass } from "@/components/ui/controls";
 
 interface Settings {
   displayName: string;
@@ -74,7 +75,7 @@ export default function SettingsForm() {
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
-        // Put the field back to what the server has, so the screen never shows a
+        // Put the fields back to what the server has, so the screen never shows a
         // value that was not stored.
         if (before) setSettings(before);
       } finally {
@@ -84,73 +85,72 @@ export default function SettingsForm() {
     [router],
   );
 
-  const inputCls =
-    "mt-1.5 h-[38px] w-full rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 text-sm text-[color:var(--color-ink)] outline-none transition focus:border-[color:var(--color-carrot)] focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]";
-
   return (
-    <div className="max-w-[520px]">
-      {error && (
-        <div
+    <section className={`mt-6 ${CARD}`}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[14px] font-semibold text-[color:var(--color-ink)]">Workspace</h2>
+        <span
+          aria-live="polite"
+          className="text-[11.5px] text-[color:var(--color-ink-4)]"
+          data-testid="settings-save-state"
+        >
+          {saving ? "Saving…" : saved ? "Saved" : ""}
+        </span>
+      </div>
+      <p className="mt-1 max-w-[62ch] text-[12.5px] text-[color:var(--color-ink-3)]">
+        How this instance labels itself. Both are cosmetic, and both save as you leave the
+        field.
+      </p>
+
+      {error ? (
+        <p
           role="alert"
-          className="mt-4 rounded-md border border-[color:var(--color-rose-soft)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]"
+          className="mt-3 rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-3 py-2 text-[12.5px] text-[color:var(--color-rose-deep)]"
         >
           {error}
-        </div>
-      )}
+        </p>
+      ) : null}
 
       {!settings ? (
-        <p className="mt-6 text-sm text-[color:var(--color-ink-3)]">Loading…</p>
+        <p className="mt-4 text-[12.5px] text-[color:var(--color-ink-4)]">Loading…</p>
       ) : (
-        <div className="mt-6">
-          <div className="flex items-baseline justify-between">
-            <label
-              htmlFor="settings-display-name"
-              className="block text-sm font-medium text-[color:var(--color-ink-2)]"
-            >
+        <div className="mt-4 flex flex-col gap-4">
+          <label className="block">
+            <span className="text-[12px] font-medium text-[color:var(--color-ink-2)]">
               Display name
-            </label>
-            <span
-              aria-live="polite"
-              className="text-[12px] text-[color:var(--color-ink-4)]"
-              data-testid="settings-save-state"
-            >
-              {saving ? "Saving…" : saved ? "Saved" : ""}
             </span>
-          </div>
-          <input
-            id="settings-display-name"
-            type="text"
-            maxLength={64}
-            value={settings.displayName}
-            onChange={(e) => setSettings({ ...settings, displayName: e.target.value })}
-            onBlur={() => void commit(settings)}
-            placeholder="admin"
-            data-testid="settings-display-name"
-            className={inputCls}
-          />
-          <p className="mt-1.5 text-[12px] text-[color:var(--color-ink-3)]">
-            Shown in the sidebar. Purely cosmetic, login stays password-only.
-          </p>
-
-          <label
-            htmlFor="settings-workspace-name"
-            className="mt-5 block text-sm font-medium text-[color:var(--color-ink-2)]"
-          >
-            Workspace name
+            <input
+              type="text"
+              maxLength={64}
+              value={settings.displayName}
+              onChange={(e) => setSettings({ ...settings, displayName: e.target.value })}
+              onBlur={() => void commit(settings)}
+              placeholder="admin"
+              data-testid="settings-display-name"
+              className={inputClass("mt-1.5 block w-full max-w-[320px]")}
+            />
+            <span className="mt-1.5 block text-[11.5px] text-[color:var(--color-ink-4)]">
+              Shown in the sidebar. Sign-in still uses the account username.
+            </span>
           </label>
-          <input
-            id="settings-workspace-name"
-            type="text"
-            maxLength={64}
-            value={settings.workspaceName}
-            onChange={(e) => setSettings({ ...settings, workspaceName: e.target.value })}
-            onBlur={() => void commit(settings)}
-            placeholder="workspace"
-            data-testid="settings-workspace-name"
-            className={inputCls}
-          />
+
+          <label className="block">
+            <span className="text-[12px] font-medium text-[color:var(--color-ink-2)]">
+              Workspace name
+            </span>
+            <input
+              type="text"
+              maxLength={64}
+              value={settings.workspaceName}
+              onChange={(e) => setSettings({ ...settings, workspaceName: e.target.value })}
+              onBlur={() => void commit(settings)}
+              placeholder="workspace"
+              data-testid="settings-workspace-name"
+              className={inputClass("mt-1.5 block w-full max-w-[320px]")}
+            />
+          </label>
         </div>
       )}
-    </div>
+    </section>
   );
 }

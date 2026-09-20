@@ -40,11 +40,14 @@ export default function PipelineGrid({
   pipelines,
   starred: initialStarred,
   createSlot,
+  actions,
 }: {
   pipelines: PipelineCardData[];
   starred: string[];
   /** Rendered as the trailing "new pipeline" card. */
   createSlot?: React.ReactNode;
+  /** Import and create, on the sort row: they act on this list, not on the app. */
+  actions?: React.ReactNode;
 }) {
   const router = useRouter();
   const { query } = useSearch();
@@ -91,22 +94,25 @@ export default function PipelineGrid({
 
   return (
     <>
-      <div className="flex items-center gap-1 px-1">
-        {CHIPS.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            onClick={() => setSort(c.key)}
-            aria-pressed={sort === c.key}
-            className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition ${
-              sort === c.key
-                ? "bg-[color:var(--color-surface-2)] text-[color:var(--color-ink)]"
-                : "text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
-            }`}
-          >
-            {c.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <div className="flex items-center gap-1">
+          {CHIPS.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => setSort(c.key)}
+              aria-pressed={sort === c.key}
+              className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition ${
+                sort === c.key
+                  ? "bg-[color:var(--color-surface-2)] text-[color:var(--color-ink)]"
+                  : "text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        {actions ? <div className="flex items-center gap-2.5">{actions}</div> : null}
       </div>
 
       <section

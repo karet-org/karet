@@ -5,7 +5,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Modal from "@/components/ui/Modal";
-import { CARD, Select, ghostButtonClass, primaryButtonClass } from "@/components/ui/controls";
+import {
+  CARD,
+  Select,
+  ghostButtonClass,
+  inputClass,
+  primaryButtonClass,
+} from "@/components/ui/controls";
 import { useCan, useCurrentUser } from "@/lib/client/use-current-user";
 import type { Role } from "@/lib/auth/roles";
 
@@ -18,9 +24,6 @@ interface Account {
 }
 
 const ROLES: Role[] = ["viewer", "editor", "admin"];
-
-const INPUT =
-  "h-[34px] rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-2.5 text-[12.5px] text-[color:var(--color-ink)] outline-none transition focus-visible:border-[color:var(--color-carrot)] focus-visible:ring-2 focus-visible:ring-[color:var(--color-carrot-soft)]";
 
 export default function UsersPanel() {
   const isAdmin = useCan("admin");
@@ -38,6 +41,10 @@ export default function UsersPanel() {
 
   const [target, setTarget] = useState<Account | null>(null);
   const [owned, setOwned] = useState<string[] | null>(null);
+
+  const [resetting, setResetting] = useState<Account | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetDone, setResetDone] = useState<string | null>(null);
 
   const load = useCallback(async (opts?: { quiet?: boolean }) => {
     if (!opts?.quiet) setLoading(true);
@@ -105,6 +112,28 @@ export default function UsersPanel() {
     }
   }
 
+  async function resetPassword() {
+    if (!resetting) return;
+    setPending(`password:${resetting.username}`);
+    setError(null);
+    try {
+      const res = await fetch(`/api/users/${encodeURIComponent(resetting.username)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.message || body.error || `HTTP ${res.status}`);
+      setResetDone(resetting.username);
+      setResetting(null);
+      setNewPassword("");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setPending(null);
+    }
+  }
+
   /** Ask what the deletion costs before showing the confirmation. */
   async function askDelete(account: Account) {
     setTarget(account);
@@ -143,7 +172,7 @@ export default function UsersPanel() {
   if (!isAdmin) return null;
 
   return (
-    <section className={`mt-6 max-w-[620px] ${CARD}`}>
+    <section className={`mt-5 ${CARD}`}>
       <h2 className="text-[14px] font-semibold text-[color:var(--color-ink)]">People</h2>
       <p className="mt-1 max-w-[62ch] text-[12.5px] text-[color:var(--color-ink-3)]">
         Accounts on this instance, and what each may do across it. A role change applies on
@@ -169,9 +198,9 @@ export default function UsersPanel() {
         >
           {/* Fixed layout: adding or removing a row must not move the columns. */}
           <colgroup>
-            <col className="w-[200px]" />
-            <col className="w-[130px]" />
             <col />
+            <col className="w-[130px]" />
+            <col className="w-[230px]" />
           </colgroup>
           <thead>
             <tr className="border-b border-[color:var(--color-rule)] text-left text-[11px] text-[color:var(--color-ink-3)]">
@@ -225,27 +254,47 @@ export default function UsersPanel() {
                     )}
                   </td>
                   <td className="py-2 text-right">
-                    {a.bootstrap || isMe ? (
+                    {a.bootstrap ? (
                       <span
                         className="text-[11.5px] text-[color:var(--color-ink-4)]"
-                        title={
-                          a.bootstrap
-                            ? "Provisioned from the environment and recreated on restart."
-                            : "You cannot delete the account you are signed in as."
-                        }
+                        title="The environment sets this account's password and role on every start."
                       >
-                        {a.bootstrap ? "From environment" : "Signed in"}
+                        From environment
                       </span>
                     ) : (
-                      <button
-                        type="button"
-                        disabled={pending === `delete:${a.username}`}
-                        onClick={() => void askDelete(a)}
-                        data-testid={`delete-user-${a.username}`}
-                        className={ghostButtonClass()}
-                      >
-                        Delete
-                      </button>
+                      <span className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={pending === `password:${a.username}`}
+                          onClick={() => {
+                            setResetDone(null);
+                            setNewPassword("");
+                            setResetting(a);
+                          }}
+                          data-testid={`reset-password-${a.username}`}
+                          className={ghostButtonClass()}
+                        >
+                          Reset password
+                        </button>
+                        {isMe ? (
+                          <span
+                            className="px-2 text-[11.5px] text-[color:var(--color-ink-4)]"
+                            title="You cannot delete the account you are signed in as."
+                          >
+                            Signed in
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={pending === `delete:${a.username}`}
+                            onClick={() => void askDelete(a)}
+                            data-testid={`delete-user-${a.username}`}
+                            className={ghostButtonClass()}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -265,7 +314,7 @@ export default function UsersPanel() {
             placeholder="username"
             autoComplete="off"
             data-testid="new-user-username"
-            className={`${INPUT} w-[170px]`}
+            className={inputClass("w-[170px]")}
           />
           <input
             aria-label="Password"
@@ -275,7 +324,7 @@ export default function UsersPanel() {
             placeholder="password"
             autoComplete="new-password"
             data-testid="new-user-password"
-            className={`${INPUT} w-[170px]`}
+            className={inputClass("w-[170px]")}
           />
           <Select
             label="Role for the new account"
@@ -305,6 +354,55 @@ export default function UsersPanel() {
             : "3 to 32 letters, numbers, underscores or dots. Password at least 8 characters."}
         </p>
       </div>
+
+      {resetDone ? (
+        <p className="mt-3 text-[11.5px] text-[color:var(--color-ink-4)]" role="status">
+          {resetDone}&apos;s password is set and their sessions have ended.
+        </p>
+      ) : null}
+
+      <Modal
+        open={resetting !== null}
+        onClose={() => (pending ? undefined : setResetting(null))}
+      >
+        <h2 className="text-lg font-semibold">Reset password for {resetting?.username}</h2>
+        <p className="mt-2 text-sm text-[color:var(--color-ink-2)]">
+          They are signed out everywhere and sign in again with this password. Karet sends no
+          mail, so tell them yourself.
+          {resetting?.username === me?.username
+            ? " This is your account, so you will be signed out too."
+            : ""}
+        </p>
+        <input
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          placeholder="new password"
+          autoComplete="new-password"
+          aria-label={`New password for ${resetting?.username}`}
+          data-testid="new-password"
+          className={inputClass("mt-4 block w-full")}
+        />
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={pending !== null}
+            onClick={() => setResetting(null)}
+            className={ghostButtonClass()}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={pending !== null || newPassword.length < 8}
+            onClick={() => void resetPassword()}
+            data-testid="confirm-reset-password"
+            className={primaryButtonClass()}
+          >
+            {pending?.startsWith("password:") ? "Setting…" : "Set password"}
+          </button>
+        </div>
+      </Modal>
 
       <Modal open={target !== null} onClose={() => (pending ? undefined : setTarget(null))}>
         <h2 className="text-lg font-semibold">Delete {target?.username}?</h2>

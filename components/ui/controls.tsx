@@ -109,6 +109,11 @@ export function Radio({
   );
 }
 
+/** Text input matching the controls beside it. A class, since nothing is added. */
+export function inputClass(extra = ""): string {
+  return `${CONTROL} px-2.5 placeholder:text-[color:var(--color-ink-4)] ${extra}`;
+}
+
 /** Filled action. Same height as the controls beside it. */
 export function primaryButtonClass(extra = ""): string {
   return (

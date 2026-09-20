@@ -160,6 +160,21 @@ export async function pipelinesOwnedBy(userId: string): Promise<string[]> {
 }
 
 /**
+ * Replace an account's password and sign it out everywhere.
+ *
+ * Ending the sessions is the point: a reset exists because somebody should no
+ * longer be using the old password, and a live session would outlive it.
+ */
+export async function setPassword(userId: string, passwordHash: string): Promise<void> {
+  await query(
+    `UPDATE account SET password = $2, "updatedAt" = now()
+      WHERE "userId" = $1 AND "providerId" = 'credential'`,
+    [userId, passwordHash],
+  );
+  await revokeSessions(userId);
+}
+
+/**
  * Create or update the bootstrap admin from the environment.
  *
  * Runs at startup. Writes the credential rows directly rather than going through

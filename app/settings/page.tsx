@@ -34,9 +34,11 @@ export default async function SettingsPage() {
               Settings
             </h1>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
-            <SettingsForm />
-            <UsersPanel />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto max-w-3xl px-4 py-6 sm:px-8">
+              <SettingsForm />
+              <UsersPanel />
+            </div>
           </div>
         </main>
       </div>
