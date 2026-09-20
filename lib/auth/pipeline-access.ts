@@ -8,10 +8,16 @@
 //
 //   1. Instance admins are admin everywhere. An access list that can lock the
 //      operator out of a pipeline is a way to lose a pipeline.
-//   2. An explicit membership row wins. It is the more specific statement, and
-//      it has to be able to narrow — "an editor who may only read finance" is the
+//   2. A pipeline's owner is admin on it, for the same reason one step down:
+//      they should not be able to lose the thing that is theirs, whether to
+//      somebody else's edit of the member list or their own. This is read from
+//      `pipelines.owner_id`, so it survives any change to that list. Ownership
+//      starts with whoever created the pipeline and can be handed over, which is
+//      what keeps "permanent access" from meaning "forever".
+//   3. An explicit membership row wins. It is the more specific statement, and
+//      it has to be able to narrow: "an editor who may only read finance" is the
 //      whole reason this exists.
-//   3. Otherwise the instance role applies, unless the pipeline is `members`
+//   4. Otherwise the instance role applies, unless the pipeline is `members`
 //      only, in which case there is no access at all.
 //
 // Node runtime only.
@@ -36,6 +42,8 @@ interface AccessInputs {
   visibility: Visibility;
   /** The caller's membership role for this pipeline, if any. */
   memberRole: Role | null;
+  /** True when the caller is the account recorded in `owner_id`. */
+  isOwner: boolean;
 }
 
 /**
@@ -49,6 +57,9 @@ export function resolveEffectiveRole(
   // The service token is the machine identity; it is already admin-equivalent
   // and nothing grants it per-pipeline membership.
   if (principal.service || principal.role === "admin") return "admin";
+  // Ahead of the membership row on purpose: an owner whose grant was revoked or
+  // narrowed keeps their pipeline.
+  if (access.isOwner) return "admin";
   if (access.memberRole) return access.memberRole;
   if (access.visibility === "members") return null;
   return principal.role;
@@ -62,8 +73,13 @@ export async function effectiveRoleFor(
 ): Promise<EffectiveRole> {
   if (principal.service || principal.role === "admin") return "admin";
 
-  const row = await queryOne<{ visibility: Visibility; member_role: string | null }>(
+  const row = await queryOne<{
+    visibility: Visibility;
+    member_role: string | null;
+    owner_id: string | null;
+  }>(
     `SELECT p.visibility,
+            p.owner_id,
             (SELECT m.role FROM pipeline_members m
               WHERE m.pipeline = p.slug AND m.user_id = $2) AS member_role
        FROM pipelines p
@@ -76,6 +92,7 @@ export async function effectiveRoleFor(
   return resolveEffectiveRole(principal, {
     visibility: row.visibility,
     memberRole: isRole(row.member_role) ? row.member_role : null,
+    isOwner: Boolean(userId) && row.owner_id === userId,
   });
 }
 
@@ -95,7 +112,7 @@ export async function visiblePipelineSlugs(
        FROM pipelines p
        LEFT JOIN pipeline_members m ON m.pipeline = p.slug AND m.user_id = $1
       WHERE p.archived_at IS NULL
-        AND (p.visibility = 'instance' OR m.user_id IS NOT NULL)`,
+        AND (p.visibility = 'instance' OR m.user_id IS NOT NULL OR p.owner_id = $1)`,
     [userId],
   );
   return rows.map((r) => r.slug);
@@ -127,6 +144,37 @@ export async function listMembers(pipeline: string): Promise<Member[]> {
         ]
       : [],
   );
+}
+
+/**
+ * Whose pipeline this is, for a UI that has to explain why one row cannot be
+ * removed. Null when the owning account was deleted, or for pipelines that
+ * predate accounts.
+ */
+export async function getOwner(
+  pipeline: string,
+): Promise<{ userId: string; username: string } | null> {
+  const row = await queryOne<{ user_id: string | null; username: string | null }>(
+    `SELECT p.owner_id AS user_id, u.username
+       FROM pipelines p
+       LEFT JOIN "user" u ON u.id = p.owner_id
+      WHERE p.slug = $1`,
+    [pipeline],
+  );
+  return row?.user_id && row.username ? { userId: row.user_id, username: row.username } : null;
+}
+
+/**
+ * Hand a pipeline to somebody else.
+ *
+ * Only the owner changes. A grant is a statement about somebody who is not the
+ * owner, and the new owner does not need one: their admin comes from owning the
+ * thing. The previous owner's grant, if they have one, is left alone, so their
+ * access becomes ordinary and revocable rather than vanishing under them, and
+ * removing it is a separate, visible act on the same screen.
+ */
+export async function transferOwnership(pipeline: string, newOwnerId: string): Promise<void> {
+  await query(`UPDATE pipelines SET owner_id = $2 WHERE slug = $1`, [pipeline, newOwnerId]);
 }
 
 export async function grantMembership(

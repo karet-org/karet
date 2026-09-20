@@ -185,12 +185,42 @@ suite("pipeline store", () => {
     expect(members[0].role).toBe("admin");
 
     // What the grant buys: without it this editor would resolve to no access.
-    expect(
-      await access.effectiveRoleFor(
-        { username: "owner-fixture", role: "editor", service: false } as never,
-        OWNED_SLUG,
-        userId,
-      ),
-    ).toBe("admin");
+    const principal = { username: "owner-fixture", role: "editor", service: false } as never;
+    expect(await access.effectiveRoleFor(principal, OWNED_SLUG, userId)).toBe("admin");
+
+    // And the access does not depend on that row surviving: revoke it and the
+    // owner is still admin, because `owner_id` says so.
+    await access.revokeMembership(OWNED_SLUG, userId);
+    expect(await access.listMembers(OWNED_SLUG)).toEqual([]);
+    expect(await access.effectiveRoleFor(principal, OWNED_SLUG, userId)).toBe("admin");
+    expect(await access.visiblePipelineSlugs(principal, userId)).toContain(OWNED_SLUG);
+  });
+
+  // The escape hatch from permanent access: ownership moves, and with it the
+  // part that could not be revoked.
+  it("hands ownership over, leaving the old owner ordinary", async () => {
+    const heirId = fixtureId();
+    await db.query(
+      `INSERT INTO "user" (id, name, email, "emailVerified", username, "displayUsername", role)
+       VALUES ($1, 'heir-fixture', $2, true, $3, $3, 'viewer')`,
+      [heirId, `${heirId}@karet.test`, heirId],
+    );
+    createdUserIds.push(heirId);
+
+    const ownerId = createdUserIds[0];
+    const wasOwner = { username: "owner-fixture", role: "editor", service: false } as never;
+    const heir = { username: "heir-fixture", role: "viewer", service: false } as never;
+
+    await access.transferOwnership(OWNED_SLUG, heirId);
+
+    // Admin from owning it, with no grant involved: a grant is a statement about
+    // somebody who is not the owner.
+    expect(await access.effectiveRoleFor(heir, OWNED_SLUG, heirId)).toBe("admin");
+    expect((await access.listMembers(OWNED_SLUG)).map((m) => m.userId)).not.toContain(heirId);
+
+    // The old owner keeps nothing but what the list says, and that is now
+    // removable: this is the departing-colleague case working.
+    expect(await access.effectiveRoleFor(wasOwner, OWNED_SLUG, ownerId)).toBeNull();
+    expect(await access.visiblePipelineSlugs(wasOwner, ownerId)).not.toContain(OWNED_SLUG);
   });
 });

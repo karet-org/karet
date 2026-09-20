@@ -19,6 +19,7 @@ import {
   primaryButtonClass,
 } from "@/components/ui/controls";
 import type { Role } from "@/lib/auth/roles";
+import { useCan, useCurrentUser } from "@/lib/client/use-current-user";
 
 interface Member {
   userId: string;
@@ -38,6 +39,10 @@ export default function AccessPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
   const [visibility, setVisibility] = useState<"instance" | "members">("instance");
   const [members, setMembers] = useState<Member[]>([]);
+  const [owner, setOwner] = useState<string | null>(null);
+  const [nextOwner, setNextOwner] = useState("");
+  const me = useCurrentUser();
+  const isInstanceAdmin = useCan("admin");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,6 +59,7 @@ export default function AccessPage() {
       if (!res.ok) throw new Error(body.message || body.error || `HTTP ${res.status}`);
       setVisibility(body.visibility);
       setMembers(body.members ?? []);
+      setOwner(body.owner ?? null);
       setAccounts(body.accounts ?? []);
     } catch (err) {
       setError((err as Error).message);
@@ -86,6 +92,9 @@ export default function AccessPage() {
   }
 
   const unlisted = accounts.filter((a) => !members.some((m) => m.username === a.username));
+  // Matches the server's rule: the owner's decision, or the operator's when the
+  // owner has gone.
+  const canTransfer = isInstanceAdmin || (me?.username !== undefined && me.username === owner);
 
   return (
     <div className="mx-auto max-w-3xl px-8 py-8">
@@ -179,31 +188,51 @@ export default function AccessPage() {
                         {m.username}
                       </td>
                       <td className="py-2 pr-3">
-                        <Select
-                          label={`Role for ${m.username} on this pipeline`}
-                          value={m.role}
-                          disabled={busy}
-                          onChange={(e) => void send({ username: m.username, role: e.target.value })}
-                        >
-                          {ROLES.map((r) => (
-                            <option key={r} value={r}>
-                              {r}
-                            </option>
-                          ))}
-                        </Select>
+                        {m.username === owner ? (
+                          <span className="text-[12.5px] text-[color:var(--color-ink-2)]">
+                            admin
+                          </span>
+                        ) : (
+                          <Select
+                            label={`Role for ${m.username} on this pipeline`}
+                            value={m.role}
+                            disabled={busy}
+                            onChange={(e) =>
+                              void send({ username: m.username, role: e.target.value })
+                            }
+                          >
+                            {ROLES.map((r) => (
+                              <option key={r} value={r}>
+                                {r}
+                              </option>
+                            ))}
+                          </Select>
+                        )}
                       </td>
                       <td className="py-2 text-right">
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() =>
-                            void send(null, "DELETE", `?username=${encodeURIComponent(m.username)}`)
-                          }
-                          data-testid={`revoke-${m.username}`}
-                          className={ghostButtonClass()}
-                        >
-                          Remove
-                        </button>
+                        {m.username === owner ? (
+                          // Their access comes from having created the pipeline, not
+                          // from this list, so a control here would do nothing.
+                          <span className="text-[11.5px] text-[color:var(--color-ink-4)]">
+                            Owner
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              void send(
+                                null,
+                                "DELETE",
+                                `?username=${encodeURIComponent(m.username)}`,
+                              )
+                            }
+                            data-testid={`revoke-${m.username}`}
+                            className={ghostButtonClass()}
+                          >
+                            Remove
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -255,6 +284,50 @@ export default function AccessPage() {
                   </button>
                 </div>
               </div>
+            )}
+          </section>
+
+          <section className={`mt-5 ${CARD}`}>
+            <h2 className="text-[14px] font-semibold text-[color:var(--color-ink)]">Owner</h2>
+            <p className="mt-1 max-w-[62ch] text-[12.5px] text-[color:var(--color-ink-3)]">
+              {owner
+                ? `${owner} keeps admin on this pipeline and cannot be removed from the list above. Hand it over to change that.`
+                : "This pipeline has no owner, which happens when the owning account is deleted. Give it one."}
+            </p>
+            {canTransfer ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Select
+                  label="Account to hand this pipeline to"
+                  value={nextOwner}
+                  onChange={(e) => setNextOwner(e.target.value)}
+                  data-testid="transfer-owner-user"
+                >
+                  <option value="">Choose an account…</option>
+                  {accounts
+                    .filter((a) => a.username !== owner)
+                    .map((a) => (
+                      <option key={a.username} value={a.username}>
+                        {a.username}
+                      </option>
+                    ))}
+                </Select>
+                <button
+                  type="button"
+                  disabled={busy || !nextOwner}
+                  onClick={() => {
+                    void send({ owner: nextOwner });
+                    setNextOwner("");
+                  }}
+                  data-testid="transfer-owner"
+                  className={ghostButtonClass()}
+                >
+                  Transfer ownership
+                </button>
+              </div>
+            ) : (
+              <p className="mt-3 text-[11.5px] text-[color:var(--color-ink-4)]">
+                Only the owner or an instance admin can hand a pipeline over.
+              </p>
             )}
           </section>
         </>
