@@ -129,9 +129,16 @@ export default function HistoryPage() {
           No saved versions yet. The next save through the editor or the API records one.
         </p>
       ) : (
-        <table className="mt-6 w-full border-collapse text-sm" data-testid="history-table">
+        <table className="mt-6 w-full table-fixed border-collapse text-sm" data-testid="history-table">
+          <colgroup>
+            <col className="w-[110px]" />
+            <col className="w-[170px]" />
+            <col className="w-[130px]" />
+            <col />
+            <col className="w-[120px]" />
+          </colgroup>
           <thead>
-            <tr className="border-b border-[color:var(--color-rule)] text-left text-[11.5px] uppercase tracking-[0.05em] text-[color:var(--color-ink-3)]">
+            <tr className="border-b border-[color:var(--color-rule)] text-left text-[11px] text-[color:var(--color-ink-3)]">
               <th className="py-2 pr-3 font-medium">Version</th>
               <th className="py-2 pr-3 font-medium">Saved</th>
               <th className="py-2 pr-3 font-medium">Author</th>

@@ -170,11 +170,22 @@ export default function AccessPage() {
                   : "Nobody listed yet. Everyone uses the role they hold elsewhere."}
               </p>
             ) : (
-              <table className="mt-4 w-full border-collapse text-sm" data-testid="members-table">
+              <table
+                className="mt-4 w-full table-fixed border-collapse text-sm"
+                data-testid="members-table"
+              >
+                {/* Fixed layout: adding or removing a row must not move the columns. */}
+                <colgroup>
+                  <col className="w-[200px]" />
+                  <col className="w-[130px]" />
+                  <col />
+                </colgroup>
                 <thead>
-                  <tr className="border-b border-[color:var(--color-rule)] text-left text-[11px] uppercase tracking-[0.05em] text-[color:var(--color-ink-3)]">
+                  <tr className="border-b border-[color:var(--color-rule)] text-left text-[11px] text-[color:var(--color-ink-3)]">
                     <th className="pb-1.5 pr-3 font-medium">Person</th>
-                    <th className="pb-1.5 pr-3 font-medium">Role here</th>
+                    {/* Inset to the control's text: the reader compares the words
+                        in this column, not the edges of the boxes around them. */}
+                    <th className="pb-1.5 pl-[11px] pr-3 font-medium">Role here</th>
                     <th className="pb-1.5 font-medium" />
                   </tr>
                 </thead>
@@ -189,7 +200,7 @@ export default function AccessPage() {
                       </td>
                       <td className="py-2 pr-3">
                         {m.username === owner ? (
-                          <span className="text-[12.5px] text-[color:var(--color-ink-2)]">
+                          <span className="pl-[11px] text-[12.5px] text-[color:var(--color-ink-2)]">
                             admin
                           </span>
                         ) : (
