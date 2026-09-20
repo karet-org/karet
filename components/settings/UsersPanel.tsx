@@ -1,8 +1,7 @@
 "use client";
 
-// Accounts, for an admin. Create and delete without reaching for a terminal.
-//
-// Role changes and password resets are still `scripts/manage-users.mjs`.
+// Accounts, for an admin. Create, change a role, and delete, without reaching for
+// a terminal. Resetting a forgotten password is still `scripts/manage-users.mjs`.
 
 import { useCallback, useEffect, useState } from "react";
 import Modal from "@/components/ui/Modal";
@@ -82,6 +81,30 @@ export default function UsersPanel() {
     }
   }
 
+  async function changeRole(account: Account, role: Role) {
+    setPending(`role:${account.username}`);
+    setError(null);
+    try {
+      const res = await fetch(`/api/users/${encodeURIComponent(account.username)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.message || body.error || `HTTP ${res.status}`);
+      setAccounts((current) =>
+        current.map((a) => (a.username === account.username ? { ...a, role } : a)),
+      );
+    } catch (err) {
+      setError((err as Error).message);
+      // The select is driven by state, so a failure snaps it back to the role the
+      // server still holds.
+      await load({ quiet: true });
+    } finally {
+      setPending(null);
+    }
+  }
+
   /** Ask what the deletion costs before showing the confirmation. */
   async function askDelete(account: Account) {
     setTarget(account);
@@ -123,8 +146,9 @@ export default function UsersPanel() {
     <section className={`mt-6 max-w-[620px] ${CARD}`}>
       <h2 className="text-[14px] font-semibold text-[color:var(--color-ink)]">People</h2>
       <p className="mt-1 max-w-[62ch] text-[12.5px] text-[color:var(--color-ink-3)]">
-        Accounts on this instance. A new account signs in with the password you set here and
-        sees pipelines at its role, or only the ones it is invited to.
+        Accounts on this instance, and what each may do across it. A role change applies on
+        their next request and signs them out. Access to a single pipeline is set on that
+        pipeline instead.
       </p>
 
       {error ? (
@@ -146,13 +170,13 @@ export default function UsersPanel() {
           {/* Fixed layout: adding or removing a row must not move the columns. */}
           <colgroup>
             <col className="w-[200px]" />
-            <col className="w-[110px]" />
+            <col className="w-[130px]" />
             <col />
           </colgroup>
           <thead>
             <tr className="border-b border-[color:var(--color-rule)] text-left text-[11px] text-[color:var(--color-ink-3)]">
               <th className="pb-1.5 pr-3 font-medium">Account</th>
-              <th className="pb-1.5 pr-3 font-medium">Role</th>
+              <th className="pb-1.5 pl-[11px] pr-3 font-medium">Role</th>
               <th className="pb-1.5 font-medium" />
             </tr>
           </thead>
@@ -172,8 +196,33 @@ export default function UsersPanel() {
                       </span>
                     ) : null}
                   </td>
-                  <td className="py-2 pr-3 text-[12.5px] text-[color:var(--color-ink-2)]">
-                    {a.role}
+                  <td className="py-2 pr-3">
+                    {a.bootstrap || isMe ? (
+                      <span
+                        className="pl-[11px] text-[12.5px] text-[color:var(--color-ink-2)]"
+                        title={
+                          a.bootstrap
+                            ? "The environment sets this account to admin on every start."
+                            : "Ask another admin to change your role."
+                        }
+                      >
+                        {a.role}
+                      </span>
+                    ) : (
+                      <Select
+                        label={`Role for ${a.username}`}
+                        value={a.role}
+                        disabled={pending === `role:${a.username}`}
+                        onChange={(e) => void changeRole(a, e.target.value as Role)}
+                        data-testid={`role-${a.username}`}
+                      >
+                        {ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
                   </td>
                   <td className="py-2 text-right">
                     {a.bootstrap || isMe ? (

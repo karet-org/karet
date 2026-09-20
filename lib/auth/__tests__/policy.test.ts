@@ -54,6 +54,7 @@ describe("requiredRole", () => {
     expect(requiredRole("GET", "/api/users")).toBe("admin");
     expect(requiredRole("POST", "/api/users")).toBe("admin");
     expect(requiredRole("GET", "/api/users/erin")).toBe("admin");
+    expect(requiredRole("PATCH", "/api/users/erin")).toBe("admin");
     expect(requiredRole("DELETE", "/api/users/erin")).toBe("admin");
   });
 
