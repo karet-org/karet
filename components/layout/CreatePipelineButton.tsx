@@ -28,6 +28,9 @@ const TEMPLATES: { id: TemplateId; name: string; description: string }[] = [
   },
 ];
 
+/** Listed first and selected first: a new pipeline starts empty unless asked. */
+const DEFAULT_TEMPLATE: TemplateId = "blank";
+
 export default function CreatePipelineButton({
   variant = "button",
 }: {
@@ -38,7 +41,7 @@ export default function CreatePipelineButton({
   const canCreate = useCan("editor");
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [template, setTemplate] = useState<TemplateId>("spending");
+  const [template, setTemplate] = useState<TemplateId>(DEFAULT_TEMPLATE);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +49,7 @@ export default function CreatePipelineButton({
     if (submitting) return;
     setOpen(false);
     setName("");
-    setTemplate("spending");
+    setTemplate(DEFAULT_TEMPLATE);
     setError(null);
   }
 
