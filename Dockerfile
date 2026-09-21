@@ -40,6 +40,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # @duckdb/node-api is externalized, so it isn't traced into the standalone
 # bundle; copying node_modules satisfies it (Next merges with the traced set).
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+# Schema work runs from the image, not from a checkout: `db-setup.mjs` applies
+# `migrations/` under an advisory lock, and the operational scripts (the S3
+# import, manifest adoption, account management) are runnable with
+# `docker compose run`.
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+COPY --from=builder --chown=nextjs:nodejs /app/migrations ./migrations
 
 USER nextjs
 
@@ -49,4 +55,6 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV HOME=/home/nextjs
 
-CMD ["node", "server.js"]
+# Migrate, then serve. Several containers starting together is safe: the lock in
+# `db-setup.mjs` means the others wait and find nothing to do.
+CMD ["sh", "-c", "node scripts/db-setup.mjs && exec node server.js"]
