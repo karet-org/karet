@@ -1,4 +1,4 @@
-// Unit tests for `config-service.ts` driven by an in-memory S3 mock.
+// Unit tests for `document-store.ts` driven by an in-memory S3 mock.
 //
 // We construct an actual `S3Client` but replace its `send` method with a fake
 // that services the subset of commands (`GetObject`, `PutObject`,
@@ -28,7 +28,7 @@ import {
   listQueries,
   putQuery,
   TargetExistsError,
-} from "../config-service";
+} from "../document-store";
 
 // ---------------------------------------------------------------------------
 // In-memory S3 stub
@@ -44,7 +44,7 @@ function buildStubClient(initial: Record<string, Stored> = {}): S3Client {
   const client = new S3Client({ region: "us-east-1" });
   let nextEtag = 1;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   (client as any).send = async (command: unknown) => {
     if (command instanceof GetObjectCommand) {
       const key = command.input.Key!;
@@ -147,7 +147,7 @@ const DEFAULT_CONFIG: S3Config = {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("config-service", () => {
+describe("document store", () => {
   describe("listDashboardsV2", () => {
     it("lists yaml stems, skipping nested keys and other extensions", async () => {
       const client = buildStubClient({

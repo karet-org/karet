@@ -12,7 +12,6 @@ import { formatRelative } from "@/lib/format/relative-time";
 import { getLiveConfig, listPipelines } from "@/lib/services/pipeline-store";
 import { latestTerminalJob as loadLatestTerminalJob } from "@/lib/services/job-store";
 import { currentPrincipal } from "@/lib/auth/current-user";
-import { findUserByUsername } from "@/lib/auth/users";
 import { visiblePipelineSlugs } from "@/lib/auth/pipeline-access";
 
 export const dynamic = "force-dynamic";
@@ -44,11 +43,7 @@ async function getPipelines(): Promise<PipelineResult> {
     // longer take the whole landing page down. Members-only pipelines are
     // filtered out here rather than rendering cards that 404 when clicked.
     const principal = await currentPrincipal();
-    const user =
-      principal && !principal.service ? await findUserByUsername(principal.username) : null;
-    const visible = principal
-      ? await visiblePipelineSlugs(principal, user?.id ?? null)
-      : ([] as string[]);
+    const visible = principal ? await visiblePipelineSlugs(principal) : ([] as string[]);
     const registered = await listPipelines(visible === "all" ? undefined : visible);
     const summaries = await Promise.all(
       registered.map((p) => loadSummary(p.slug)),
@@ -137,7 +132,7 @@ export default async function Home() {
       try {
         return await getUiSettings(createS3Client(), loadS3Config());
       } catch {
-        return { displayName: "", workspaceName: "", starred: [] };
+        return { workspaceName: "", starred: [] };
       }
     })(),
   ]);
@@ -161,7 +156,6 @@ export default async function Home() {
     <SearchProvider>
     <div className="flex h-screen overflow-hidden">
       <LandingRail
-        displayName={settings.displayName}
         workspaceName={settings.workspaceName}
         starred={starred}
       />
@@ -169,17 +163,12 @@ export default async function Home() {
         <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-bg)] px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             <MobileRailToggle
-              displayName={settings.displayName}
               workspaceName={settings.workspaceName}
               starred={starred}
             />
             <h1 className="text-[15px] font-semibold text-[color:var(--color-ink)]">
               Pipelines
             </h1>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <ImportButton />
-            <CreatePipelineButton />
           </div>
         </div>
 
@@ -207,6 +196,12 @@ export default async function Home() {
               pipelines={cards}
               starred={starred.map((s) => s.id)}
               createSlot={<CreatePipelineButton variant="card" />}
+              actions={
+                <>
+                  <ImportButton />
+                  <CreatePipelineButton />
+                </>
+              }
             />
           )}
         </div>

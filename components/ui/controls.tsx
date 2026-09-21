@@ -109,6 +109,11 @@ export function Radio({
   );
 }
 
+/** Text input matching the controls beside it. A class, since nothing is added. */
+export function inputClass(extra = ""): string {
+  return `${CONTROL} px-2.5 placeholder:text-[color:var(--color-ink-4)] ${extra}`;
+}
+
 /** Filled action. Same height as the controls beside it. */
 export function primaryButtonClass(extra = ""): string {
   return (
@@ -123,6 +128,19 @@ export function primaryButtonClass(extra = ""): string {
 }
 
 /** Low-emphasis action for table rows. */
+/** Same box as the primary, for an action that is not the screen's main one. */
+export function secondaryButtonClass(extra = ""): string {
+  return (
+    "inline-flex h-[34px] items-center rounded-md border border-[color:var(--color-rule)] " +
+    "bg-[color:var(--color-surface)] px-3 text-[12.5px] font-medium " +
+    "text-[color:var(--color-ink-2)] outline-none transition " +
+    "hover:border-[color:var(--color-ink-4)] hover:bg-[color:var(--color-surface-2)] " +
+    "hover:text-[color:var(--color-ink)] " +
+    "focus-visible:ring-2 focus-visible:ring-[color:var(--color-carrot-soft)] " +
+    `disabled:opacity-50 ${extra}`
+  );
+}
+
 export function ghostButtonClass(extra = ""): string {
   return (
     "rounded px-2 py-1 text-xs font-medium text-[color:var(--color-ink-3)] outline-none transition " +

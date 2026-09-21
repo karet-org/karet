@@ -18,17 +18,19 @@ import {
   ghostButtonClass,
   primaryButtonClass,
 } from "@/components/ui/controls";
-import type { Role } from "@/lib/auth/roles";
+import { ROLES, type Role } from "@/lib/auth/roles";
 import { useCan, useCurrentUser } from "@/lib/client/use-current-user";
 
 interface Member {
   userId: string;
   username: string;
+  displayName: string;
   role: Role;
 }
 
 interface Account {
   username: string;
+  displayName: string;
   role: Role;
 }
 
@@ -39,7 +41,10 @@ interface AccessState {
   members: Member[];
 }
 
-const ROLES: Role[] = ["viewer", "editor", "admin"];
+/** A display name is nicer to read, but the username is what a picker identifies. */
+function label(a: Account): string {
+  return a.displayName === a.username ? a.username : `${a.displayName} (${a.username})`;
+}
 
 export default function AccessPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
@@ -213,13 +218,21 @@ export default function AccessPage() {
                       key={m.userId}
                       className="border-b border-[color:var(--color-rule-soft)] last:border-b-0"
                     >
-                      <td className="py-2 pr-3 font-medium text-[color:var(--color-ink)]">
-                        {m.username}
+                      <td className="py-2 pr-3">
+                        <span className="block truncate font-medium text-[color:var(--color-ink)]">
+                          {m.displayName}
+                        </span>
+                        {m.displayName !== m.username ? (
+                          <span className="block truncate text-[11.5px] text-[color:var(--color-ink-4)]">
+                            {m.username}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="py-2 pr-3">
                         {m.username === owner ? (
+                          // Admin here comes from owning it, not from a grant.
                           <span className="pl-[11px] text-[12.5px] text-[color:var(--color-ink-2)]">
-                            admin
+                            owner
                           </span>
                         ) : (
                           <Select
@@ -242,12 +255,7 @@ export default function AccessPage() {
                         )}
                       </td>
                       <td className="py-2 text-right">
-                        {m.username === owner ? (
-                          // Their admin comes from owning it, not from this list.
-                          <span className="text-[11.5px] text-[color:var(--color-ink-4)]">
-                            Owner
-                          </span>
-                        ) : (
+                        {m.username === owner ? null : (
                           <button
                             type="button"
                             disabled={pending === `revoke:${m.username}`}
@@ -287,7 +295,7 @@ export default function AccessPage() {
                     <option value="">Choose an account…</option>
                     {unlisted.map((a) => (
                       <option key={a.username} value={a.username}>
-                        {a.username} ({a.role} elsewhere)
+                        {label(a)}, {a.role} elsewhere
                       </option>
                     ))}
                   </Select>
@@ -339,7 +347,7 @@ export default function AccessPage() {
                     .filter((a) => a.username !== owner)
                     .map((a) => (
                       <option key={a.username} value={a.username}>
-                        {a.username}
+                        {label(a)}
                       </option>
                     ))}
                 </Select>

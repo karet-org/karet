@@ -1,7 +1,7 @@
 "use client";
 
-// Rail user row with a popover menu. displayName null fetches it from
-// /api/settings.
+// Rail user row with a popover menu: what this person calls themselves, and the
+// role that says what they can do. Which account it is lives in the menu.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -11,37 +11,15 @@ import {
   IconSettings,
   IconSignOut,
 } from "@/components/icons";
-import { cachedJson } from "@/lib/client/fetch-cache";
 import { useCurrentUser } from "@/lib/client/use-current-user";
 import { authClient } from "@/lib/client/auth-client";
 
-export default function RailUserMenu({
-  displayName,
-}: {
-  displayName: string | null;
-}) {
+export default function RailUserMenu() {
   const router = useRouter();
   const user = useCurrentUser();
-  const [name, setName] = useState(displayName ?? "");
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (displayName !== null) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const body = await cachedJson<{ displayName?: string }>("/api/settings");
-        if (!cancelled && body.displayName) setName(body.displayName);
-      } catch {
-        // The row falls back to "admin".
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [displayName]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -59,8 +37,12 @@ export default function RailUserMenu({
     };
   }, [menuOpen]);
 
-  // The signed-in account, once known; the instance display name until then.
-  const shown = user?.username || name || "admin";
+  // Null until /api/auth/me lands, so the row shows nothing rather than a guess.
+  // `displayName` falls back to the username server-side.
+  const shown = user?.displayName ?? "";
+  // The role stays here whatever the name is: it is the line that says what you
+  // can do. Which account it is lives in the menu, a click away.
+  const secondary = user?.service ? "service token" : (user?.role ?? "");
 
   return (
     <div ref={ref} className="relative">
@@ -70,6 +52,11 @@ export default function RailUserMenu({
           data-testid="rail-user-menu"
           className="absolute bottom-[50px] left-0 right-0 z-30 rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface-2)] p-1 shadow-[0_8px_28px_rgba(0,0,0,0.45)]"
         >
+          {user && !user.service && user.displayName !== user.username ? (
+            <p className="truncate border-b border-[color:var(--color-rule-soft)] px-2.5 pb-2 pt-1.5 text-[11.5px] text-[color:var(--color-ink-3)]">
+              Signed in as <span className="text-[color:var(--color-ink-2)]">{user.username}</span>
+            </p>
+          ) : null}
           <Link
             href="/settings"
             role="menuitem"
@@ -109,14 +96,14 @@ export default function RailUserMenu({
         className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-[color:var(--color-surface-2)]"
       >
         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[color:var(--color-leaf)] text-[11px] font-semibold text-[#12210f]">
-          {shown[0].toUpperCase()}
+          {shown ? shown[0].toUpperCase() : ""}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-medium text-[color:var(--color-ink)]">
             {shown}
           </span>
-          <span className="block text-[10.5px] text-[color:var(--color-ink-3)]">
-            admin
+          <span className="block truncate text-[10.5px] text-[color:var(--color-ink-3)]">
+            {secondary}
           </span>
         </span>
         <IconChevronDown

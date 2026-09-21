@@ -6,7 +6,7 @@ import {
   listDashboardsWithNamesV2,
   listDraftDashboardsV2,
   putDashboardV2,
-} from "@/lib/services/config-service";
+} from "@/lib/services/document-store";
 import { templateV2 } from "@/lib/types/dashboard-v2";
 import { withRole } from "@/lib/auth/guard";
 

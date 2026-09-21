@@ -1,5 +1,7 @@
-// S3-backed reads/writes for Pipeline_Config, dashboards, and Parquet keys.
-// Every function takes an explicit `S3Client` + config so tests can inject a stub.
+// Dashboards and saved queries: the documents that stay in S3, edited as text.
+// Pipeline configs live in Postgres; see `pipeline-store.ts`.
+//
+// Every function takes an explicit `S3Client` and config, so tests inject a stub.
 
 import {
   DeleteObjectCommand,
@@ -10,13 +12,10 @@ import {
   S3ServiceException,
 } from "@aws-sdk/client-s3";
 import { type S3Config } from "../config/s3-client";
-import type { PipelineConfig } from "../types/config";
 import type { SavedQuery } from "../types/query";
 import { listAllObjectKeys, readBodyToBuffer } from "./s3-helpers";
 
-// Errors
-
-/** Rename target slug already has a pipeline.json; callers translate to 409. */
+/** The rename target already exists; callers translate this to a 409. */
 export class TargetExistsError extends Error {
   constructor(message = "Target pipeline slug already exists") {
     super(message);
@@ -40,26 +39,6 @@ function isNotFound(err: unknown): boolean {
   }
   return false;
 }
-
-// Pipelines
-/** A pipeline's immutable id (slug, also the S3 prefix) plus its display name. */
-export interface PipelineListing {
-  id: string;
-  name: string;
-}
-// Pipeline_Config
-
-export interface PipelineConfigWithETag {
-  config: PipelineConfig;
-  /** Raw JSON body as stored in S3. */
-  body: string;
-  /** S3 ETag (quotes stripped). */
-  etag?: string;
-  /** S3 LastModified (ISO). Creation time until the config is next edited. */
-  lastModified?: string;
-}
-// Dashboards
-
 
 /** A dashboard's stem id plus its display name. */
 export interface DashboardListing {

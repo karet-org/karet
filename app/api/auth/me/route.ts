@@ -3,8 +3,7 @@ import { currentPrincipal } from "@/lib/auth/current-user";
 
 export const runtime = "nodejs";
 
-// Accounts are provisioned with `scripts/manage-users.mjs`, and the bootstrap
-// admin comes from the environment, so there is no PATCH here.
+// Read-only. Changing your own display name or password is `PATCH /api/account`.
 
 export async function GET() {
   const principal = await currentPrincipal();
@@ -15,6 +14,7 @@ export async function GET() {
     authenticated: true,
     user: {
       username: principal.username,
+      displayName: principal.displayName,
       role: principal.role,
       service: principal.service,
     },

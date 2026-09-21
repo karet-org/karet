@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconUpload } from "@/components/icons";
 import { useCan } from "@/lib/client/use-current-user";
+import { secondaryButtonClass } from "@/components/ui/controls";
 
 export default function ImportButton() {
   const canImport = useCan("editor");
@@ -50,7 +51,7 @@ export default function ImportButton() {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={importing}
-        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3.5 text-[13.5px] font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-ink-4)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
+        className={secondaryButtonClass("gap-1.5")}
       >
         <IconUpload size={14} />
         {importing ? "Importing…" : "Import"}

@@ -10,14 +10,13 @@ import { sanitizeSlug } from "@/lib/config/slug";
 import { listAllObjectKeys } from "@/lib/services/s3-helpers";
 import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
-import { findUserByUsername } from "@/lib/auth/users";
+import { publishConfig } from "@/lib/services/config-publish";
 import {
   deletePipeline,
   getLiveConfig,
   pipelineExists,
   renamePipeline,
-  saveConfig,
-} from "@/lib/services/pipeline-store";
+  } from "@/lib/services/pipeline-store";
 
 /** Removes every object under `pipelines/<slug>/` in the pipelines and warehouse bucket. */
 async function handleDelete(
@@ -98,14 +97,16 @@ async function handlePatch(
       );
     }
     // A rename is a config change like any other, so it becomes a version with
-    // an author rather than an untracked edit.
-    const author = principal.service ? null : await findUserByUsername(principal.username);
-    await saveConfig(
+    // an author rather than an untracked edit, and it is validated like one.
+    const published = await publishConfig(
       safeSlug,
       { ...current.config, name },
-      { id: author?.id ?? null, name: principal.username },
+      { id: principal.userId, name: principal.username },
       "renamed",
     );
+    if (!published.ok) {
+      return NextResponse.json({ ok: false, error: published.message }, { status: published.status });
+    }
     await renamePipeline(safeSlug, name);
     return NextResponse.json({ ok: true, pipeline: safeSlug, name });
   }, `PATCH /api/pipelines/${safeSlug}`);

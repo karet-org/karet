@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import { getDashboardV2, publishDashboardV2 } from "@/lib/services/config-service";
+import { getDashboardV2, publishDashboardV2 } from "@/lib/services/document-store";
 import { fullDashboardGate } from "@/lib/services/dashboard-data";
 import { withRole } from "@/lib/auth/guard";
 

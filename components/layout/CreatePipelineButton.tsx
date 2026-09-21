@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Modal from "@/components/ui/Modal";
 import { IconPlus } from "@/components/icons";
 import { useCan } from "@/lib/client/use-current-user";
+import { primaryButtonClass, secondaryButtonClass } from "@/components/ui/controls";
 
 type TemplateId = "blank" | "spending" | "traffic";
 
@@ -105,7 +106,7 @@ export default function CreatePipelineButton({
         <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-3.5 text-[13.5px] font-medium text-white shadow-[0_1px_0_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.18)] transition hover:bg-[color:var(--color-carrot-deep)]"
+        className={primaryButtonClass("gap-1.5")}
       >
         <IconPlus size={14} />
         New pipeline
@@ -194,14 +195,14 @@ export default function CreatePipelineButton({
                 type="button"
                 onClick={close}
                 disabled={submitting}
-                className="rounded-md border border-transparent px-3.5 py-2 text-[13.5px] text-[color:var(--color-ink-2)] hover:border-[color:var(--color-rule)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
+                className={secondaryButtonClass()}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="inline-flex h-9 items-center rounded-md bg-[color:var(--color-carrot)] px-3.5 text-[13.5px] font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+                className={primaryButtonClass()}
               >
                 {submitting ? "Creating…" : "Create pipeline"}
               </button>

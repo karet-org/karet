@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
-import { findUserByUsername } from "@/lib/auth/users";
-import { getLiveConfig, pipelineExists, saveConfig } from "@/lib/services/pipeline-store";
-import { validateConfigForSave } from "@/lib/graph/validateConfig";
-import type { PipelineConfig } from "@/lib/types/config";
+import { getLiveConfig, pipelineExists } from "@/lib/services/pipeline-store";
+import { publishConfig } from "@/lib/services/config-publish";
 
 export const dynamic = "force-dynamic";
 
@@ -43,22 +41,6 @@ async function handlePut(
     );
   }
 
-  // Valid JSON is not a valid pipeline. Writing `{}` here used to be accepted
-  // and left every read of the pipeline failing, so the same checks the editor
-  // runs before a save also run here.
-  const shapeError = configShapeError(parsed);
-  if (shapeError) {
-    return NextResponse.json({ ok: false, error: shapeError }, { status: 422 });
-  }
-  const config = parsed as PipelineConfig;
-  const errors = validateConfigForSave(config);
-  if (errors.length > 0) {
-    return NextResponse.json(
-      { ok: false, error: `invalid_config: ${errors.join("; ")}` },
-      { status: 422 },
-    );
-  }
-
   if (!(await pipelineExists(pipeline))) {
     return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
   }
@@ -78,12 +60,15 @@ async function handlePut(
     }
   }
 
-  const author = principal.service ? null : await findUserByUsername(principal.username);
-  const saved = await saveConfig(pipeline, config, {
-    id: author?.id ?? null,
+  const published = await publishConfig(pipeline, parsed, {
+    id: principal.userId,
     name: principal.username,
   });
+  if (!published.ok) {
+    return NextResponse.json({ ok: false, error: published.message }, { status: published.status });
+  }
 
+  const saved = published.value;
   return NextResponse.json(
     { ok: true, version: saved.version, versionId: saved.versionId },
     { status: 200, headers: { "X-Karet-Config-Version": String(saved.version) } },
@@ -93,14 +78,3 @@ async function handlePut(
 export const GET = withRole(handleGet);
 export const PUT = withRole(handlePut);
 
-/** The fields every config must carry, checked before the deeper pass. */
-function configShapeError(value: unknown): string | null {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return "invalid_config: expected a JSON object";
-  }
-  const cfg = value as Record<string, unknown>;
-  for (const field of ["source_containers", "dimensions", "mappings", "analytic_tables"]) {
-    if (!Array.isArray(cfg[field])) return `invalid_config: ${field} must be an array`;
-  }
-  return null;
-}

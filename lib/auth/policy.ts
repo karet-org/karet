@@ -1,9 +1,8 @@
 // What role each request needs.
 //
-// One table, consulted twice: middleware uses it for a cheap edge gate off the
-// signed role claim, and `withRole` uses it again in the handler where the user
-// store is reachable and a demotion or deletion can be seen. Keeping both on
-// the same data is the point; two lists would drift.
+// One table, read by `withRole` in the route handler, where the database is
+// reachable and a demotion, a deletion or a per-pipeline grant can be seen.
+// Middleware only checks that a session cookie exists.
 //
 // Edge-safe: no Node built-ins, no S3.
 
@@ -43,6 +42,15 @@ const RULES: Rule[] = [
   // Deleting or renaming a whole pipeline, and instance-wide settings.
   { methods: ["DELETE", "PATCH"], path: /^\/api\/pipelines\/[^/]+$/, role: "admin" },
   { methods: ["PUT", "POST", "DELETE"], path: /^\/api\/settings$/, role: "admin" },
+
+  // Your own account: display name and password. The username comes from the
+  // session, so a viewer editing themselves is not an admin action.
+  { methods: ["PATCH"], path: /^\/api\/account$/, role: "viewer" },
+
+  // Other people's accounts. Reading the list is an admin matter too: who else
+  // works here is not a viewer's business, and only the admin screen uses it.
+  { methods: ["GET", "POST"], path: /^\/api\/users$/, role: "admin" },
+  { methods: ["GET", "PATCH", "DELETE"], path: /^\/api\/users\/[^/]+$/, role: "admin" },
 
   // Creating and importing pipelines.
   { methods: ["POST"], path: /^\/api\/pipelines(\/import)?$/, role: "editor" },

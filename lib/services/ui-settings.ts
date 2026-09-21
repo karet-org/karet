@@ -10,13 +10,11 @@ import { readBodyToBuffer } from "@/lib/services/s3-helpers";
 import { getLiveConfig } from "@/lib/services/pipeline-store";
 
 export interface UiSettings {
-  displayName: string;
   workspaceName: string;
   starred: string[];
 }
 
 const DEFAULT_SETTINGS: UiSettings = {
-  displayName: "",
   workspaceName: "",
   starred: [],
 };
@@ -44,7 +42,6 @@ export function sanitizeSettings(raw: unknown): UiSettings {
       ].slice(0, MAX_STARRED)
     : [];
   return {
-    displayName: name(obj.displayName),
     workspaceName: name(obj.workspaceName),
     starred,
   };
@@ -85,8 +82,8 @@ export async function putUiSettings(
 }
 
 /**
- * Resolve starred ids to `{id, name}`. Ids whose pipeline.json is unreadable
- * are dropped: they no longer exist, so the rail shouldn't link to them.
+ * Resolve starred ids to `{id, name}`, dropping ids with no pipeline: the rail
+ * should not link to something that has gone.
  */
 export async function starredListings(
   starred: string[],

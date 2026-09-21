@@ -5,12 +5,10 @@ describe("sanitizeSettings", () => {
   it("passes through a valid document", () => {
     expect(
       sanitizeSettings({
-        displayName: "Joey Shi",
         workspaceName: "home",
         starred: ["finance", "fitness"],
       }),
     ).toEqual({
-      displayName: "Joey Shi",
       workspaceName: "home",
       starred: ["finance", "fitness"],
     });
@@ -18,12 +16,10 @@ describe("sanitizeSettings", () => {
 
   it("defaults missing or wrong-typed fields", () => {
     expect(sanitizeSettings(null)).toEqual({
-      displayName: "",
       workspaceName: "",
       starred: [],
     });
-    expect(sanitizeSettings({ displayName: 42, starred: "finance" })).toEqual({
-      displayName: "",
+    expect(sanitizeSettings({ workspaceName: 42, starred: "finance" })).toEqual({
       workspaceName: "",
       starred: [],
     });
@@ -31,10 +27,10 @@ describe("sanitizeSettings", () => {
 
   it("trims, caps length, dedupes, and drops invalid slugs", () => {
     const out = sanitizeSettings({
-      displayName: `  ${"x".repeat(80)}  `,
+      workspaceName: `  ${"x".repeat(80)}  `,
       starred: ["finance", "finance", "Bad Slug", "../evil", "ok-2"],
     });
-    expect(out.displayName).toHaveLength(64);
+    expect(out.workspaceName).toHaveLength(64);
     expect(out.starred).toEqual(["finance", "ok-2"]);
   });
 });

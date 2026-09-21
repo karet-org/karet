@@ -1,6 +1,5 @@
 // Better-auth owns /api/auth/*: sign-in, sign-out, session, and the endpoints its
-// client calls. Karet's own auth routes are gone, along with the cookie signing
-// they used to do by hand.
+// client calls.
 //
 // The handlers resolve the auth instance per request rather than at module load,
 // so `next build` — which imports every route to collect page data — does not

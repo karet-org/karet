@@ -12,9 +12,8 @@ const DEFAULT_PAGE_SIZE = 25;
 /**
  * Run history, newest first.
  *
- * History comes from Postgres, which is a query rather than the 25 object reads
- * per page it used to take. Valkey still holds the in-flight runs, because a job
- * that has not finished has progress the row does not carry; its absence
+ * History is one Postgres query. Valkey still holds the in-flight runs, because a
+ * job that has not finished has progress the row does not carry; its absence
  * degrades to history-only rather than failing the page.
  */
 async function handleGet(

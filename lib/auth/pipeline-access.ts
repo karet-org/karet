@@ -29,6 +29,7 @@ export type Visibility = "instance" | "members";
 export interface Member {
   userId: string;
   username: string;
+  displayName: string;
   role: Role;
 }
 
@@ -65,8 +66,8 @@ export function resolveEffectiveRole(
 export async function effectiveRoleFor(
   principal: Principal,
   pipeline: string,
-  userId: string | null,
 ): Promise<EffectiveRole> {
+  const userId = principal.userId;
   if (principal.service || principal.role === "admin") return "admin";
 
   const row = await queryOne<{
@@ -98,11 +99,9 @@ export async function effectiveRoleFor(
  * One query rather than resolving per pipeline: the landing page would otherwise
  * make a round trip per card.
  */
-export async function visiblePipelineSlugs(
-  principal: Principal,
-  userId: string | null,
-): Promise<string[] | "all"> {
+export async function visiblePipelineSlugs(principal: Principal): Promise<string[] | "all"> {
   if (principal.service || principal.role === "admin") return "all";
+  const userId = principal.userId;
   const rows = await query<{ slug: string }>(
     `SELECT p.slug
        FROM pipelines p
@@ -114,18 +113,32 @@ export async function visiblePipelineSlugs(
   return rows.map((r) => r.slug);
 }
 
+/** The owner leads the list: their access is the one nobody can change here. */
 export async function listMembers(pipeline: string): Promise<Member[]> {
-  const rows = await query<{ user_id: string; username: string | null; role: string }>(
-    `SELECT m.user_id, u.username, m.role
+  const rows = await query<{
+    user_id: string;
+    username: string | null;
+    name: string | null;
+    role: string;
+  }>(
+    `SELECT m.user_id, u.username, u.name, m.role
        FROM pipeline_members m
        JOIN "user" u ON u.id = m.user_id
+       LEFT JOIN pipelines p ON p.slug = m.pipeline
       WHERE m.pipeline = $1
-      ORDER BY u.username`,
+      ORDER BY COALESCE(m.user_id = p.owner_id, false) DESC, u.username`,
     [pipeline],
   );
   return rows.flatMap((r) =>
     r.username && isRole(r.role)
-      ? [{ userId: r.user_id, username: r.username, role: r.role }]
+      ? [
+          {
+            userId: r.user_id,
+            username: r.username,
+            displayName: r.name?.trim() || r.username,
+            role: r.role,
+          },
+        ]
       : [],
   );
 }

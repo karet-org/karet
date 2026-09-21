@@ -162,7 +162,7 @@ export async function fullDashboardGate(
   body: string,
 ): Promise<{ ok: boolean; errors: string[] }> {
   const { validateDashboardV2 } = await import("@/lib/types/dashboard-v2");
-  const { getQuery } = await import("@/lib/services/config-service");
+  const { getQuery } = await import("@/lib/services/document-store");
 
   const result = validateDashboardV2(body);
   if (!result.ok) return { ok: false, errors: result.errors };

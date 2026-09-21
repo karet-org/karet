@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { withRole } from "@/lib/auth/guard";
 import type { Principal } from "@/lib/auth/service-token";
-import { findUserByUsername } from "@/lib/auth/users";
-import { getVersion, saveConfig } from "@/lib/services/pipeline-store";
-import { validateConfigForSave } from "@/lib/graph/validateConfig";
+import { getVersion } from "@/lib/services/pipeline-store";
+import { publishConfig } from "@/lib/services/config-publish";
 
 export const dynamic = "force-dynamic";
 
@@ -26,24 +25,16 @@ async function handlePost(
   const entry = await getVersion(pipeline, n);
   if (!entry) return NextResponse.json({ error: "version_not_found" }, { status: 404 });
 
-  // An old version can be invalid under today's rules, so it goes through the
-  // same checks as any other save.
-  const errors = validateConfigForSave(entry.config);
-  if (errors.length > 0) {
-    return NextResponse.json(
-      { ok: false, error: `invalid_config: ${errors.join("; ")}` },
-      { status: 422 },
-    );
-  }
-
-  const author = principal.service ? null : await findUserByUsername(principal.username);
-  const saved = await saveConfig(
+  const published = await publishConfig(
     pipeline,
     entry.config,
-    { id: author?.id ?? null, name: principal.username },
+    { id: principal.userId, name: principal.username },
     `reverted to v${n}`,
   );
-  return NextResponse.json({ ok: true, version: saved.version, revertedFrom: n });
+  if (!published.ok) {
+    return NextResponse.json({ ok: false, error: published.message }, { status: published.status });
+  }
+  return NextResponse.json({ ok: true, version: published.value.version, revertedFrom: n });
 }
 
 export const POST = withRole(handlePost);
