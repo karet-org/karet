@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import { getDashboardV2, publishDashboardV2 } from "@/lib/services/config-service";
+import { getDashboardV2, publishDashboardV2 } from "@/lib/services/document-store";
 import { fullDashboardGate } from "@/lib/services/dashboard-data";
+import { withRole } from "@/lib/auth/guard";
 
 /** Publishes a draft after the full gate (structure, SQL, bindings). */
-export async function POST(
+async function handlePost(
   _request: Request,
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
@@ -28,3 +29,5 @@ export async function POST(
     return NextResponse.json({ ok: true, id: name });
   }, `POST /api/p/${pipeline}/dashboards/${name}/publish`);
 }
+
+export const POST = withRole(handlePost);

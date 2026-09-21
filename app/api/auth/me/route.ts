@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import {
-  SESSION_COOKIE,
-  getSessionSecret,
-  verifySession,
-} from "@/lib/auth/session";
+import { currentPrincipal } from "@/lib/auth/current-user";
 
 export const runtime = "nodejs";
 
-// Password changes are an operator action (regenerate
-// KARET_ADMIN_PASSWORD_HASH and restart), so there is no PATCH here.
+// Read-only. Changing your own display name or password is `PATCH /api/account`.
 
 export async function GET() {
-  const jar = await cookies();
-  const cookie = jar.get(SESSION_COOKIE)?.value;
-  if (!(await verifySession(cookie, getSessionSecret()))) {
+  const principal = await currentPrincipal();
+  if (!principal) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
-  return NextResponse.json({ authenticated: true });
+  return NextResponse.json({
+    authenticated: true,
+    user: {
+      username: principal.username,
+      displayName: principal.displayName,
+      role: principal.role,
+      service: principal.service,
+    },
+  });
 }

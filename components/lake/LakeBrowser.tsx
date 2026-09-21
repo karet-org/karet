@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Modal from "@/components/ui/Modal";
+import { primaryButtonClass } from "@/components/ui/controls";
 
 interface LakeFile {
   key: string;
@@ -180,7 +181,7 @@ export default function LakeBrowser() {
             onClick={() => fileInput.current?.click()}
             disabled={uploading}
             data-testid="lake-upload"
-            className="inline-flex items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+            className={primaryButtonClass("gap-1.5")}
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
               <path d="M8 11V3m0 0L5 6m3-3 3 3M2.5 13.5h11" />

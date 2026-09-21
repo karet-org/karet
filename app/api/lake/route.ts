@@ -6,6 +6,7 @@ import {
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import { withRole } from "@/lib/auth/guard";
 
 const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9._/ -]*$/;
@@ -16,7 +17,7 @@ function validPrefix(p: string): boolean {
 }
 
 /** Lists one level of the lake bucket under `?prefix=`. */
-export async function GET(request: Request) {
+async function handleGet(request: Request) {
   const cfg = loadS3Config();
   const client = createS3Client(cfg);
   const prefix = new URL(request.url).searchParams.get("prefix") ?? "";
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
 }
 
 /** Uploads one file to the lake bucket at `?key=`. */
-export async function PUT(request: Request) {
+async function handlePut(request: Request) {
   const cfg = loadS3Config();
   const client = createS3Client(cfg);
   const key = new URL(request.url).searchParams.get("key") ?? "";
@@ -77,7 +78,7 @@ export async function PUT(request: Request) {
   }, "PUT /api/lake");
 }
 
-export async function DELETE(request: Request) {
+async function handleDelete(request: Request) {
   const cfg = loadS3Config();
   const client = createS3Client(cfg);
   const key = new URL(request.url).searchParams.get("key") ?? "";
@@ -91,7 +92,7 @@ export async function DELETE(request: Request) {
 }
 
 /** Renames an object: copy to the new key, delete the old one. */
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const cfg = loadS3Config();
   const client = createS3Client(cfg);
   const body = (await request.json().catch(() => ({}))) as { from?: string; to?: string };
@@ -113,3 +114,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, key: to });
   }, "POST /api/lake (rename)");
 }
+
+export const GET = withRole(handleGet);
+export const PUT = withRole(handlePut);
+export const DELETE = withRole(handleDelete);
+export const POST = withRole(handlePost);

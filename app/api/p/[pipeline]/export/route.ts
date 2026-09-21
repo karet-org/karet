@@ -3,8 +3,10 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import JSZip from "jszip";
 import { createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import { listAllObjectKeys, readBodyToBuffer } from "@/lib/services/s3-helpers";
+import { withRole } from "@/lib/auth/guard";
+import { getLiveConfig } from "@/lib/services/pipeline-store";
 
-export async function GET(
+async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -16,7 +18,13 @@ export async function GET(
   return wrapS3Error(async () => {
     const zip = new JSZip();
 
-    // Collect objects from the pipelines buckets.
+    // The config is in Postgres, so serialise it back into the zip. Keeping the
+    // archive shaped like it always was is the point: it is how a pipeline gets
+    // read, diffed and moved without the app.
+    const live = await getLiveConfig(pipeline);
+    if (live) zip.file("pipeline.json", JSON.stringify(live.config, null, 2));
+
+    // Dashboards, saved queries and seeds are still objects.
     const keys = await listAllObjectKeys(client, base.pipelinesBucket, prefix);
     for (const key of keys) {
       const res = await client.send(
@@ -26,7 +34,7 @@ export async function GET(
       zip.file(key.slice(prefix.length), buffer);
     }
 
-    if (keys.length === 0) {
+    if (!live && keys.length === 0) {
       return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
     }
 
@@ -41,3 +49,5 @@ export async function GET(
     });
   }, `GET /api/p/${pipeline}/export`);
 }
+
+export const GET = withRole(handleGet);

@@ -1,42 +1,39 @@
 import { NextResponse } from "next/server";
-import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import {
-  getPipelineConfig,
-  PreconditionFailedError,
-  putPipelineConfig,
-} from "@/lib/services/config-service";
+import { withRole } from "@/lib/auth/guard";
+import type { Principal } from "@/lib/auth/service-token";
+import { getLiveConfig, pipelineExists } from "@/lib/services/pipeline-store";
+import { publishConfig } from "@/lib/services/config-publish";
 
-export async function GET(
+export const dynamic = "force-dynamic";
+
+async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
   const { pipeline } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
-
-  return wrapS3Error(async () => {
-    const current = await getPipelineConfig(client, config);
-    if (current === null) {
-      return NextResponse.json({ error: "pipeline_config_not_found" }, { status: 404 });
-    }
-    const headers: Record<string, string> = {};
-    if (current.etag) headers.ETag = `"${current.etag}"`;
-    return NextResponse.json(current.config, { status: 200, headers });
-  }, `GET /api/p/${pipeline}/config`);
+  const live = await getLiveConfig(pipeline);
+  if (!live) {
+    return NextResponse.json({ error: "pipeline_config_not_found" }, { status: 404 });
+  }
+  return NextResponse.json(live.config, {
+    status: 200,
+    // The version replaces the S3 ETag as the concurrency token: an editor saves
+    // against the version it loaded, and a mismatch means someone else saved
+    // first.
+    headers: { "X-Karet-Config-Version": String(live.version) },
+  });
 }
 
-export async function PUT(
+async function handlePut(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
+  principal: Principal,
 ) {
   const { pipeline } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
 
-  let body: string;
+  let parsed: unknown;
   try {
-    body = await request.text();
-    JSON.parse(body);
+    parsed = JSON.parse(await request.text());
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: `invalid_json: ${(err as Error).message}` },
@@ -44,20 +41,40 @@ export async function PUT(
     );
   }
 
-  const ifMatchHeader = request.headers.get("If-Match") ?? undefined;
-  const ifMatch = ifMatchHeader ? ifMatchHeader.replace(/^"|"$/g, "") : undefined;
+  if (!(await pipelineExists(pipeline))) {
+    return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
+  }
 
-  return wrapS3Error(async () => {
-    try {
-      const result = await putPipelineConfig(client, config, body, ifMatch);
-      const headers: Record<string, string> = {};
-      if (result.etag) headers.ETag = `"${result.etag}"`;
-      return NextResponse.json({ ok: true, etag: result.etag ?? null }, { status: 200, headers });
-    } catch (err) {
-      if (err instanceof PreconditionFailedError) {
-        return NextResponse.json({ ok: false, error: err.message }, { status: 412 });
-      }
-      throw err;
+  // Optimistic concurrency: the editor sends the version it loaded.
+  const expected = request.headers.get("X-Karet-Config-Version");
+  if (expected !== null) {
+    const live = await getLiveConfig(pipeline);
+    if (live && String(live.version) !== expected) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `stale_config: you loaded v${expected}, the live version is v${live.version}`,
+        },
+        { status: 412 },
+      );
     }
-  }, `PUT /api/p/${pipeline}/config`);
+  }
+
+  const published = await publishConfig(pipeline, parsed, {
+    id: principal.userId,
+    name: principal.username,
+  });
+  if (!published.ok) {
+    return NextResponse.json({ ok: false, error: published.message }, { status: published.status });
+  }
+
+  const saved = published.value;
+  return NextResponse.json(
+    { ok: true, version: saved.version, versionId: saved.versionId },
+    { status: 200, headers: { "X-Karet-Config-Version": String(saved.version) } },
+  );
 }
+
+export const GET = withRole(handleGet);
+export const PUT = withRole(handlePut);
+

@@ -3,6 +3,7 @@
 
 import { liveHashToRecord } from "@/lib/services/live-jobs";
 import { eventsChannel, getRedis, liveKey } from "@/lib/services/redis";
+import { withRole } from "@/lib/auth/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ const PING_MS = 25_000;
 const MAX_STREAMS = 8;
 let activeStreams = 0;
 
-export async function GET(
+async function handleGet(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -101,3 +102,5 @@ export async function GET(
     },
   });
 }
+
+export const GET = withRole(handleGet);

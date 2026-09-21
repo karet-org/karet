@@ -2,16 +2,17 @@ import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
 import {
   getDashboardV2,
-  getPipelineConfig,
   getQuery,
-} from "@/lib/services/config-service";
+} from "@/lib/services/document-store";
 import { coerceParams, executeDashboard } from "@/lib/services/dashboard-data";
 import type { SavedQuery } from "@/lib/types/query";
+import { withRole } from "@/lib/auth/guard";
+import { getLiveConfig } from "@/lib/services/pipeline-store";
 
 export const dynamic = "force-dynamic";
 
 /** Batch data fetch for a v2 dashboard: all panel queries plus dropdown options. */
-export async function POST(
+async function handlePost(
   request: Request,
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
@@ -25,7 +26,7 @@ export async function POST(
   return wrapS3Error(async () => {
     const [dash, pipelineCfg] = await Promise.all([
       getDashboardV2(client, config, name, { draft }),
-      getPipelineConfig(client, config),
+      getLiveConfig(pipeline),
     ]);
     if (!dash) {
       return NextResponse.json({ error: "dashboard_not_found", name }, { status: 404 });
@@ -64,3 +65,5 @@ export async function POST(
     return NextResponse.json(data);
   }, `POST /api/p/${pipeline}/dashboards/${name}/data`);
 }
+
+export const POST = withRole(handlePost);

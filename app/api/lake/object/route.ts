@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { createS3Client, loadS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import { withRole } from "@/lib/auth/guard";
 
 const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9._/ -]*$/;
 
 /** Downloads a lake object as an attachment. */
-export async function GET(request: Request) {
+async function handleGet(request: Request) {
   const cfg = loadS3Config();
   const client = createS3Client(cfg);
   const key = new URL(request.url).searchParams.get("key") ?? "";
@@ -27,3 +28,5 @@ export async function GET(request: Request) {
     });
   }, "GET /api/lake/object");
 }
+
+export const GET = withRole(handleGet);

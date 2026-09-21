@@ -42,7 +42,7 @@ function makeNode(
     id,
     type: NODE_TYPE_TAG[type],
     position: { x: 0, y: 0 },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     data: { kind: NODE_TYPE_TAG[type], entity } as any,
   };
 }
@@ -91,7 +91,7 @@ describe("NodeDetailPanel", () => {
           },
         ],
       },
-      etag: null,
+      configVersion: null,
     });
 
     const onEdit = vi.fn();

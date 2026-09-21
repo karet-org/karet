@@ -2,29 +2,48 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import Modal from "@/components/ui/Modal";
 import SqlEditor from "@/components/data/SqlEditor";
 import type { SavedQuery } from "@/lib/types/query";
 
 interface Column { name: string; type: string }
-interface TableInfo { id: string; name: string; schema: Column[]; fileCount: number }
+interface TableVersion {
+  version: number;
+  created_at: string;
+  files: number;
+  bytes: number;
+  live: boolean;
+}
+interface TableInfo { id: string; name: string; schema: Column[]; fileCount: number; version: number }
+
+function emptyTableNotice(relation: { name: string }): string {
+  return `${relation.name} has no data yet.`;
+}
 
 import { nameToSlug } from "@/lib/config/name-to-slug";
+import { useCanHere } from "@/lib/client/use-current-user";
+import { ghostButtonClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui/controls";
 
 interface Relation {
   key: string;
+  /** Analytic table id, for endpoints that address the table itself. */
+  tableId: string;
   name: string;
   schema: Column[];
   /** SQL identifier to type in the query box. */
   slug: string;
   /** Warehouse part count. */
   meta: string;
+  /** False until a run has published the table, when it is not queryable yet. */
+  published: boolean;
   /** id of the relation this one's slug collides with, else null. */
   collidesWith: string | null;
 }
 
 export default function DataPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
+  const canEdit = useCanHere(pipeline, "editor");
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [queries, setQueries] = useState<SavedQuery[]>([]);
   const [loading, setLoading] = useState(false);
@@ -32,8 +51,16 @@ export default function DataPage() {
   const [result, setResult] = useState<Record<string, unknown>[] | null>(null);
   const [resultCols, setResultCols] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Not an error: the table exists in the pipeline and simply has not run yet.
+  const [notice, setNotice] = useState<string | null>(null);
   const [tablesOpen, setTablesOpen] = useState(false);
   const [bucketError, setBucketError] = useState<string | null>(null);
+
+  // Table version history (the warehouse manifests the worker retains).
+  const [versionsFor, setVersionsFor] = useState<Relation | null>(null);
+  const [versions, setVersions] = useState<TableVersion[]>([]);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState<number | null>(null);
 
   // Tracked per source so a failure shows an error, not an empty list.
   const [tablesLoading, setTablesLoading] = useState(true);
@@ -52,23 +79,29 @@ export default function DataPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadTables = useCallback(async () => {
     setTablesLoading(true);
     setTablesError(null);
-    fetch(`/api/p/${pipeline}/tables`)
-      .then(async (r) => {
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          if (body.error === "bucket_not_found") setBucketError(body.message);
-          else setTablesError(body.message ?? "Could not load tables.");
-          return;
-        }
-        const d = await r.json();
-        setTables(d.tables ?? []);
-      })
-      .catch((e) => setTablesError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setTablesLoading(false));
+    try {
+      const r = await fetch(`/api/p/${pipeline}/tables`);
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        if (body.error === "bucket_not_found") setBucketError(body.message);
+        else setTablesError(body.message ?? "Could not load tables.");
+        return;
+      }
+      const d = await r.json();
+      setTables(d.tables ?? []);
+    } catch (e) {
+      setTablesError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTablesLoading(false);
+    }
   }, [pipeline]);
+
+  useEffect(() => {
+    void loadTables();
+  }, [loadTables]);
 
   const loadQueries = useCallback(async () => {
     setQueriesLoading(true);
@@ -93,19 +126,59 @@ export default function DataPage() {
     loadQueries();
   }, [loadQueries]);
 
+  const openVersions = useCallback(
+    async (relation: Relation) => {
+      setVersionsFor(relation);
+      setVersions([]);
+      setVersionsError(null);
+      try {
+        const res = await fetch(`/api/p/${pipeline}/tables/${relation.tableId}/versions`);
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.message || body.error || `HTTP ${res.status}`);
+        setVersions(body.versions ?? []);
+      } catch (err) {
+        setVersionsError((err as Error).message);
+      }
+    },
+    [pipeline],
+  );
+
+  const restoreVersion = useCallback(
+    async (version: number) => {
+      if (!versionsFor) return;
+      setRestoring(version);
+      try {
+        const res = await fetch(
+          `/api/p/${pipeline}/tables/${versionsFor.tableId}/versions/${version}/restore`,
+          { method: "POST" },
+        );
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.message || body.error || `HTTP ${res.status}`);
+        await openVersions(versionsFor);
+        await loadTables();
+      } catch (err) {
+        setVersionsError((err as Error).message);
+      } finally {
+        setRestoring(null);
+      }
+    },
+    [pipeline, versionsFor, openVersions, loadTables],
+  );
+
   // Resolve every table to its query slug and flag slug collisions.
   const relations = useMemo<Relation[]>(() => {
     const seen = new Map<string, string>();
     return tables.map((t) => {
       const key = `t:${t.id}`;
       const slug = nameToSlug(t.name);
-      const meta = `${t.fileCount} file${t.fileCount !== 1 ? "s" : ""}`;
+      const meta = `${t.fileCount} file${t.fileCount !== 1 ? "s" : ""}${t.version ? `, v${t.version}` : ""}`;
+      const published = t.version > 0;
       const owner = seen.get(slug);
       if (owner === undefined) {
         seen.set(slug, key);
-        return { key, name: t.name, schema: t.schema, slug, meta, collidesWith: null };
+        return { key, tableId: t.id, name: t.name, schema: t.schema, slug, meta, published, collidesWith: null };
       }
-      return { key, name: t.name, schema: t.schema, slug, meta, collidesWith: owner };
+      return { key, tableId: t.id, name: t.name, schema: t.schema, slug, meta, published, collidesWith: owner };
     });
   }, [tables]);
 
@@ -123,6 +196,7 @@ export default function DataPage() {
     if (!q.trim()) return;
     setLoading(true);
     setError(null);
+    setNotice(null);
 
     try {
       const res = await fetch(`/api/p/${pipeline}/query`, {
@@ -154,18 +228,27 @@ export default function DataPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relations]);
 
-  // Auto-run the initial query once metadata loads.
+  // Auto-run the initial query once metadata loads. A table no run has published
+  // yet is not in DuckDB's catalog, so querying it would only produce a catalog
+  // error where "no data yet" is the whole story.
   useEffect(() => {
-    if (relations.length > 0 && !result && !error) {
-      const first = relations.find((r) => !r.collidesWith);
-      if (first) runQuery(`SELECT * FROM ${first.slug} LIMIT 50`);
-    }
+    if (relations.length === 0 || result || error || notice) return;
+    const first = relations.find((r) => !r.collidesWith);
+    if (!first) return;
+    if (first.published) runQuery(`SELECT * FROM ${first.slug} LIMIT 50`);
+    else setNotice(emptyTableNotice(first));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [relations]);
 
-  const selectRelation = (slug: string) => {
-    const q = `SELECT * FROM ${slug} LIMIT 50`;
+  const selectRelation = (relation: Relation) => {
+    const q = `SELECT * FROM ${relation.slug} LIMIT 50`;
     setSql(q);
+    if (!relation.published) {
+      setResult(null);
+      setError(null);
+      setNotice(emptyTableNotice(relation));
+      return;
+    }
     runQuery(q);
   };
 
@@ -241,11 +324,13 @@ export default function DataPage() {
             onClick={() => setTablesOpen((v) => !v)}
             aria-pressed={tablesOpen}
             data-testid="toggle-tables-panel"
-            className={`ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors ${
-              tablesOpen
-                ? "border-[color:var(--color-carrot)] bg-[color:var(--color-carrot-soft)] text-[color:var(--color-ink)]"
-                : "border-[color:var(--color-rule)] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
-            }`}
+            className={secondaryButtonClass(
+              `ml-auto gap-1.5 ${
+                tablesOpen
+                  ? "border-[color:var(--color-carrot)] bg-[color:var(--color-carrot-soft)] text-[color:var(--color-ink)]"
+                  : ""
+              }`,
+            )}
           >
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
               <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
@@ -282,6 +367,25 @@ export default function DataPage() {
               <p className="px-3.5 py-3 text-xs text-[color:var(--color-rose-deep)]" role="alert">
                 {error}
               </p>
+            ) : notice ? (
+              <div
+                className="grid h-full place-items-center px-3.5 py-8 text-center"
+                data-testid="empty-table-notice"
+              >
+                <div>
+                  <p className="text-[12.5px] text-[color:var(--color-ink-2)]">{notice}</p>
+                  <p className="mx-auto mt-1 max-w-[46ch] text-[12px] text-[color:var(--color-ink-4)]">
+                    A table fills up when the pipeline runs. Run it once and its rows appear
+                    here.
+                  </p>
+                  <Link
+                    href={`/p/${pipeline}/jobs`}
+                    className="mt-3 inline-block text-[12px] text-[color:var(--color-carrot)] hover:underline"
+                  >
+                    Go to Jobs
+                  </Link>
+                </div>
+              </div>
             ) : !result ? (
               <p className="grid h-full place-items-center px-3.5 py-8 text-[12.5px] text-[color:var(--color-ink-4)]">
                 Run a query to see results
@@ -367,7 +471,7 @@ export default function DataPage() {
               type="button"
               onClick={() => { setSaveError(null); setSaveOpen(true); }}
               disabled={!sql.trim()}
-              className="shrink-0 rounded-md border border-[color:var(--color-rule)] px-3.5 py-1.5 text-[12px] font-medium text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
+              className={secondaryButtonClass("shrink-0")}
             >
               Save query
             </button>
@@ -375,7 +479,7 @@ export default function DataPage() {
               type="button"
               onClick={() => runQuery()}
               disabled={loading}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+              className={primaryButtonClass("shrink-0 gap-1.5")}
             >
               <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
                 <path d="M5 3.5v9l8-4.5-8-4.5z" />
@@ -412,7 +516,7 @@ export default function DataPage() {
               <div key={r.key} className="border-b border-[color:var(--color-rule-soft)] py-2.5 last:border-b-0">
                 <button
                   type="button"
-                  onClick={() => selectRelation(r.slug)}
+                  onClick={() => selectRelation(r)}
                   disabled={r.collidesWith !== null}
                   title={r.collidesWith ? `Slug collides with ${r.collidesWith}` : `SELECT * FROM ${r.slug}`}
                   className="flex w-full items-center gap-2 text-left disabled:opacity-50"
@@ -422,9 +526,20 @@ export default function DataPage() {
                   </span>
                   <span className="shrink-0 text-[10.5px] text-[color:var(--color-ink-4)]">{r.meta}</span>
                 </button>
-                <code className="mt-0.5 block truncate font-mono text-[10.5px] text-[color:var(--color-ink-3)]">
-                  {r.slug}
-                </code>
+                <div className="mt-0.5 flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-[color:var(--color-ink-3)]">
+                    {r.slug}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => void openVersions(r)}
+                    data-testid={`table-versions-${r.tableId}`}
+                    title="Snapshots of this table the worker still retains"
+                    className="shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-medium text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink-2)]"
+                  >
+                    Versions
+                  </button>
+                </div>
                 {r.collidesWith && (
                   <p className="mt-1 text-[10.5px] text-[color:var(--color-amber-deep)]">
                     Name collides with another table; rename one to query it.
@@ -513,6 +628,80 @@ export default function DataPage() {
           </button>
         </div>
       </Modal>
+      <Modal
+        open={versionsFor !== null}
+        onClose={() => { setVersionsFor(null); setVersionsError(null); }}
+        cardClassName="w-full max-w-xl rounded-xl bg-[color:var(--color-surface)] p-6 text-[color:var(--color-ink)] shadow-xl"
+      >
+        <h2 className="text-[15px] font-semibold text-[color:var(--color-ink)]">
+          {versionsFor?.name} versions
+        </h2>
+        <p className="mt-1 text-[12.5px] text-[color:var(--color-ink-3)]">
+          Snapshots the worker still keeps. Restoring one makes it live again; no data
+          is copied.
+        </p>
+        {versionsError ? (
+          <p className="mt-3 text-sm text-[color:var(--color-rose-deep)]" role="alert">
+            {versionsError}
+          </p>
+        ) : versions.length === 0 ? (
+          <p className="mt-3 text-sm text-[color:var(--color-ink-3)]">
+            No published versions yet.
+          </p>
+        ) : (
+          <table className="mt-4 w-full table-fixed border-collapse text-sm" data-testid="table-versions">
+            <colgroup>
+              <col className="w-[110px]" />
+              <col className="w-[180px]" />
+              <col className="w-[80px]" />
+              <col className="w-[90px]" />
+              <col />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-[color:var(--color-rule)] text-left text-[11px] text-[color:var(--color-ink-3)]">
+                <th className="py-1.5 pr-3 font-medium">Version</th>
+                <th className="py-1.5 pr-3 font-medium">Published</th>
+                <th className="py-1.5 pr-3 font-medium">Files</th>
+                <th className="py-1.5 pr-3 font-medium">Size</th>
+                <th className="py-1.5 font-medium" />
+              </tr>
+            </thead>
+            <tbody>
+              {versions.map((v) => (
+                <tr key={v.version} className="border-b border-[color:var(--color-rule-soft)] text-[color:var(--color-ink-2)]">
+                  <td className="py-1.5 pr-3 font-medium text-[color:var(--color-ink)]">
+                    v{v.version}
+                    {v.live && (
+                      <span className="ml-2 rounded border border-[color:var(--color-rule)] px-1.5 py-0.5 text-[10px] font-medium text-[color:var(--color-ink-3)]">
+                        live
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-1.5 pr-3 whitespace-nowrap">
+                    {new Date(v.created_at).toLocaleString()}
+                  </td>
+                  <td className="py-1.5 pr-3">{v.files}</td>
+                  <td className="py-1.5 pr-3">{(v.bytes / 1024).toFixed(0)} KB</td>
+                  <td className="py-1.5 text-right">
+                    {canEdit && !v.live && (
+                      <button
+                        type="button"
+                        onClick={() => void restoreVersion(v.version)}
+                        disabled={restoring !== null}
+                        data-testid={`restore-table-v${v.version}`}
+                        className={ghostButtonClass()}
+                      >
+                        {restoring === v.version ? "Restoring…" : "Restore"}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Modal>
+
     </div>
   );
 }

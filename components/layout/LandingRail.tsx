@@ -11,12 +11,11 @@ import RailUserMenu from "@/components/layout/RailUserMenu";
 import { SearchInput } from "@/components/layout/LandingSearch";
 
 interface RailProps {
-  displayName: string;
   workspaceName: string;
   starred: { id: string; name: string }[];
 }
 
-function RailContent({ displayName, workspaceName, starred }: RailProps) {
+function RailContent({ workspaceName, starred }: RailProps) {
   const pathname = usePathname() ?? "/";
   const item = (active: boolean) =>
     `flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] ${
@@ -25,7 +24,7 @@ function RailContent({ displayName, workspaceName, starred }: RailProps) {
         : "text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
     }`;
   return (
-    <div className="flex h-full w-full flex-col p-2.5">
+    <div className="flex h-full w-full flex-col overflow-y-auto p-2.5">
       <Link href="/" className="flex items-center gap-2.5 px-2 pb-3 pt-1.5">
         <KaretLogo size={26} />
         <span className="min-w-0">
@@ -106,7 +105,7 @@ function RailContent({ displayName, workspaceName, starred }: RailProps) {
       )}
 
       <div className="mt-auto border-t border-[color:var(--color-rule-soft)] pt-2">
-        <RailUserMenu displayName={displayName} />
+        <RailUserMenu />
       </div>
     </div>
   );

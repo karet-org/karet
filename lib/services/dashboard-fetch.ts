@@ -2,7 +2,7 @@
 
 import { cache } from "react";
 import { createS3Client, loadS3Config, pipelineS3Config } from "@/lib/config/s3-client";
-import { getDashboardV2, type DashboardV2WithBody } from "@/lib/services/config-service";
+import { getDashboardV2, type DashboardV2WithBody } from "@/lib/services/document-store";
 
 export const fetchDashboardV2 = cache(
   async (

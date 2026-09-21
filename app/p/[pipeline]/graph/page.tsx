@@ -17,6 +17,8 @@ import type { PipelineConfig } from "@/lib/types/config";
 import GraphCanvas, { type GraphCanvasHandle } from "@/components/graph/GraphCanvas";
 import Modal from "@/components/ui/Modal";
 import NodeDetailPanel from "@/components/graph/NodeDetailPanel";
+import { useCanHere } from "@/lib/client/use-current-user";
+import { validateConfigForSave } from "@/lib/graph/validateConfig";
 
 type LoadState = "loading" | "error" | "ready";
 
@@ -27,6 +29,7 @@ export default function PipelineGraphPage() {
   const [errorMsg, setErrorMsg] = useState<string>("");
   // Fingerprint of the last saved config; dirtiness is derived by comparing
   // the working config against it, so undoing an edit clears it.
+  const canEdit = useCanHere(pipeline, "editor");
   const [savedFingerprint, setSavedFingerprint] = useState("");
   const [saving, setSaving] = useState(false);
   // Validation detail is opt-in: a count in the control row, the list on tap.
@@ -70,15 +73,15 @@ export default function PipelineGraphPage() {
           throw new Error(
             body.error === "bucket_not_found"
               ? `S3 bucket not found. ${body.message}`
-              : `Failed to load Pipeline_Config (${res.status})`,
+              : `Could not load this pipeline (${res.status})`,
           );
         }
-        const etag = res.headers?.get?.("ETag")?.replace(/^"|"$/g, "") ?? null;
+        const version = res.headers?.get?.("X-Karet-Config-Version") ?? null;
         const parsed = (await res.json()) as PipelineConfig;
         if (!cancelled) {
           savedConfigRef.current = parsed;
           setSavedFingerprint(configFingerprint(parsed));
-          setConfig(parsed, etag);
+          setConfig(parsed, version);
           const built = buildGraph(parsed);
           const hasLayout = parsed.layout && Object.keys(parsed.layout).length > 0;
           const positioned = hasLayout ? built.nodes : autoLayout(built.nodes, built.edges);
@@ -224,16 +227,17 @@ export default function PipelineGraphPage() {
         return;
       }
 
-      // Send the load-time ETag so a concurrent edit isn't overwritten;
-      // 412/5xx/network failures must stay dirty, not clear the banner.
-      const etag = useGraphStore.getState().etag;
+      // Send the version this editor loaded, so a concurrent edit is not
+      // overwritten. A 412, a 5xx or a network failure must leave the editor
+      // dirty rather than clearing the banner.
+      const version = useGraphStore.getState().configVersion;
       let res: Response;
       try {
         res = await fetch(`/api/p/${pipeline}/config`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            ...(etag ? { "If-Match": `"${etag}"` } : {}),
+            ...(version ? { "X-Karet-Config-Version": version } : {}),
           },
           body: JSON.stringify(cfg),
         });
@@ -268,7 +272,10 @@ export default function PipelineGraphPage() {
       const data = await res.json().catch(() => ({}));
       savedConfigRef.current = cfg;
       setSavedFingerprint(configFingerprint(cfg));
-      useGraphStore.setState({ config: cfg, etag: data.etag ?? null });
+      useGraphStore.setState({
+        config: cfg,
+        configVersion: data.version != null ? String(data.version) : null,
+      });
       clearDirty();
     } finally {
       setSaving(false);
@@ -429,12 +436,13 @@ export default function PipelineGraphPage() {
           edges={initial.edges}
           onNodeClick={select}
           onPaneClick={clear}
+          editable={canEdit}
           onLayout={handleLayoutChange}
           onNodeDragStop={handleLayoutChange}
           onAddNode={handleAddNode}
           onRun={handleRun}
           onConnect={handleConnect}
-          onDeleteNode={handleDeleteNode}
+          onDeleteNode={canEdit ? handleDeleteNode : undefined}
           analyzeDeleteImpact={(nodeId) => {
             const cfg = useGraphStore.getState().config;
             if (!cfg) {
@@ -468,9 +476,22 @@ export default function PipelineGraphPage() {
                   )}
                 </div>
               )}
-              {/* Both controls are always mounted: an edit changes how they
-                  look, never whether they exist, so nothing appears over the
-                  canvas mid-edit. */}
+              {/* A viewer gets a badge where the controls would be, rather than
+                  buttons that would 403 on save. */}
+              {!canEdit && (
+                <span
+                  data-testid="read-only-badge"
+                  title="Your role is viewer: you can read this pipeline but not change it"
+                  className="rounded-md border border-[color:var(--color-rule)] px-2 py-1.5 text-xs font-medium text-[color:var(--color-ink-3)]"
+                >
+                  Read only
+                </span>
+              )}
+              {/* Both controls are always mounted for an editor: an edit changes
+                  how they look, never whether they exist, so nothing appears
+                  over the canvas mid-edit. */}
+              {canEdit && (
+              <>
               <button
                 type="button"
                 onClick={handleRevert}
@@ -497,6 +518,8 @@ export default function PipelineGraphPage() {
                 {/* Label carries the state, so the row never has to shout. */}
                 {isDirty ? (saving ? "Saving…" : "Save") : "Saved"}
               </button>
+              </>
+              )}
             </>
           }
         />
@@ -548,103 +571,6 @@ export default function PipelineGraphPage() {
   );
 }
 
-/** Blocking pre-flight checks; deeper validation is the worker's job. */
-function validateConfigForSave(cfg: PipelineConfig): string[] {
-  const errors: string[] = [];
-
-  // Name scopes are per-kind: a Source and a Table may share a name.
-  const kinds: { label: string; entities: { id: string; name?: string }[] }[] = [
-    { label: "Source", entities: cfg.source_containers },
-    { label: "Dimension", entities: cfg.dimensions },
-    { label: "Mapping", entities: cfg.mappings },
-    { label: "Table", entities: cfg.analytic_tables },
-  ];
-  for (const { label, entities } of kinds) {
-    const seen = new Map<string, number>();
-    let emptyCount = 0;
-    for (const e of entities) {
-      const name = e.name?.trim() ?? "";
-      if (name === "") {
-        emptyCount++;
-        continue;
-      }
-      seen.set(name, (seen.get(name) ?? 0) + 1);
-    }
-    if (emptyCount > 0) {
-      errors.push(
-        `${emptyCount} ${label}${emptyCount === 1 ? "" : "s"} missing a name`,
-      );
-    }
-    const dupes = Array.from(seen.entries())
-      .filter(([, count]) => count > 1)
-      .map(([name]) => name);
-    if (dupes.length > 0) {
-      errors.push(
-        `Duplicate ${label} name${dupes.length === 1 ? "" : "s"}: ${dupes
-          .sort()
-          .map((n) => `"${n}"`)
-          .join(", ")}`,
-      );
-    }
-  }
-
-  // Union: several mappings may feed one table (that is how a multi-source
-  // fact table works), but two writing the same column with different types
-  // produce Parquet that fails at query time.
-  for (const t of cfg.analytic_tables) {
-    const feeding = cfg.mappings.filter((m) => m.analytic_table_id === t.id);
-    if (feeding.length < 2) continue;
-    const declared = new Map(t.schema.map((c) => [c.name, c.type]));
-    const seen = new Map<string, { type: string; mapping: string }>();
-    for (const m of feeding) {
-      for (const col of m.columns) {
-        const type = declared.get(col.name);
-        if (type === undefined) continue;
-        const prior = seen.get(col.name);
-        if (prior && prior.type !== type) {
-          errors.push(
-            `Table "${t.name?.trim() || t.id}": mappings "${prior.mapping}" and "${m.name || m.id}" both write "${col.name}" with different types (${prior.type} vs ${type})`,
-          );
-        } else if (!prior) {
-          seen.set(col.name, { type, mapping: m.name || m.id });
-        }
-      }
-    }
-  }
-
-
-  for (const t of cfg.analytic_tables) {
-    const label = t.name?.trim() || t.id;
-    const seen = new Set<string>();
-    const dupes = new Set<string>();
-    let emptyCount = 0;
-    for (const col of t.schema) {
-      const name = col.name?.trim() ?? "";
-      if (name === "") {
-        emptyCount++;
-        continue;
-      }
-      if (seen.has(name)) dupes.add(name);
-      seen.add(name);
-    }
-    if (emptyCount > 0) {
-      errors.push(
-        `Table "${label}": ${emptyCount} column${
-          emptyCount === 1 ? "" : "s"
-        } missing a name`,
-      );
-    }
-    if (dupes.size > 0) {
-      errors.push(
-        `Table "${label}": duplicate column names (${Array.from(dupes)
-          .sort()
-          .join(", ")})`,
-      );
-    }
-  }
-
-  return errors;
-}
 
 // Rebuilds columns to match the table schema in order; columns matched by
 // name keep their `expr`, new ones are seeded with the AST `null` value.

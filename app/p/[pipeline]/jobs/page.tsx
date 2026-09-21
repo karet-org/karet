@@ -4,11 +4,13 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { IconPlay } from "@/components/icons";
 import type { JobRecord } from "@/lib/types/jobs";
+import { useCanHere } from "@/lib/client/use-current-user";
 
 type Job = JobRecord;
 
 export default function JobsPage() {
   const { pipeline } = useParams<{ pipeline: string }>();
+  const canEdit = useCanHere(pipeline, "editor");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [running, setRunning] = useState(false);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
@@ -241,15 +243,19 @@ export default function JobsPage() {
             {sseConnected ? "live updates connected" : "reconnecting to live updates"}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => triggerJob()}
-          disabled={running || hasActiveJob}
-          title={hasActiveJob ? "A run is already queued or in progress" : undefined}
-          className="flex shrink-0 items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
-        >
-          {running || hasActiveJob ? "Running…" : <><IconPlay size={12} /> Run Pipeline</>}
-        </button>
+        {/* A viewer may read runs but not start them, so the button is hidden
+            rather than left to 403. */}
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => triggerJob()}
+            disabled={running || hasActiveJob}
+            title={hasActiveJob ? "A run is already queued or in progress" : undefined}
+            className="flex shrink-0 items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+          >
+            {running || hasActiveJob ? "Running…" : <><IconPlay size={12} /> Run Pipeline</>}
+          </button>
+        )}
       </div>
 
       <div className="mt-6">

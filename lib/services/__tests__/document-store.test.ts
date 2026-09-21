@@ -1,10 +1,10 @@
-// Unit tests for `config-service.ts` driven by an in-memory S3 mock.
+// Unit tests for `document-store.ts` driven by an in-memory S3 mock.
 //
 // We construct an actual `S3Client` but replace its `send` method with a fake
 // that services the subset of commands (`GetObject`, `PutObject`,
 // `ListObjectsV2`) we exercise.
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { Readable } from "node:stream";
 import {
   CopyObjectCommand,
@@ -22,19 +22,13 @@ import type { S3Config } from "@/lib/config/s3-client";
 import {
   deleteQuery,
   getDashboardV2,
-  getPipelineConfig,
   getQuery,
   listDashboardsV2,
   listDashboardsWithNamesV2,
-  listParquetKeys,
-  listPipelinesWithNames,
   listQueries,
-  PreconditionFailedError,
-  putPipelineConfig,
   putQuery,
   TargetExistsError,
-} from "../config-service";
-import type { PipelineConfig } from "@/lib/types/config";
+} from "../document-store";
 
 // ---------------------------------------------------------------------------
 // In-memory S3 stub
@@ -50,7 +44,7 @@ function buildStubClient(initial: Record<string, Stored> = {}): S3Client {
   const client = new S3Client({ region: "us-east-1" });
   let nextEtag = 1;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   (client as any).send = async (command: unknown) => {
     if (command instanceof GetObjectCommand) {
       const key = command.input.Key!;
@@ -149,200 +143,11 @@ const DEFAULT_CONFIG: S3Config = {
   pipelinesPrefix: "pipelines/",
 };
 
-const SAMPLE_CONFIG: PipelineConfig = {
-  version: 1,
-  name: "Sample Pipeline",
-  source_containers: [
-    {
-      id: "visa",
-      name: "Visa",
-      path_prefix: "raw/visa/",
-      schema: [{ name: "date", type: "string" }],
-    },
-  ],
-  dimensions: [],
-  mappings: [
-    {
-      id: "visa_to_tx",
-      name: "Visa to TX",
-      source_container_id: "visa",
-      analytic_table_id: "transactions",
-      columns: [{ name: "date", expr: { kind: "col", name: "date" } }],
-    },
-  ],
-  analytic_tables: [
-    {
-      id: "transactions",
-      name: "Transactions",
-      schema: [{ name: "date", type: "date" }],
-    },
-  ],
-};
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("config-service", () => {
-  describe("getPipelineConfig", () => {
-    it("returns parsed JSON plus body and etag when present", async () => {
-      const body = JSON.stringify(SAMPLE_CONFIG);
-      const client = buildStubClient({
-        "config/pipeline.json": { body, etag: "v1" },
-      });
-
-      const result = await getPipelineConfig(client, DEFAULT_CONFIG);
-
-      expect(result).not.toBeNull();
-      expect(result!.config).toEqual(SAMPLE_CONFIG);
-      expect(result!.body).toBe(body);
-      expect(result!.etag).toBe("v1");
-    });
-
-    it("returns null when the config object does not exist", async () => {
-      const client = buildStubClient();
-      const result = await getPipelineConfig(client, DEFAULT_CONFIG);
-      expect(result).toBeNull();
-    });
-  });
-
-  describe("putPipelineConfig", () => {
-    it("writes the body back and returns the new ETag", async () => {
-      const client = buildStubClient();
-
-      const body = JSON.stringify(SAMPLE_CONFIG);
-      const { etag } = await putPipelineConfig(client, DEFAULT_CONFIG, body);
-      expect(etag).toBeDefined();
-
-      const reread = await getPipelineConfig(client, DEFAULT_CONFIG);
-      expect(reread!.config).toEqual(SAMPLE_CONFIG);
-    });
-
-    it("rejects with PreconditionFailedError on ETag mismatch", async () => {
-      const client = buildStubClient({
-        "config/pipeline.json": {
-          body: JSON.stringify(SAMPLE_CONFIG),
-          etag: "current",
-        },
-      });
-
-      await expect(
-        putPipelineConfig(client, DEFAULT_CONFIG, "{}", "stale"),
-      ).rejects.toBeInstanceOf(PreconditionFailedError);
-    });
-
-    it("accepts a matching If-Match ETag", async () => {
-      const client = buildStubClient({
-        "config/pipeline.json": {
-          body: JSON.stringify(SAMPLE_CONFIG),
-          etag: "current",
-        },
-      });
-
-      await expect(
-        putPipelineConfig(client, DEFAULT_CONFIG, "{}", "current"),
-      ).resolves.toMatchObject({ etag: expect.any(String) });
-    });
-
-    // Regression: on RustFS the ETag returned by PutObject can differ
-    // from what GetObject returns for the same object. If we returned
-    // the PUT-response ETag, the next save's `If-Match` wouldn't match
-    // the server's compare-and-swap read and would spuriously 412.
-    it("returns the GET-canonical ETag, not the PUT-response ETag", async () => {
-      const store = new Map<string, { body: string; getEtag: string }>();
-      const client = new S3Client({ region: "us-east-1" });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (client as any).send = async (command: unknown) => {
-        if (command instanceof PutObjectCommand) {
-          const key = command.input.Key!;
-          const body = command.input.Body as string;
-          store.set(key, { body, getEtag: "canonical" });
-          return { ETag: '"putresponse"' };
-        }
-        if (command instanceof HeadObjectCommand) {
-          // PUT runs first in this test, so the entry is always present.
-          const entry = store.get(command.input.Key!)!;
-          return { ETag: `"${entry.getEtag}"` };
-        }
-        if (command instanceof GetObjectCommand) {
-          const entry = store.get(command.input.Key!)!;
-          return {
-            Body: Readable.from([Buffer.from(entry.body, "utf-8")]),
-            ETag: `"${entry.getEtag}"`,
-          };
-        }
-        throw new Error(
-          `Unsupported command in stub: ${(command as object).constructor?.name}`,
-        );
-      };
-
-      const { etag } = await putPipelineConfig(
-        client,
-        DEFAULT_CONFIG,
-        JSON.stringify(SAMPLE_CONFIG),
-      );
-
-      expect(etag).toBe("canonical");
-      expect(etag).not.toBe("putresponse");
-
-      // Save → save round-trip with the returned ETag must not 412.
-      await expect(
-        putPipelineConfig(
-          client,
-          DEFAULT_CONFIG,
-          JSON.stringify(SAMPLE_CONFIG),
-          etag,
-        ),
-      ).resolves.toBeDefined();
-    });
-
-    // Regression: RustFS returns ETags with a `-<codec>` suffix
-    // (e.g. `<md5>-zstd`) for compressed-at-rest objects, but the same
-    // object can be read back as bare `<md5>` on a later GetObject. The
-    // bare and codec-suffixed forms must compare equal so a save with
-    // an `If-Match` value carrying either form lands cleanly.
-    it("treats `<md5>-<codec>` and `<md5>` as the same ETag", async () => {
-      const client = buildStubClient({
-        "config/pipeline.json": {
-          body: JSON.stringify(SAMPLE_CONFIG),
-          etag: "abc123",
-        },
-      });
-
-      // Server-stored canonical form is bare; client sends the
-      // codec-suffixed form it captured at page load.
-      await expect(
-        putPipelineConfig(
-          client,
-          DEFAULT_CONFIG,
-          JSON.stringify(SAMPLE_CONFIG),
-          "abc123-zstd",
-        ),
-      ).resolves.toMatchObject({ etag: expect.any(String) });
-    });
-
-    // Multipart ETags carry a numeric `<md5>-<partcount>` suffix that
-    // is part of the identity (different chunking → different ETag).
-    // The codec-suffix strip must not collapse these.
-    it("preserves multipart ETag numeric suffix", async () => {
-      const client = buildStubClient({
-        "config/pipeline.json": {
-          body: JSON.stringify(SAMPLE_CONFIG),
-          etag: "abc123-2",
-        },
-      });
-
-      await expect(
-        putPipelineConfig(
-          client,
-          DEFAULT_CONFIG,
-          JSON.stringify(SAMPLE_CONFIG),
-          "abc123",
-        ),
-      ).rejects.toBeInstanceOf(PreconditionFailedError);
-    });
-  });
-
+describe("document store", () => {
   describe("listDashboardsV2", () => {
     it("lists yaml stems, skipping nested keys and other extensions", async () => {
       const client = buildStubClient({
@@ -396,64 +201,6 @@ describe("config-service", () => {
     it("returns null when missing", async () => {
       const client = buildStubClient();
       expect(await getDashboardV2(client, DEFAULT_CONFIG, "missing")).toBeNull();
-    });
-  });
-
-  describe("listParquetKeys", () => {
-    beforeEach(() => {
-      // no shared state
-    });
-
-    it("lists only parquet keys under the requested table prefix", async () => {
-      const client = buildStubClient({
-        "transactions/year=2024/month=01/a.parquet": {
-          body: "",
-          etag: "1",
-        },
-        "transactions/year=2024/month=02/b.parquet": {
-          body: "",
-          etag: "2",
-        },
-        "transactions/manifest.json": { body: "{}", etag: "3" },
-        "other/y.parquet": { body: "", etag: "4" },
-      });
-
-      const keys = await listParquetKeys(client, DEFAULT_CONFIG, "transactions");
-      expect(keys.sort()).toEqual([
-        "transactions/year=2024/month=01/a.parquet",
-        "transactions/year=2024/month=02/b.parquet",
-      ]);
-    });
-  });
-
-  describe("listPipelinesWithNames", () => {
-    it("pairs each pipeline id with the display name from its pipeline.json", async () => {
-      const client = buildStubClient({
-        "pipelines/alpha/pipeline.json": {
-          body: JSON.stringify({ ...SAMPLE_CONFIG, name: "Zebra Budget" }),
-          etag: "1",
-        },
-        "pipelines/beta/pipeline.json": {
-          body: JSON.stringify({ ...SAMPLE_CONFIG, name: "Apple Spend" }),
-          etag: "2",
-        },
-      });
-
-      const listings = await listPipelinesWithNames(client, DEFAULT_CONFIG);
-
-      // Sorted by display name, not id.
-      expect(listings).toEqual([
-        { id: "beta", name: "Apple Spend" },
-        { id: "alpha", name: "Zebra Budget" },
-      ]);
-    });
-
-    it("lists an unparseable config under its id", async () => {
-      const client = buildStubClient({
-        "pipelines/broken/pipeline.json": { body: "not json", etag: "1" },
-      });
-      const listings = await listPipelinesWithNames(client, DEFAULT_CONFIG);
-      expect(listings).toEqual([{ id: "broken", name: "broken" }]);
     });
   });
 

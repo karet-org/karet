@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { withRole } from "@/lib/auth/guard";
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const workerUrl = process.env.WORKER_URL ?? "http://worker:8080";
   try {
     const body = await request.text();
@@ -19,3 +20,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 }
+
+export const POST = withRole(handlePost);

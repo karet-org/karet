@@ -4,11 +4,17 @@
 
 import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import { TargetExistsError, getPipelineConfig, listQueries, putQuery } from "@/lib/services/config-service";
+import {
+  TargetExistsError,
+  listQueries,
+  putQuery,
+} from "@/lib/services/document-store";
 import { nameToSlug, runPipelineQuery } from "@/lib/services/query-service";
 import type { SavedQuery } from "@/lib/types/query";
+import { withRole } from "@/lib/auth/guard";
+import { getLiveConfig } from "@/lib/services/pipeline-store";
 
-export async function GET(
+async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -22,7 +28,7 @@ export async function GET(
   }, `GET /api/p/${pipeline}/queries`);
 }
 
-export async function POST(
+async function handlePost(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
@@ -46,7 +52,7 @@ export async function POST(
   const query: SavedQuery = { id, name, sql };
 
   return wrapS3Error(async () => {
-    const pcfg = await getPipelineConfig(client, config);
+    const pcfg = await getLiveConfig(pipeline);
     if (!pcfg) {
       return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
     }
@@ -76,3 +82,6 @@ export async function POST(
     return NextResponse.json(query, { status: 201 });
   }, `POST /api/p/${pipeline}/queries`);
 }
+
+export const GET = withRole(handleGet);
+export const POST = withRole(handlePost);

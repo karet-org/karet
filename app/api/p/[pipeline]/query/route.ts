@@ -3,20 +3,23 @@
 // slugified table name.
 
 import { NextResponse } from "next/server";
-import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import { getPipelineConfig } from "@/lib/services/config-service";
-import { runPipelineQuery } from "@/lib/services/query-service";
+import { wrapS3Error } from "@/lib/config/s3-client";
 
-export async function POST(
+import { runPipelineQuery } from "@/lib/services/query-service";
+import { withRole } from "@/lib/auth/guard";
+import { getLiveConfig } from "@/lib/services/pipeline-store";
+
+async function handlePost(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
 ) {
   const { pipeline } = await context.params;
-  const base = loadS3Config();
-  const cfg = pipelineS3Config(base, pipeline);
-  const client = createS3Client(base);
 
-  const body = (await request.json().catch(() => null)) as { sql?: string } | null;
+  const body = (await request.json().catch(() => null)) as {
+    sql?: string;
+    /** Read a table as of a retained version: `{ "requests": 3 }`. */
+    versions?: Record<string, number>;
+  } | null;
   const sql = body?.sql?.trim();
   if (!sql) {
     return NextResponse.json(
@@ -33,12 +36,14 @@ export async function POST(
   }
 
   return wrapS3Error(async () => {
-    const pcfg = await getPipelineConfig(client, cfg);
+    const pcfg = await getLiveConfig(pipeline);
     if (!pcfg) {
       return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
     }
 
-    const result = await runPipelineQuery(pipeline, pcfg.config, sql);
+    const result = await runPipelineQuery(pipeline, pcfg.config, sql, {
+      versions: body?.versions,
+    });
 
     if ("error" in result) {
       return NextResponse.json({ error: "query_error", message: result.error }, { status: 400 });
@@ -51,3 +56,5 @@ export async function POST(
     });
   }, `POST /api/p/${pipeline}/query`);
 }
+
+export const POST = withRole(handlePost);

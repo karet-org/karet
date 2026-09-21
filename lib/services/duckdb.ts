@@ -3,6 +3,7 @@
 
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { loadS3Config } from "@/lib/config/s3-client";
+import { manifestUrls, readManifest } from "@/lib/services/table-manifest";
 
 let conn: DuckDBConnection | null = null;
 let initializing: Promise<DuckDBConnection> | null = null;
@@ -18,10 +19,9 @@ function getConn(): Promise<DuckDBConnection> {
   if (initializing) return initializing;
 
   initializing = (async () => {
-    // Required, not imported, so the native addon only loads on first use
-    // (never at build time or during page-data collection).
-    const { DuckDBInstance } =
-      require("@duckdb/node-api") as typeof import("@duckdb/node-api");
+    // Imported here, not at module scope, so the native addon only loads on first
+    // use and never at build time or during page-data collection.
+    const { DuckDBInstance } = await import("@duckdb/node-api");
     const instance = await DuckDBInstance.create(":memory:");
     const candidate = await instance.connect();
 
@@ -104,24 +104,44 @@ function sqlLit(value: string): string {
   return value.replace(/'/g, "''");
 }
 
-/** A `read_parquet(...)` table function over a table's warehouse prefix. */
-export function warehouseSource(slug: string, tableId: string): string {
-  const config = loadS3Config();
-  const glob = `s3://${config.warehouseBucket}/${config.pipelinesPrefix}${slug}/${tableId}/**/*.parquet`;
-  // `slug`/`tableId` come from the URL: escape the single-quoted glob so it
-  // can't break out of the string literal (SQL injection).
-  return `read_parquet('${sqlLit(glob)}', union_by_name = true, hive_partitioning = true)`;
+/**
+ * A `read_parquet(...)` table function over the files a table's manifest lists,
+ * or null when the table has no published version yet.
+ *
+ * An explicit file list, not a glob over the table prefix: the prefix also
+ * holds the versions the worker retains for rollback, so a glob would union
+ * every version of every row.
+ */
+export async function warehouseSource(
+  slug: string,
+  tableId: string,
+  version?: number,
+): Promise<string | null> {
+  const manifest = await readManifest(slug, tableId, version);
+  if (!manifest || manifest.files.length === 0) return null;
+  const urls = manifestUrls(slug, tableId, manifest);
+  // `slug`/`tableId` reach here from the URL, and manifest keys from S3:
+  // escape every literal so none can break out of the string (SQL injection).
+  const list = urls.map((u) => `'${sqlLit(u)}'`).join(", ");
+  return `read_parquet([${list}], union_by_name = true, hive_partitioning = true)`;
 }
 
-/** Load a table's rows, or `[]` when it has no Parquet output yet. */
+/**
+ * Load a table's rows, or `[]` when it has no published output yet. Pass a
+ * `version` to read a retained snapshot instead of what is live.
+ */
 export async function loadTableRowsDuckDB<T extends Record<string, unknown>>(
   slug: string,
   tableId: string,
+  version?: number,
 ): Promise<T[]> {
+  const source = await warehouseSource(slug, tableId, version);
+  if (!source) return [];
   try {
-    return await query<T>(`SELECT * FROM ${warehouseSource(slug, tableId)}`);
+    return await query<T>(`SELECT * FROM ${source}`);
   } catch (err) {
-    // An empty glob surfaces as one of these errors; treat as no rows.
+    // A manifest can outlive the objects it names (vacuum retires a version
+    // between resolving it and reading it); treat as no rows.
     const msg = err instanceof Error ? err.message : String(err);
     if (
       msg.includes("No files found") ||

@@ -1,8 +1,8 @@
 // Build a React Flow graph from a `Pipeline_Config`.
 //
-// One node per Source_Container / Lookup_Mapping / Mapping / Analytic_Table,
-// plus an edge per config reference: source→mapping, lookup root→mapping (from
-// `dim_ref`s in column exprs; only root dimensions have nodes), mapping→table.
+// One node per Source_Container / Dimension / Mapping / Analytic_Table, plus an
+// edge per config reference: source→mapping, dimension→mapping (from `dim_ref`s
+// in column exprs), mapping→table.
 // Positions come from `cfg.layout[id]`, defaulting to `{ x: 0, y: 0 }`.
 
 import type { Edge, Node } from "@xyflow/react";

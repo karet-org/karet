@@ -6,17 +6,15 @@ import {
   type S3Client,
 } from "@aws-sdk/client-s3";
 import type { S3Config } from "@/lib/config/s3-client";
-import { getPipelineConfig } from "@/lib/services/config-service";
 import { readBodyToBuffer } from "@/lib/services/s3-helpers";
+import { getLiveConfig } from "@/lib/services/pipeline-store";
 
 export interface UiSettings {
-  displayName: string;
   workspaceName: string;
   starred: string[];
 }
 
 const DEFAULT_SETTINGS: UiSettings = {
-  displayName: "",
   workspaceName: "",
   starred: [],
 };
@@ -44,7 +42,6 @@ export function sanitizeSettings(raw: unknown): UiSettings {
       ].slice(0, MAX_STARRED)
     : [];
   return {
-    displayName: name(obj.displayName),
     workspaceName: name(obj.workspaceName),
     starred,
   };
@@ -85,24 +82,17 @@ export async function putUiSettings(
 }
 
 /**
- * Resolve starred ids to `{id, name}`. Ids whose pipeline.json is unreadable
- * are dropped: they no longer exist, so the rail shouldn't link to them.
+ * Resolve starred ids to `{id, name}`, dropping ids with no pipeline: the rail
+ * should not link to something that has gone.
  */
 export async function starredListings(
-  client: S3Client,
-  config: S3Config,
   starred: string[],
 ): Promise<{ id: string; name: string }[]> {
   const listings = await Promise.all(
-    starred.map(async (id) => {
-      const scoped: S3Config = {
-        ...config,
-        pipelineConfigKey: `${config.pipelinesPrefix}${id}/pipeline.json`,
-      };
-      try {
-        const pc = await getPipelineConfig(client, scoped);
-        if (!pc) return null;
-        return { id, name: pc.config.name?.trim() || id };
+    starred.map(async (id) => {      try {
+        const live = await getLiveConfig(id);
+        if (!live) return null;
+        return { id, name: live.config.name?.trim() || id };
       } catch {
         return null;
       }

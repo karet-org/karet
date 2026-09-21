@@ -5,10 +5,11 @@ import {
   putUiSettings,
   sanitizeSettings,
 } from "@/lib/services/ui-settings";
+import { withRole } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+async function handleGet() {
   const cfg = loadS3Config();
   const client = createS3Client(cfg);
   return wrapS3Error(async () => {
@@ -16,7 +17,7 @@ export async function GET() {
   }, "GET /api/settings");
 }
 
-export async function PUT(request: Request) {
+async function handlePut(request: Request) {
   const cfg = loadS3Config();
   const client = createS3Client(cfg);
   let body: unknown;
@@ -31,3 +32,6 @@ export async function PUT(request: Request) {
     return NextResponse.json(settings);
   }, "PUT /api/settings");
 }
+
+export const GET = withRole(handleGet);
+export const PUT = withRole(handlePut);

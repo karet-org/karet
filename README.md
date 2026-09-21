@@ -4,49 +4,55 @@
 [![Publish Docker image](https://github.com/karet-org/karet/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/karet-org/karet/actions/workflows/docker-publish.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2b2c33)](./LICENSE)
 
-Next.js frontend for the Karet analytics platform. Renders
-configurable dashboards and the React Flow Data Flow Graph editor over an
-ETL pipeline configuration stored in S3.
+Web app for Karet, a self-hosted analytics stack: ETL pipelines you draw as a
+graph, and dashboards you describe in YAML. This repo holds the Next.js app, the
+graph editor and the compose file for the whole stack. The pipeline runner lives
+in [karet-worker](https://github.com/karet-org/karet-worker).
 
-See the top-level `compose.yml` for the full stack.
+Docs: [karet-docs.pages.dev](https://karet-docs.pages.dev)
 
 ## Features
 
-- Pipeline templates: `Blank` and `Spending Tracker` (worked example
-  with merchant + category lookups, vertical monthly-spending bar, and
-  a `where` clause excluding bank-internal rows). See
-  `lib/templates/index.ts` and the docs guide.
-- Dashboards with KPI, doughnut, line, bar (horizontal Top-N or
-  vertical date-binned), table, map, and Sankey panels. Click a
-  doughnut, bar, choropleth, or Sankey node to cross-filter the rest
-  of the dashboard.
-- Optional `where: AstNode[]` on a dashboard applies a baseline row
-  filter before any panel renders or any dropdown populates.
-- Graph editor for source containers, lookups, mappings, and analytic
-  tables. Mapping column expressions support a textual form that
-  round-trips losslessly via `astExpression`.
+- **Pipeline visualization.** The graph is the editor: sources, lookups, mappings
+  and tables are nodes, and dragging between them says what feeds what.
+- **Config-driven dashboards.** A dashboard is a YAML document; panels are DuckDB
+  queries over the warehouse, and clicking a chart filters the rest.
+- **Pipeline versioning.** Every save is a numbered version with an author and a
+  diff against what is live. Runs are pinned to the version that produced them.
+- **Accounts and per-pipeline access.** Instance roles are viewer, editor and
+  admin, and a pipeline can be limited to the people invited to it.
 
 ## Environment variables
 
-| Variable | Description |
-|----------|-------------|
-| `S3_BUCKET_PIPELINES` | Bucket for ELT configs, dashboards, job records, and auth (default `karet-pipelines`). |
-| `S3_BUCKET_LAKE` | Bucket for raw CSV data (default `karet-lake`). |
-| `S3_BUCKET_WAREHOUSE` | Bucket for query-ready partitioned Parquet output (default `karet-warehouse`). |
-| `AWS_ENDPOINT_URL` | S3 endpoint URL (e.g. `http://rustfs:9000` for local dev, `https://s3.<region>.amazonaws.com` for real AWS). |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | S3 credentials |
-| `KARET_SESSION_SECRET` | **Required.** HMAC key used to sign user session cookies. Generate with `openssl rand -base64 48`. |
-| `KARET_ADMIN_PASSWORD_HASH` | **Required.** scrypt hash of the admin password. Generate with `npm run hash-password`, which prints both the plain value and the Docker-Compose-escaped form (compose `.env` files interpolate `$`, so each `$` must be doubled there). Changing the password = regenerate + restart. |
-| `KARET_WORKER_TOKEN` | **Required.** Shared bearer token sent on worker `POST /config/validate` calls; must match the worker's value. Generate with `openssl rand -hex 32`. |
-| `REDIS_URL` | **Required.** Valkey/Redis connection string (e.g. `redis://valkey:6379`). Jobs are enqueued onto the stream consumed by the worker fleet; the jobs page merges live queue state + progress over S3 history. |
-| `DUCKDB_MEMORY_LIMIT` | Optional memory cap for the server-side DuckDB session (default `512MB`). |
-| `S3_CONSOLE_URL` | If set, the UI shows a Settings &rarr; S3 console link. Empty hides the link. |
-| `PORT` | Dev server port (default `3000`) |
+The app refuses to start if a required variable is missing; see
+`lib/config/required-env.ts`.
 
-Authentication is single-admin, password-only. The credential is
-provisioned via `KARET_ADMIN_PASSWORD_HASH`, there is no in-app setup
-or password-change flow, so a wiped bucket can never revert the
-instance to an unauthenticated state.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | *(required)* | Postgres connection string. Holds accounts, pipelines, config versions, job history and access. |
+| `REDIS_URL` | *(required)* | Valkey connection string. Jobs are enqueued onto the stream the worker consumes. |
+| `S3_BUCKET_PIPELINES` | *(required)* | Bucket for dashboards and saved queries. |
+| `S3_BUCKET_LAKE` | *(required)* | Bucket for uploaded source files. |
+| `S3_BUCKET_WAREHOUSE` | *(required)* | Bucket for the Parquet tables runs write. |
+| `AWS_ENDPOINT_URL` | *(required)* | S3 endpoint, `http://rustfs:9000` locally. |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | *(required)* | S3 credentials. |
+| `KARET_SESSION_SECRET` | *(required)* | Signs session cookies. `openssl rand -base64 48`. |
+| `KARET_ADMIN_PASSWORD_HASH` | *(required)* | scrypt hash of the bootstrap admin's password, re-asserted on every start. `npm run hash-password` prints it, and the compose-escaped form. |
+| `KARET_WORKER_TOKEN` | *(required)* | Bearer token this app sends to the worker; must match the worker's. `openssl rand -hex 32`. |
+| `KARET_ADMIN_USERNAME` | `admin` | Username of that bootstrap admin. |
+| `KARET_PUBLIC_URL` | `http://localhost:3000` | The URL people reach this instance on. An `https:` value turns on secure cookies. |
+| `S3_FORCE_PATH_STYLE` | unset | `true` for S3 implementations without virtual-host addressing, RustFS included. |
+| `PIPELINES_PREFIX` | `pipelines/` | Key prefix for per-pipeline objects in the lake and pipelines buckets. |
+| `WORKER_URL` | `http://worker:8080` | Where to reach the worker for config validation. |
+| `DUCKDB_MEMORY_LIMIT` | `512MB` | Memory cap for the server-side DuckDB session. |
+| `DUCKDB_THREADS` | `2` | Thread cap for that session. |
+| `DATABASE_POOL_MAX` | `8` app, `4` auth | Cap per connection pool: the app's queries and better-auth keep separate pools. |
+| `PORT` | `3000` | Port to serve on. |
+
+Accounts live in Postgres and admins manage them in Settings. The bootstrap admin
+comes from the environment, so a lost database cannot leave the instance with no
+way in; see the
+[authentication guide](https://karet-docs.pages.dev/guide/authentication).
 
 ## Development
 
@@ -67,6 +73,9 @@ npm run test:e2e              # Playwright, requires the full stack running
 | `/p/[pipeline]/data` | SQL over warehouse tables (server-side DuckDB) + saved queries |
 | `/p/[pipeline]/jobs` | Job history + trigger |
 | `/p/[pipeline]/dashboards/[name]` | Configurable dashboard |
+| `/p/[pipeline]/history` | Config versions, diffs and restores |
+| `/p/[pipeline]/access` | Who may use this pipeline |
+| `/settings` | Your account, the workspace name, and accounts |
 
 ## S3 event notifications (webhook-triggered runs)
 

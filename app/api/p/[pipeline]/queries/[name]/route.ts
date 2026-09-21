@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
-import { deleteQuery, getQuery } from "@/lib/services/config-service";
+import { deleteQuery, getQuery } from "@/lib/services/document-store";
+import { withRole } from "@/lib/auth/guard";
 
-export async function GET(
+async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
@@ -19,7 +20,7 @@ export async function GET(
   }, `GET /api/p/${pipeline}/queries/${name}`);
 }
 
-export async function DELETE(
+async function handleDelete(
   _request: Request,
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
@@ -32,3 +33,6 @@ export async function DELETE(
     return NextResponse.json({ ok: true });
   }, `DELETE /api/p/${pipeline}/queries/${name}`);
 }
+
+export const GET = withRole(handleGet);
+export const DELETE = withRole(handleDelete);
