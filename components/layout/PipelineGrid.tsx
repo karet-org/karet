@@ -102,7 +102,7 @@ export default function PipelineGrid({
               type="button"
               onClick={() => setSort(c.key)}
               aria-pressed={sort === c.key}
-              className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition ${
+              className={`inline-flex h-[34px] items-center rounded-lg px-3 text-[12.5px] font-medium transition ${
                 sort === c.key
                   ? "bg-[color:var(--color-surface-2)] text-[color:var(--color-ink)]"
                   : "text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"

@@ -23,7 +23,7 @@ function emptyTableNotice(relation: { name: string }): string {
 
 import { nameToSlug } from "@/lib/config/name-to-slug";
 import { useCanHere } from "@/lib/client/use-current-user";
-import { ghostButtonClass } from "@/components/ui/controls";
+import { ghostButtonClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui/controls";
 
 interface Relation {
   key: string;
@@ -324,11 +324,13 @@ export default function DataPage() {
             onClick={() => setTablesOpen((v) => !v)}
             aria-pressed={tablesOpen}
             data-testid="toggle-tables-panel"
-            className={`ml-auto inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12px] font-medium transition-colors ${
-              tablesOpen
-                ? "border-[color:var(--color-carrot)] bg-[color:var(--color-carrot-soft)] text-[color:var(--color-ink)]"
-                : "border-[color:var(--color-rule)] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)]"
-            }`}
+            className={secondaryButtonClass(
+              `ml-auto gap-1.5 ${
+                tablesOpen
+                  ? "border-[color:var(--color-carrot)] bg-[color:var(--color-carrot-soft)] text-[color:var(--color-ink)]"
+                  : ""
+              }`,
+            )}
           >
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
               <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
@@ -469,7 +471,7 @@ export default function DataPage() {
               type="button"
               onClick={() => { setSaveError(null); setSaveOpen(true); }}
               disabled={!sql.trim()}
-              className="shrink-0 rounded-md border border-[color:var(--color-rule)] px-3.5 py-1.5 text-[12px] font-medium text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
+              className={secondaryButtonClass("shrink-0")}
             >
               Save query
             </button>
@@ -477,7 +479,7 @@ export default function DataPage() {
               type="button"
               onClick={() => runQuery()}
               disabled={loading}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-3.5 py-1.5 text-[12px] font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+              className={primaryButtonClass("shrink-0 gap-1.5")}
             >
               <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
                 <path d="M5 3.5v9l8-4.5-8-4.5z" />
