@@ -18,6 +18,7 @@ import {
   ghostButtonClass,
   primaryButtonClass,
 } from "@/components/ui/controls";
+import Modal from "@/components/ui/Modal";
 import { ROLES, type Role } from "@/lib/auth/roles";
 import { useCan, useCurrentUser } from "@/lib/client/use-current-user";
 
@@ -41,6 +42,14 @@ interface AccessState {
   members: Member[];
 }
 
+/** A change that would take away the caller's own admin here, held until they confirm it. */
+interface Confirmation {
+  title: string;
+  body: string;
+  action: string;
+  run: () => Promise<boolean>;
+}
+
 /** A display name is nicer to read, but the username is what a picker identifies. */
 function label(a: Account): string {
   return a.displayName === a.username ? a.username : `${a.displayName} (${a.username})`;
@@ -62,6 +71,7 @@ export default function AccessPage() {
   const [addUser, setAddUser] = useState("");
   const [addRole, setAddRole] = useState<Role>("viewer");
   const [nextOwner, setNextOwner] = useState("");
+  const [confirming, setConfirming] = useState<Confirmation | null>(null);
 
   const apply = useCallback((state: AccessState) => {
     setVisibility(state.visibility);
@@ -118,6 +128,40 @@ export default function AccessPage() {
     }
   }
 
+  /**
+   * After the caller changes their own access, reload the page if they are no
+   * longer admin here, so the side nav and this page stop offering controls the
+   * server would refuse. Leave for the pipeline list if they can no longer see it.
+   */
+  async function reloadIfNoLongerAdmin() {
+    const res = await fetch(`/api/p/${pipeline}/role`);
+    if (!res.ok) {
+      window.location.assign("/");
+      return;
+    }
+    const body = (await res.json()) as { role: Role | null };
+    if (body.role !== "admin") window.location.assign(`/p/${pipeline}/graph`);
+  }
+
+  /**
+   * Run a change, asking first when it lowers the caller's own access. Instance
+   * admins are admin everywhere, so nothing on this page can lower theirs.
+   */
+  function changeOwnAccess(lowersOwnAccess: boolean, confirmation: Confirmation) {
+    if (!lowersOwnAccess || isInstanceAdmin) {
+      void confirmation.run();
+      return;
+    }
+    setConfirming({
+      ...confirmation,
+      run: async () => {
+        const ok = await confirmation.run();
+        if (ok) await reloadIfNoLongerAdmin();
+        return ok;
+      },
+    });
+  }
+
   const roleOf = (username: string) => accounts.find((a) => a.username === username)?.role;
 
   // The owner always leads the list, whether or not they also hold a grant: their
@@ -144,6 +188,16 @@ export default function AccessPage() {
   );
   // Matches the server's rule.
   const canTransfer = isInstanceAdmin || (owner !== null && me?.username === owner);
+
+  /** What the caller keeps here once they are no longer the owner. */
+  function accessAfterTransfer(): string {
+    const grant = members.find((m) => m.username === me?.username);
+    if (grant) return `You keep the ${grant.role} role your grant gives you here.`;
+    if (visibility === "members") {
+      return "You have no grant here and the pipeline is members only, so you will lose access to it.";
+    }
+    return `You have no grant here, so you will fall back to your ${me?.role ?? "usual"} role.`;
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-8 py-8">
@@ -264,12 +318,16 @@ export default function AccessPage() {
                             label={`Role for ${m.username} on this pipeline`}
                             value={m.role}
                             disabled={pending === `role:${m.username}`}
-                            onChange={(e) =>
-                              void send(`role:${m.username}`, {
-                                username: m.username,
-                                role: e.target.value,
-                              })
-                            }
+                            onChange={(e) => {
+                              const role = e.target.value as Role;
+                              changeOwnAccess(m.username === me?.username && role !== "admin", {
+                                title: `Change your own role to ${role}?`,
+                                body: "You will no longer be an admin here, so you will not be able to manage access or undo this yourself.",
+                                action: "Change my role",
+                                run: () =>
+                                  send(`role:${m.username}`, { username: m.username, role }),
+                              });
+                            }}
                           >
                             {ROLES.map((r) => (
                               <option key={r} value={r}>
@@ -285,12 +343,21 @@ export default function AccessPage() {
                             type="button"
                             disabled={pending === `revoke:${m.username}`}
                             onClick={() =>
-                              void send(
-                                `revoke:${m.username}`,
-                                null,
-                                "DELETE",
-                                `?username=${encodeURIComponent(m.username)}`,
-                              )
+                              changeOwnAccess(m.username === me?.username, {
+                                title: "Remove your own access?",
+                                body:
+                                  visibility === "members"
+                                    ? "This pipeline is members only, so you will lose access to it and cannot undo this yourself."
+                                    : `You will fall back to your ${me?.role ?? "usual"} role here, so you will not be able to manage access or undo this yourself.`,
+                                action: "Remove me",
+                                run: () =>
+                                  send(
+                                    `revoke:${m.username}`,
+                                    null,
+                                    "DELETE",
+                                    `?username=${encodeURIComponent(m.username)}`,
+                                  ),
+                              })
                             }
                             data-testid={`revoke-${m.username}`}
                             className={ghostButtonClass()}
@@ -380,9 +447,18 @@ export default function AccessPage() {
                 <button
                   type="button"
                   disabled={pending === "owner" || !nextOwner}
-                  onClick={async () => {
-                    if (await send("owner", { owner: nextOwner })) setNextOwner("");
-                  }}
+                  onClick={() =>
+                    changeOwnAccess(owner !== null && me?.username === owner, {
+                      title: `Transfer this pipeline to ${nextOwner}?`,
+                      body: `${nextOwner} becomes the owner and keeps admin here. ${accessAfterTransfer()}`,
+                      action: "Transfer ownership",
+                      run: async () => {
+                        const ok = await send("owner", { owner: nextOwner });
+                        if (ok) setNextOwner("");
+                        return ok;
+                      },
+                    })
+                  }
                   data-testid="transfer-owner"
                   className={ghostButtonClass()}
                 >
@@ -397,6 +473,33 @@ export default function AccessPage() {
           </section>
         </>
       )}
+
+      <Modal open={confirming !== null} onClose={() => (pending ? undefined : setConfirming(null))}>
+        <h2 className="text-lg font-semibold">{confirming?.title}</h2>
+        <p className="mt-2 text-sm text-[color:var(--color-ink-2)]">{confirming?.body}</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={pending !== null}
+            onClick={() => setConfirming(null)}
+            className={ghostButtonClass()}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={pending !== null}
+            onClick={async () => {
+              await confirming?.run();
+              setConfirming(null);
+            }}
+            data-testid="confirm-own-access-change"
+            className={primaryButtonClass()}
+          >
+            {confirming?.action}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
