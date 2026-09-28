@@ -118,6 +118,8 @@ export default function AccessPage() {
     }
   }
 
+  const roleOf = (username: string) => accounts.find((a) => a.username === username)?.role;
+
   // The owner always leads the list, whether or not they also hold a grant: their
   // admin comes from owning the pipeline, and a grant for them changes nothing.
   const ownerRow: Member | null = owner
@@ -130,9 +132,12 @@ export default function AccessPage() {
     : null;
   const rows = ownerRow ? [ownerRow, ...members.filter((m) => m.username !== owner)] : members;
 
-  // Leaves out the owner, who already has admin here. Matches the server's rule.
+  // Leaves out the owner and instance admins, who already have admin here. Matches the server's rule.
   const unlisted = accounts.filter(
-    (a) => a.username !== owner && !members.some((m) => m.username === a.username),
+    (a) =>
+      a.username !== owner &&
+      a.role !== "admin" &&
+      !members.some((m) => m.username === a.username),
   );
   // Matches the server's rule.
   const canTransfer = isInstanceAdmin || (owner !== null && me?.username === owner);
@@ -250,6 +255,11 @@ export default function AccessPage() {
                           // Admin here comes from owning it, not from a grant.
                           <span className="pl-[11px] text-[12.5px] text-[color:var(--color-ink-2)]">
                             owner
+                          </span>
+                        ) : roleOf(m.username) === "admin" ? (
+                          // Instance admins are admin everywhere, whatever their grant says.
+                          <span className="pl-[11px] text-[12.5px] text-[color:var(--color-ink-2)]">
+                            instance admin
                           </span>
                         ) : (
                           <Select

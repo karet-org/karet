@@ -22,6 +22,12 @@ const OWNER_FIXED = {
   message: "A pipeline's owner keeps admin on it. Transfer ownership instead.",
 };
 
+// Instance admins are admin on every pipeline, so a grant for them would also do nothing.
+const INSTANCE_ADMIN_FIXED = {
+  error: "instance_admin_access_is_permanent",
+  message: "Instance admins have admin on every pipeline, so a grant would change nothing.",
+};
+
 /**
  * What the access page draws, returned by reads and writes alike, so a write
  * never makes the page refetch to show what it just did.
@@ -114,6 +120,9 @@ async function handlePut(
   const owner = await getOwner(pipeline);
   if (owner?.userId === target.id) {
     return NextResponse.json(OWNER_FIXED, { status: 422 });
+  }
+  if (target.role === "admin") {
+    return NextResponse.json(INSTANCE_ADMIN_FIXED, { status: 422 });
   }
 
   await grantMembership(pipeline, target.id, body.role, principal.userId);
