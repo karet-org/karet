@@ -332,7 +332,9 @@ export default function AccessPage() {
             <p className="mt-1 max-w-[62ch] text-[12.5px] text-[color:var(--color-ink-3)]">
               {owner
                 ? `${owner} keeps admin on this pipeline and cannot be removed from the list above. Hand it over to change that.`
-                : "This pipeline has no owner, which happens when the owning account is deleted. Give it one."}
+                : `This pipeline has no owner, which happens when the owning account is deleted.${
+                    canTransfer ? " Give it one." : ""
+                  }`}
             </p>
             {canTransfer ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
