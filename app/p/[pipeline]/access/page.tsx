@@ -118,7 +118,22 @@ export default function AccessPage() {
     }
   }
 
-  const unlisted = accounts.filter((a) => !members.some((m) => m.username === a.username));
+  // The owner always leads the list, whether or not they also hold a grant: their
+  // admin comes from owning the pipeline, and a grant for them changes nothing.
+  const ownerRow: Member | null = owner
+    ? (members.find((m) => m.username === owner) ?? {
+        userId: `owner:${owner}`,
+        username: owner,
+        displayName: accounts.find((a) => a.username === owner)?.displayName ?? owner,
+        role: "admin",
+      })
+    : null;
+  const rows = ownerRow ? [ownerRow, ...members.filter((m) => m.username !== owner)] : members;
+
+  // Leaves out the owner, who already has admin here. Matches the server's rule.
+  const unlisted = accounts.filter(
+    (a) => a.username !== owner && !members.some((m) => m.username === a.username),
+  );
   // Matches the server's rule.
   const canTransfer = isInstanceAdmin || (owner !== null && me?.username === owner);
 
@@ -189,7 +204,7 @@ export default function AccessPage() {
               or less than they have elsewhere.
             </p>
 
-            {members.length === 0 ? (
+            {rows.length === 0 ? (
               <p className="mt-4 text-[12.5px] text-[color:var(--color-ink-4)]">
                 {visibility === "members"
                   ? "Nobody listed yet, so only admins can reach this pipeline."
@@ -215,7 +230,7 @@ export default function AccessPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {members.map((m) => (
+                  {rows.map((m) => (
                     <tr
                       key={m.userId}
                       className="border-b border-[color:var(--color-rule-soft)] last:border-b-0"
