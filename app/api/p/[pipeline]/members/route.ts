@@ -16,10 +16,16 @@ import {
 export const dynamic = "force-dynamic";
 
 // The owner's admin comes from owning the pipeline, so this list must not pretend
-// to control it: narrowing or removing them would appear to work and do nothing.
+// to control it: any grant, removal or role change for them would do nothing.
 const OWNER_FIXED = {
   error: "owner_access_is_permanent",
   message: "A pipeline's owner keeps admin on it. Transfer ownership instead.",
+};
+
+// Instance admins are admin on every pipeline, so a grant for them would also do nothing.
+const INSTANCE_ADMIN_FIXED = {
+  error: "instance_admin_access_is_permanent",
+  message: "Instance admins have admin on every pipeline, so a grant would change nothing.",
 };
 
 /**
@@ -112,8 +118,11 @@ async function handlePut(
   if (!target) return NextResponse.json({ error: "no_such_user" }, { status: 404 });
 
   const owner = await getOwner(pipeline);
-  if (owner?.userId === target.id && body.role !== "admin") {
+  if (owner?.userId === target.id) {
     return NextResponse.json(OWNER_FIXED, { status: 422 });
+  }
+  if (target.role === "admin") {
+    return NextResponse.json(INSTANCE_ADMIN_FIXED, { status: 422 });
   }
 
   await grantMembership(pipeline, target.id, body.role, principal.userId);

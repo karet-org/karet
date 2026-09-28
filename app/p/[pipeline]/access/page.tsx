@@ -97,7 +97,7 @@ export default function AccessPage() {
     body: unknown,
     method: "PUT" | "DELETE" = "PUT",
     qs = "",
-  ) {
+  ): Promise<boolean> {
     setPending(key);
     setError(null);
     try {
@@ -109,14 +109,39 @@ export default function AccessPage() {
       const parsed = await res.json();
       if (!res.ok) throw new Error(parsed.message || parsed.error || `HTTP ${res.status}`);
       apply(parsed);
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     } finally {
       setPending(null);
     }
   }
 
-  const unlisted = accounts.filter((a) => !members.some((m) => m.username === a.username));
+  const roleOf = (username: string) => accounts.find((a) => a.username === username)?.role;
+
+  // The owner always leads the list, whether or not they also hold a grant: their
+  // admin comes from owning the pipeline, and a grant for them changes nothing.
+  const ownerRow: Member | null = owner
+    ? (members.find((m) => m.username === owner) ?? {
+        userId: `owner:${owner}`,
+        username: owner,
+        displayName: accounts.find((a) => a.username === owner)?.displayName ?? owner,
+        role: "admin",
+      })
+    : null;
+  // Instance admins are admin on every pipeline, so a grant for one is left out
+  // of the list. It only applies if they stop being an instance admin.
+  const granted = members.filter((m) => m.username !== owner && roleOf(m.username) !== "admin");
+  const rows = ownerRow ? [ownerRow, ...granted] : granted;
+
+  // Leaves out the owner and instance admins, who already have admin here. Matches the server's rule.
+  const unlisted = accounts.filter(
+    (a) =>
+      a.username !== owner &&
+      a.role !== "admin" &&
+      !members.some((m) => m.username === a.username),
+  );
   // Matches the server's rule.
   const canTransfer = isInstanceAdmin || (owner !== null && me?.username === owner);
 
@@ -187,7 +212,7 @@ export default function AccessPage() {
               or less than they have elsewhere.
             </p>
 
-            {members.length === 0 ? (
+            {rows.length === 0 ? (
               <p className="mt-4 text-[12.5px] text-[color:var(--color-ink-4)]">
                 {visibility === "members"
                   ? "Nobody listed yet, so only admins can reach this pipeline."
@@ -213,7 +238,7 @@ export default function AccessPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {members.map((m) => (
+                  {rows.map((m) => (
                     <tr
                       key={m.userId}
                       className="border-b border-[color:var(--color-rule-soft)] last:border-b-0"
@@ -313,9 +338,8 @@ export default function AccessPage() {
                   <button
                     type="button"
                     disabled={pending === "grant" || !addUser}
-                    onClick={() => {
-                      void send("grant", { username: addUser, role: addRole });
-                      setAddUser("");
+                    onClick={async () => {
+                      if (await send("grant", { username: addUser, role: addRole })) setAddUser("");
                     }}
                     data-testid="add-member"
                     className={primaryButtonClass()}
@@ -332,7 +356,9 @@ export default function AccessPage() {
             <p className="mt-1 max-w-[62ch] text-[12.5px] text-[color:var(--color-ink-3)]">
               {owner
                 ? `${owner} keeps admin on this pipeline and cannot be removed from the list above. Hand it over to change that.`
-                : "This pipeline has no owner, which happens when the owning account is deleted. Give it one."}
+                : `This pipeline has no owner, which happens when the owning account is deleted.${
+                    canTransfer ? " Give it one." : ""
+                  }`}
             </p>
             {canTransfer ? (
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -354,9 +380,8 @@ export default function AccessPage() {
                 <button
                   type="button"
                   disabled={pending === "owner" || !nextOwner}
-                  onClick={() => {
-                    void send("owner", { owner: nextOwner });
-                    setNextOwner("");
+                  onClick={async () => {
+                    if (await send("owner", { owner: nextOwner })) setNextOwner("");
                   }}
                   data-testid="transfer-owner"
                   className={ghostButtonClass()}
