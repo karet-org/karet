@@ -130,7 +130,10 @@ export default function AccessPage() {
         role: "admin",
       })
     : null;
-  const rows = ownerRow ? [ownerRow, ...members.filter((m) => m.username !== owner)] : members;
+  // Instance admins are admin on every pipeline, so a grant for one is left out
+  // of the list. It only applies if they stop being an instance admin.
+  const granted = members.filter((m) => m.username !== owner && roleOf(m.username) !== "admin");
+  const rows = ownerRow ? [ownerRow, ...granted] : granted;
 
   // Leaves out the owner and instance admins, who already have admin here. Matches the server's rule.
   const unlisted = accounts.filter(
@@ -255,11 +258,6 @@ export default function AccessPage() {
                           // Admin here comes from owning it, not from a grant.
                           <span className="pl-[11px] text-[12.5px] text-[color:var(--color-ink-2)]">
                             owner
-                          </span>
-                        ) : roleOf(m.username) === "admin" ? (
-                          // Instance admins are admin everywhere, whatever their grant says.
-                          <span className="pl-[11px] text-[12.5px] text-[color:var(--color-ink-2)]">
-                            instance admin
                           </span>
                         ) : (
                           <Select
