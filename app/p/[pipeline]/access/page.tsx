@@ -97,7 +97,7 @@ export default function AccessPage() {
     body: unknown,
     method: "PUT" | "DELETE" = "PUT",
     qs = "",
-  ) {
+  ): Promise<boolean> {
     setPending(key);
     setError(null);
     try {
@@ -109,8 +109,10 @@ export default function AccessPage() {
       const parsed = await res.json();
       if (!res.ok) throw new Error(parsed.message || parsed.error || `HTTP ${res.status}`);
       apply(parsed);
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
     } finally {
       setPending(null);
     }
@@ -313,9 +315,8 @@ export default function AccessPage() {
                   <button
                     type="button"
                     disabled={pending === "grant" || !addUser}
-                    onClick={() => {
-                      void send("grant", { username: addUser, role: addRole });
-                      setAddUser("");
+                    onClick={async () => {
+                      if (await send("grant", { username: addUser, role: addRole })) setAddUser("");
                     }}
                     data-testid="add-member"
                     className={primaryButtonClass()}
@@ -356,9 +357,8 @@ export default function AccessPage() {
                 <button
                   type="button"
                   disabled={pending === "owner" || !nextOwner}
-                  onClick={() => {
-                    void send("owner", { owner: nextOwner });
-                    setNextOwner("");
+                  onClick={async () => {
+                    if (await send("owner", { owner: nextOwner })) setNextOwner("");
                   }}
                   data-testid="transfer-owner"
                   className={ghostButtonClass()}
