@@ -14,7 +14,8 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import type { PanelV2 } from "@/lib/types/dashboard-v2";
-import { CHART_PALETTE } from "@/lib/dashboard/palette";
+import { CHART_PALETTE, CHART_SURFACE } from "@/lib/dashboard/palette";
+import { hoverGuidePlugin, lineHoverOptions } from "./line-hover";
 import { pivotSeries } from "./series";
 import { chartAreaProps, panelCardClass, type PanelProps } from "./types";
 
@@ -33,15 +34,20 @@ function LinePanel({ config, data }: PanelProps<LineConfig>) {
       borderColor: CHART_PALETTE[i % CHART_PALETTE.length],
       backgroundColor: CHART_PALETTE[i % CHART_PALETTE.length],
       pointRadius: labels.length > 60 ? 0 : 2,
+      pointHoverRadius: 5,
+      pointHoverBorderWidth: 2,
+      pointHoverBorderColor: CHART_SURFACE,
       tension: 0.25,
       spanGaps: true,
     })),
   };
 
+  const { interaction, tooltip } = lineHoverOptions(datasets.length);
   const options = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: datasets.length > 1 } },
+    interaction,
+    plugins: { legend: { display: datasets.length > 1 }, tooltip },
     scales: { x: { grid: { display: false } }, y: { beginAtZero: false } },
   };
 
@@ -54,7 +60,7 @@ function LinePanel({ config, data }: PanelProps<LineConfig>) {
             No data
           </div>
         ) : (
-          <Line data={chartData} options={options} />
+          <Line data={chartData} options={options} plugins={[hoverGuidePlugin]} />
         )}
       </div>
     </div>
