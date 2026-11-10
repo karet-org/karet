@@ -280,6 +280,12 @@ button:disabled,
 .karet-map .leaflet-control-zoom a:hover {
   background: var(--color-rule-soft);
 }
+/* At the zoom limit Leaflet greys the button with a light background. */
+.karet-map .leaflet-control-zoom a.leaflet-disabled {
+  background: var(--color-surface-2);
+  color: var(--color-ink-3);
+  opacity: 0.5;
+}
 .karet-map .leaflet-tooltip {
   background: var(--color-surface-2);
   color: var(--color-ink);

@@ -1,8 +1,8 @@
 "use client";
 
 // Interactive world choropleth on Leaflet: country polygons as a GeoJSON
-// vector layer (no tile basemap), with pan/zoom, hover highlight, and
-// value tooltips. Rows are bucketed by ISO-3166 numeric code via
+// vector layer (no tile basemap), with pan/zoom, hover highlight, value
+// tooltips and a colour legend. Rows are bucketed by ISO-3166 numeric code via
 // resolveCountry() so alpha-2/alpha-3/numeric/name data all work.
 
 import { useEffect, useMemo, useRef } from "react";
@@ -11,7 +11,17 @@ import type { Feature, Geometry } from "geojson";
 import type { PanelV2 } from "@/lib/types/dashboard-v2";
 import { resolveCountry } from "@/lib/dashboard/iso3166";
 import { useWorldAtlas } from "@/lib/dashboard/worldAtlas";
-import { formatValue, toNum } from "@/lib/dashboard/format";
+import { toNum } from "@/lib/dashboard/format";
+import {
+  fillFor,
+  legendGradient,
+  legendTicks,
+  NO_DATA_FILL,
+  ranks,
+  skippedSummary,
+  tooltipText,
+  valueRange,
+} from "@/lib/dashboard/choropleth";
 import { chartAreaProps, panelCardClass } from "./types";
 import type { PanelProps } from "./types";
 import "leaflet/dist/leaflet.css";
@@ -24,6 +34,7 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
   const atlas = useWorldAtlas();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletNS.Map | null>(null);
+  const layerRef = useRef<LeafletNS.GeoJSON | null>(null);
 
   // Antarctica (ISO numeric 010) is empty map area; dropping it keeps the
   // world fit on inhabited landmass. Rings that cross the antimeridian
@@ -36,24 +47,39 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
       .map(unwrapAntimeridian);
   }, [atlas]);
 
-  const { values, max, unresolved } = useMemo(() => {
+  const stats = useMemo(() => {
     const values = new Map<string, number>();
-    let unresolved = 0;
+    // Values the map cannot place: unknown names, and countries too small for
+    // the 110m atlas (Singapore, Hong Kong). They still count in the total, so
+    // a country's share is of everything the query returned.
+    const skipped = new Set<string>();
+    let total = 0;
     for (const row of data.rows) {
       const raw = row[config.region];
+      const v = toNum(row[config.value]) ?? 0;
       const entry = resolveCountry(raw);
       if (!entry) {
-        if (raw != null) unresolved++;
+        if (raw != null) {
+          skipped.add(String(raw));
+          total += v;
+        }
         continue;
       }
       const key = entry.numeric.replace(/^0+/, "");
-      values.set(key, (values.get(key) ?? 0) + (toNum(row[config.value]) ?? 0));
+      values.set(key, (values.get(key) ?? 0) + v);
+      total += v;
     }
-    let max = 0;
-    for (const v of values.values()) if (v > max) max = v;
-    return { values, max, unresolved };
+    const range = valueRange(values.values());
+    return { values, range, total, skipped: [...skipped].sort(), ranks: ranks(values) };
   }, [data.rows, config.region, config.value]);
 
+  // The tooltip handler is bound once with the map, so it reads the latest
+  // values through a ref rather than the values it was created with.
+  const statsRef = useRef(stats);
+  statsRef.current = stats;
+
+  // Build the map once per atlas. A filter change only restyles the countries
+  // (below), so the zoom and pan the reader chose are kept.
   useEffect(() => {
     if (!features || !containerRef.current) return;
     // Required, not imported: Leaflet touches `window` at module scope, and this
@@ -61,7 +87,6 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const L = require("leaflet") as typeof LeafletNS;
 
-    mapRef.current?.remove();
     const map = L.map(containerRef.current, {
       zoomControl: false,
       attributionControl: false,
@@ -83,19 +108,8 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
     });
     L.control.zoom({ position: "topright" }).addTo(map);
 
-    const keyOf = (f: CountryFeature) =>
-      f.id != null ? String(f.id).replace(/^0+/, "") : "";
-
     const layer = L.geoJSON(features as CountryFeature[], {
-      style: (f) => {
-        const v = values.get(keyOf(f as CountryFeature)) ?? 0;
-        return {
-          fillColor: colorFor(v, max),
-          fillOpacity: 1,
-          color: "#3a3b42", // country borders
-          weight: 0.7,
-        };
-      },
+      style: () => ({ fillColor: NO_DATA_FILL, fillOpacity: 1, color: BORDER, weight: 0.7 }),
     }).addTo(map);
 
     // One tooltip owned by the map, repositioned and re-filled as the cursor
@@ -105,7 +119,7 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
     let hovered: LeafletNS.Path | null = null;
 
     const clearHover = () => {
-      hovered?.setStyle({ weight: 0.7, color: "#3a3b42" });
+      hovered?.setStyle({ weight: 0.7, color: BORDER });
       hovered = null;
     };
 
@@ -118,8 +132,12 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
         hovered = lyr;
         lyr.setStyle({ weight: 1.5, color: "#9ca3af" });
       }
+      const { values, ranks: rankOf, total } = statsRef.current;
+      const key = keyOf(cf);
       tooltip
-        .setContent(`${cf.properties?.name ?? ""}: ${formatValue(values.get(keyOf(cf)) ?? 0)}`)
+        .setContent(
+          tooltipText(cf.properties?.name ?? "", values.get(key), rankOf.get(key), total, values.size),
+        )
         .setLatLng(e.latlng)
         .openOn(map);
     });
@@ -129,16 +147,30 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
       map.closeTooltip(tooltip);
     });
 
+    // Double-click returns to the whole world instead of zooming in.
     const bounds = layer.getBounds();
+    map.doubleClickZoom.disable();
+    map.on("dblclick", () => map.fitBounds(bounds, { padding: [4, 4] }));
     map.fitBounds(bounds, { padding: [4, 4] });
     map.setMaxBounds(bounds.pad(0.25));
 
     mapRef.current = map;
+    layerRef.current = layer;
     return () => {
       map.remove();
       mapRef.current = null;
+      layerRef.current = null;
     };
-  }, [features, values, max]);
+  }, [features]);
+
+  useEffect(() => {
+    const { values, range } = stats;
+    layerRef.current?.setStyle((f) => ({
+      fillColor: fillFor(values.get(keyOf(f as CountryFeature)), range?.min ?? 0, range?.max ?? 0),
+    }));
+  }, [stats, features]);
+
+  const ticks = stats.range ? legendTicks(stats.range.min, stats.range.max) : [];
 
   return (
     <div className={panelCardClass()}>
@@ -152,13 +184,45 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
           <div ref={containerRef} className="karet-map h-full w-full rounded-lg" />
         )}
       </div>
-      {unresolved > 0 && (
-        <p className="mt-2 text-[11px] text-[color:var(--color-amber-deep)]">
-          {unresolved} row(s) had an unrecognized country value and were skipped
+      {ticks.length > 0 && (
+        <div data-testid="choropleth-legend" className="mt-3 flex items-start gap-4 text-[11px] text-[color:var(--color-ink-3)]">
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <span className="inline-block h-2.5 w-4 rounded-sm" style={{ background: NO_DATA_FILL }} />
+            No data
+          </div>
+          <div className="relative flex-1 pb-4">
+            <div className="h-2.5 rounded-sm" style={{ background: legendGradient() }} />
+            {ticks.map((t) => (
+              <span
+                key={t.label}
+                // End labels align to the bar's edges instead of overhanging them.
+                className={`absolute top-3.5 ${
+                  t.position === 0 ? "" : t.position === 1 ? "-translate-x-full" : "-translate-x-1/2"
+                }`}
+                style={{ left: `${t.position * 100}%` }}
+              >
+                {t.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {stats.skipped.length > 0 && (
+        <p
+          className="mt-2 text-[11px] text-[color:var(--color-amber-deep)]"
+          title={stats.skipped.join(", ")}
+        >
+          Not on the map: {skippedSummary(stats.skipped)}
         </p>
       )}
     </div>
   );
+}
+
+const BORDER = "#3a3b42";
+
+function keyOf(f: CountryFeature): string {
+  return f.id != null ? String(f.id).replace(/^0+/, "") : "";
 }
 
 /**
@@ -183,28 +247,6 @@ function unwrapAntimeridian(f: CountryFeature): CountryFeature {
     };
   }
   return f;
-}
-
-// Blue ramp over a neutral zero fill, matching the previous chart colors.
-function colorFor(value: number, max: number): string {
-  if (value <= 0 || max <= 0) return "#404148";
-  const t = Math.min(1, Math.sqrt(value / max));
-  const stops: [number, number, number][] = [
-    [219, 234, 254], // blue-100
-    [147, 197, 253], // blue-300
-    [59, 130, 246],  // blue-500
-    [29, 78, 216],   // blue-700
-    [30, 58, 138],   // blue-900
-  ];
-  const scaled = t * (stops.length - 1);
-  const i = Math.min(stops.length - 2, Math.floor(scaled));
-  const frac = scaled - i;
-  const [r1, g1, b1] = stops[i];
-  const [r2, g2, b2] = stops[i + 1];
-  const r = Math.round(r1 + (r2 - r1) * frac);
-  const g = Math.round(g1 + (g2 - g1) * frac);
-  const b = Math.round(b1 + (b2 - b1) * frac);
-  return `rgb(${r}, ${g}, ${b})`;
 }
 
 export default ChoroplethMapPanel;
