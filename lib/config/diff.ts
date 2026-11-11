@@ -20,6 +20,8 @@ export interface EntityChange {
   name?: string;
   /** For "changed": which fields differ, in config terms. */
   fields?: string[];
+  /** For "changed": the name before, when the name changed. */
+  previousName?: string;
 }
 
 export interface ConfigDiff {
@@ -75,7 +77,15 @@ function diffKind(
     }
     const fields = changedFields(prior, entry);
     if (fields.length > 0) {
-      changes.push({ kind: "changed", entity, id, name: entry.name, fields });
+      const renamed = prior.name !== entry.name && prior.name !== undefined;
+      changes.push({
+        kind: "changed",
+        entity,
+        id,
+        name: entry.name,
+        fields,
+        ...(renamed ? { previousName: prior.name } : {}),
+      });
     }
   }
   for (const [id, entry] of a) {
@@ -108,6 +118,20 @@ export function diffConfigs(
   }
 
   return { changes, onlyLayout: changes.length === 0 };
+}
+
+/** One change as a short sentence, e.g. "Changed table Orders: name, schema". */
+export function describeChange(c: EntityChange): string {
+  const label = c.name ? `${c.entity.toLowerCase()} ${c.name}` : `${c.entity.toLowerCase()} ${c.id}`;
+  if (c.entity === "Pipeline" && c.id === "name") return `Renamed the pipeline to ${c.name}`;
+  if (c.kind === "added") return `Added ${label}`;
+  if (c.kind === "removed") return `Removed ${label}`;
+  const fields = (c.fields ?? []).filter((f) => !(c.previousName !== undefined && f === "name"));
+  if (c.previousName !== undefined) {
+    const renamed = `Renamed ${c.entity.toLowerCase()} ${c.previousName} to ${c.name ?? c.id}`;
+    return fields.length ? `${renamed}, and changed ${fields.join(", ")}` : renamed;
+  }
+  return `Changed ${label}${fields.length ? `: ${fields.join(", ")}` : ""}`;
 }
 
 /** One-line summary, e.g. "2 changed, 1 added". */

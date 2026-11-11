@@ -1,46 +1,22 @@
 "use client";
 
-// Who may use this pipeline.
+// Who may use this pipeline: everyone who can open it, with their role here
+// and where that role comes from, plus visibility and ownership.
 //
-// Roles are instance-wide by default: everyone sees every pipeline at their own
-// role. This page is for the exceptions, either a pipeline only some people
-// should touch or a person who edits one pipeline but reads the rest.
+// Roles are instance-wide by default. A grant replaces a person's usual role
+// on this pipeline. The owner and instance admins always have admin here, so
+// their rows cannot be changed.
 //
-// Admin-only, and admins always keep access: an access list that can lock the
-// operator out of a pipeline is a way to lose a pipeline.
+// Admin-only.
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import {
-  CARD,
-  Radio,
-  Select,
-  ghostButtonClass,
-  primaryButtonClass,
-} from "@/components/ui/controls";
+import { Select, ghostButtonClass, primaryButtonClass } from "@/components/ui/controls";
+import { toolButton, toolInput, toolPrimary } from "@/components/data/toolbar";
 import Modal from "@/components/ui/Modal";
 import { ROLES, type Role } from "@/lib/auth/roles";
+import { accessRows, sourceLabel, type Account, type AccessRow, type AccessState } from "@/lib/auth/access-rows";
 import { useCan, useCurrentUser } from "@/lib/client/use-current-user";
-
-interface Member {
-  userId: string;
-  username: string;
-  displayName: string;
-  role: Role;
-}
-
-interface Account {
-  username: string;
-  displayName: string;
-  role: Role;
-}
-
-/** What a read or a write reports back about this pipeline's access. */
-interface AccessState {
-  visibility: "instance" | "members";
-  owner: string | null;
-  members: Member[];
-}
 
 /** A change that would take away the caller's own admin here, held until they confirm it. */
 interface Confirmation {
@@ -60,9 +36,7 @@ export default function AccessPage() {
   const me = useCurrentUser();
   const isInstanceAdmin = useCan("admin");
 
-  const [visibility, setVisibility] = useState<"instance" | "members">("instance");
-  const [members, setMembers] = useState<Member[]>([]);
-  const [owner, setOwner] = useState<string | null>(null);
+  const [state, setState] = useState<AccessState>({ visibility: "instance", owner: null, members: [] });
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,16 +44,12 @@ export default function AccessPage() {
   const [pending, setPending] = useState<string | null>(null);
   const [addUser, setAddUser] = useState("");
   const [addRole, setAddRole] = useState<Role>("viewer");
+  const [transferOpen, setTransferOpen] = useState(false);
   const [nextOwner, setNextOwner] = useState("");
   const [confirming, setConfirming] = useState<Confirmation | null>(null);
 
-  const apply = useCallback((state: AccessState) => {
-    setVisibility(state.visibility);
-    setMembers(state.members);
-    setOwner(state.owner);
-  }, []);
+  const apply = useCallback((s: AccessState) => setState({ visibility: s.visibility, owner: s.owner, members: s.members }), []);
 
-  // Only the first load shows a loading view; a change applies its own response.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -102,12 +72,7 @@ export default function AccessPage() {
   }, [pipeline, apply]);
 
   /** Send one change and apply the state it returns, so the row updates in place. */
-  async function send(
-    key: string,
-    body: unknown,
-    method: "PUT" | "DELETE" = "PUT",
-    qs = "",
-  ): Promise<boolean> {
+  async function send(key: string, body: unknown, method: "PUT" | "DELETE" = "PUT", qs = ""): Promise<boolean> {
     setPending(key);
     setError(null);
     try {
@@ -162,30 +127,9 @@ export default function AccessPage() {
     });
   }
 
-  const roleOf = (username: string) => accounts.find((a) => a.username === username)?.role;
-
-  // The owner always leads the list, whether or not they also hold a grant: their
-  // admin comes from owning the pipeline, and a grant for them changes nothing.
-  const ownerRow: Member | null = owner
-    ? (members.find((m) => m.username === owner) ?? {
-        userId: `owner:${owner}`,
-        username: owner,
-        displayName: accounts.find((a) => a.username === owner)?.displayName ?? owner,
-        role: "admin",
-      })
-    : null;
-  // Instance admins are admin on every pipeline, so a grant for one is left out
-  // of the list. It only applies if they stop being an instance admin.
-  const granted = members.filter((m) => m.username !== owner && roleOf(m.username) !== "admin");
-  const rows = ownerRow ? [ownerRow, ...granted] : granted;
-
-  // Leaves out the owner and instance admins, who already have admin here. Matches the server's rule.
-  const unlisted = accounts.filter(
-    (a) =>
-      a.username !== owner &&
-      a.role !== "admin" &&
-      !members.some((m) => m.username === a.username),
-  );
+  const { visibility, owner, members } = state;
+  const rows = accessRows(state, accounts);
+  const unlisted = accounts.filter((a) => !rows.some((r) => r.username === a.username));
   // Matches the server's rule.
   const canTransfer = isInstanceAdmin || (owner !== null && me?.username === owner);
 
@@ -193,297 +137,261 @@ export default function AccessPage() {
   function accessAfterTransfer(): string {
     const grant = members.find((m) => m.username === me?.username);
     if (grant) return `You keep the ${grant.role} role your grant gives you here.`;
-    if (visibility === "members") {
-      return "You have no grant here and the pipeline is members only, so you will lose access to it.";
-    }
+    if (visibility === "members") return "You have no grant here and the pipeline is members only, so you will lose access to it.";
     return `You have no grant here, so you will fall back to your ${me?.role ?? "usual"} role.`;
   }
 
-  return (
-    <div className="mx-auto max-w-3xl px-8 py-8">
-      <h1 className="text-[19px] font-semibold tracking-[-0.01em] text-[color:var(--color-ink)]">
-        Access
-      </h1>
-      <p className="mt-1 max-w-[62ch] text-[13px] text-[color:var(--color-ink-3)]">
-        Who may use this pipeline, and at what level. Admins always have full access.
-      </p>
+  function setRole(r: AccessRow, role: Role) {
+    changeOwnAccess(r.username === me?.username && role !== "admin", {
+      title: `Change your own role to ${role}?`,
+      body: "You will no longer be an admin here, so you will not be able to manage access or undo this yourself.",
+      action: "Change my role",
+      run: () => send(`role:${r.username}`, { username: r.username, role }),
+    });
+  }
 
-      {error ? (
-        <div
-          role="alert"
-          className="mt-5 rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]"
-        >
+  function removeGrant(r: AccessRow) {
+    const run = () => send(`revoke:${r.username}`, null, "DELETE", `?username=${encodeURIComponent(r.username)}`);
+    changeOwnAccess(r.username === me?.username, {
+      title: "Remove your own access?",
+      body:
+        visibility === "members"
+          ? "This pipeline is members only, so you will lose access to it and cannot undo this yourself."
+          : `You will fall back to your ${me?.role ?? "usual"} role here, so you will not be able to manage access or undo this yourself.`,
+      action: "Remove me",
+      run,
+    });
+  }
+
+  async function transfer() {
+    const lowers = owner !== null && me?.username === owner && !isInstanceAdmin;
+    const ok = await send("owner", { owner: nextOwner });
+    if (!ok) return;
+    setTransferOpen(false);
+    setNextOwner("");
+    if (lowers) await reloadIfNoLongerAdmin();
+  }
+
+  const people = rows.length;
+
+  return (
+    <div className="flex flex-col">
+      <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-[color:var(--color-rule-soft)] px-4 py-2">
+        <h1 className="text-[15px] font-semibold text-[color:var(--color-ink)]">Access</h1>
+        {!loading && (
+          <>
+            <span role="radiogroup" aria-label="Who can open this pipeline" className="flex rounded border border-[color:var(--color-rule)] p-0.5">
+              {(
+                [
+                  ["members", "Members only"],
+                  ["instance", "Everyone signed in"],
+                ] as const
+              ).map(([v, text]) => (
+                <button
+                  key={v}
+                  type="button"
+                  role="radio"
+                  aria-checked={visibility === v}
+                  disabled={pending === "visibility"}
+                  onClick={() => visibility !== v && void send("visibility", { visibility: v })}
+                  data-testid={`visibility-${v}`}
+                  className={`h-6 rounded-sm px-2.5 text-[12px] font-medium ${
+                    visibility === v
+                      ? "bg-[color:var(--color-surface-2)] text-[color:var(--color-ink)]"
+                      : "text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
+                  }`}
+                >
+                  {text}
+                </button>
+              ))}
+            </span>
+            <span className="text-[12px] text-[color:var(--color-ink-3)]" data-testid="access-summary">
+              {people} {people === 1 ? "person" : "people"} can open this pipeline
+            </span>
+            <span className="flex items-center gap-1 text-[12px] text-[color:var(--color-ink-3)] md:ml-auto">
+              {owner ? (
+                <>
+                  Owner <span className="font-medium text-[color:var(--color-ink)]">{owner}</span>
+                </>
+              ) : (
+                <span className="text-[color:var(--color-amber-deep)]">No owner</span>
+              )}
+              {canTransfer && (
+                <button type="button" onClick={() => setTransferOpen(true)} data-testid="transfer-owner-open" className={toolButton("h-6 px-1.5")}>
+                  {owner ? "Transfer" : "Set owner"}
+                </button>
+              )}
+            </span>
+          </>
+        )}
+      </header>
+
+      {error && (
+        <p role="alert" className="mx-4 mt-3 rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-3 py-2 text-[12.5px] text-[color:var(--color-rose-deep)]">
           {error}
-        </div>
-      ) : null}
+        </p>
+      )}
 
       {loading ? (
-        <p className="mt-6 text-sm text-[color:var(--color-ink-3)]">Loading…</p>
+        <p className="p-4 text-[12.5px] text-[color:var(--color-ink-3)]">Loading…</p>
       ) : (
-        <>
-          {/* A labelled radiogroup rather than fieldset/legend: a legend either cuts
-              a notch in the card border or, floated, makes the options flow around
-              it. This gives the same grouping to assistive tech with none of that. */}
-          <section
-            className={`mt-6 ${CARD}`}
-            role="radiogroup"
-            aria-labelledby="visibility-heading"
-          >
-            <h2
-              id="visibility-heading"
-              className="text-[14px] font-semibold text-[color:var(--color-ink)]"
-            >
-              Visibility
-            </h2>
-            <div className="mt-3 flex flex-col gap-3">
-              <Radio
-                name="visibility"
-                value="members"
-                checked={visibility === "members"}
-                disabled={pending === "visibility"}
-                onChange={() => void send("visibility", { visibility: "members" })}
-                label="Members only"
-                detail="Hidden from everyone except the people listed below. New pipelines start here."
-              />
-              <Radio
-                name="visibility"
-                value="instance"
-                checked={visibility === "instance"}
-                disabled={pending === "visibility"}
-                onChange={() => void send("visibility", { visibility: "instance" })}
-                label="Everyone"
-                detail="Anyone signed in sees this pipeline, at whatever role they hold."
-              />
-            </div>
-          </section>
-
-          <section className={`mt-5 ${CARD}`}>
-            <h2 className="text-[14px] font-semibold text-[color:var(--color-ink)]">
-              People with access
-            </h2>
-            <p className="mt-1 max-w-[62ch] text-[12.5px] text-[color:var(--color-ink-3)]">
-              A grant replaces that person&apos;s usual role here, so it can give them more
-              or less than they have elsewhere.
-            </p>
-
-            {rows.length === 0 ? (
-              <p className="mt-4 text-[12.5px] text-[color:var(--color-ink-4)]">
-                {visibility === "members"
-                  ? "Nobody listed yet, so only admins can reach this pipeline."
-                  : "Nobody listed yet. Everyone uses the role they hold elsewhere."}
-              </p>
-            ) : (
-              <table
-                className="mt-4 w-full table-fixed border-collapse text-sm"
-                data-testid="members-table"
-              >
-                {/* Fixed layout: adding or removing a row must not move the columns. */}
-                <colgroup>
-                  <col className="w-[200px]" />
-                  <col className="w-[130px]" />
-                  <col />
-                </colgroup>
-                <thead>
-                  <tr className="border-b border-[color:var(--color-rule)] text-left text-[11px] text-[color:var(--color-ink-3)]">
-                    <th className="pb-1.5 pr-3 font-medium">Person</th>
-                    {/* Inset to the control's text, which is what rows line up on. */}
-                    <th className="pb-1.5 pl-[11px] pr-3 font-medium">Role here</th>
-                    <th className="pb-1.5 font-medium" />
+        <div className="max-w-[1000px] p-4">
+          <div className="overflow-x-auto rounded border border-[color:var(--color-rule-soft)]">
+            <table className="result-grid props-grid" data-testid="members-table">
+              <thead>
+                <tr>
+                  <th>Person</th>
+                  <th className="w-[130px]">Role here</th>
+                  <th className="max-sm:hidden">From</th>
+                  <th className="w-0" aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-3 text-[color:var(--color-ink-4)]">
+                      Nobody yet.
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {rows.map((m) => (
-                    <tr
-                      key={m.userId}
-                      className="border-b border-[color:var(--color-rule-soft)] last:border-b-0"
-                    >
-                      <td className="py-2 pr-3">
-                        <span className="block truncate font-medium text-[color:var(--color-ink)]">
-                          {m.displayName}
-                        </span>
-                        {m.displayName !== m.username ? (
-                          <span className="block truncate text-[11.5px] text-[color:var(--color-ink-4)]">
-                            {m.username}
-                          </span>
-                        ) : null}
+                )}
+                {rows.map((r) => {
+                  const fixed = r.source === "owner" || r.source === "instance-admin";
+                  return (
+                    <tr key={r.username} data-testid={`access-row-${r.username}`}>
+                      <td>
+                        <span className="text-[color:var(--color-ink)]">{r.displayName}</span>
+                        {r.displayName !== r.username && <span className="ml-1.5 text-[color:var(--color-ink-4)]">{r.username}</span>}
+                        {r.username === me?.username && <span className="ml-1.5 text-[11px] text-[color:var(--color-ink-4)]">you</span>}
+                        <span className="block text-[11px] text-[color:var(--color-ink-4)] sm:hidden">{sourceLabel(r)}</span>
                       </td>
-                      <td className="py-2 pr-3">
-                        {m.username === owner ? (
-                          // Admin here comes from owning it, not from a grant.
-                          <span className="pl-[11px] text-[12.5px] text-[color:var(--color-ink-2)]">
-                            owner
-                          </span>
+                      <td className="py-0.5">
+                        {fixed ? (
+                          <span className="pl-2 text-[color:var(--color-ink-2)]">admin</span>
                         ) : (
-                          <Select
-                            label={`Role for ${m.username} on this pipeline`}
-                            value={m.role}
-                            disabled={pending === `role:${m.username}`}
-                            onChange={(e) => {
-                              const role = e.target.value as Role;
-                              changeOwnAccess(m.username === me?.username && role !== "admin", {
-                                title: `Change your own role to ${role}?`,
-                                body: "You will no longer be an admin here, so you will not be able to manage access or undo this yourself.",
-                                action: "Change my role",
-                                run: () =>
-                                  send(`role:${m.username}`, { username: m.username, role }),
-                              });
-                            }}
+                          <select
+                            aria-label={`Role for ${r.username} on this pipeline`}
+                            value={r.role}
+                            disabled={pending === `role:${r.username}`}
+                            onChange={(e) => setRole(r, e.target.value as Role)}
+                            className={toolInput()}
                           >
-                            {ROLES.map((r) => (
-                              <option key={r} value={r}>
-                                {r}
+                            {ROLES.map((role) => (
+                              <option key={role} value={role}>
+                                {role}
                               </option>
                             ))}
-                          </Select>
+                          </select>
                         )}
                       </td>
-                      <td className="py-2 text-right">
-                        {m.username === owner ? null : (
+                      <td className="text-[color:var(--color-ink-3)] max-sm:hidden">{sourceLabel(r)}</td>
+                      <td className="whitespace-nowrap py-0.5 text-right">
+                        {r.source === "grant" && (
                           <button
                             type="button"
-                            disabled={pending === `revoke:${m.username}`}
-                            onClick={() =>
-                              changeOwnAccess(m.username === me?.username, {
-                                title: "Remove your own access?",
-                                body:
-                                  visibility === "members"
-                                    ? "This pipeline is members only, so you will lose access to it and cannot undo this yourself."
-                                    : `You will fall back to your ${me?.role ?? "usual"} role here, so you will not be able to manage access or undo this yourself.`,
-                                action: "Remove me",
-                                run: () =>
-                                  send(
-                                    `revoke:${m.username}`,
-                                    null,
-                                    "DELETE",
-                                    `?username=${encodeURIComponent(m.username)}`,
-                                  ),
-                              })
-                            }
-                            data-testid={`revoke-${m.username}`}
-                            className={ghostButtonClass()}
+                            disabled={pending === `revoke:${r.username}`}
+                            onClick={() => removeGrant(r)}
+                            data-testid={`revoke-${r.username}`}
+                            title={visibility === "members" ? "Remove their access" : "Go back to their usual role"}
+                            className={toolButton("h-6 px-1.5")}
                           >
-                            Remove
+                            {visibility === "members" ? "Remove" : "Reset"}
                           </button>
                         )}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-
-            {unlisted.length > 0 && (
-              <div className="mt-5 border-t border-[color:var(--color-rule-soft)] pt-4">
-                <p className="text-[12px] font-medium text-[color:var(--color-ink-2)]">
-                  Give someone access
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Select
-                    label="Account to give access to"
-                    value={addUser}
-                    onChange={(e) => setAddUser(e.target.value)}
-                    data-testid="add-member-user"
-                  >
-                    <option value="">Choose an account…</option>
-                    {unlisted.map((a) => (
-                      <option key={a.username} value={a.username}>
-                        {label(a)}, {a.role} elsewhere
-                      </option>
-                    ))}
-                  </Select>
-                  <Select
-                    label="Role to grant"
-                    value={addRole}
-                    onChange={(e) => setAddRole(e.target.value as Role)}
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </Select>
-                  <button
-                    type="button"
-                    disabled={pending === "grant" || !addUser}
-                    onClick={async () => {
-                      if (await send("grant", { username: addUser, role: addRole })) setAddUser("");
-                    }}
-                    data-testid="add-member"
-                    className={primaryButtonClass()}
-                  >
-                    Grant
-                  </button>
-                </div>
-              </div>
-            )}
-          </section>
-
-          <section className={`mt-5 ${CARD}`}>
-            <h2 className="text-[14px] font-semibold text-[color:var(--color-ink)]">Owner</h2>
-            <p className="mt-1 max-w-[62ch] text-[12.5px] text-[color:var(--color-ink-3)]">
-              {owner
-                ? `${owner} keeps admin on this pipeline and cannot be removed from the list above. Hand it over to change that.`
-                : `This pipeline has no owner, which happens when the owning account is deleted.${
-                    canTransfer ? " Give it one." : ""
-                  }`}
-            </p>
-            {canTransfer ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Select
-                  label="Account to hand this pipeline to"
-                  value={nextOwner}
-                  onChange={(e) => setNextOwner(e.target.value)}
-                  data-testid="transfer-owner-user"
-                >
-                  <option value="">Choose an account…</option>
-                  {accounts
-                    .filter((a) => a.username !== owner)
-                    .map((a) => (
-                      <option key={a.username} value={a.username}>
-                        {label(a)}
-                      </option>
-                    ))}
-                </Select>
-                <button
-                  type="button"
-                  disabled={pending === "owner" || !nextOwner}
-                  onClick={() =>
-                    changeOwnAccess(owner !== null && me?.username === owner, {
-                      title: `Transfer this pipeline to ${nextOwner}?`,
-                      body: `${nextOwner} becomes the owner and keeps admin here. ${accessAfterTransfer()}`,
-                      action: "Transfer ownership",
-                      run: async () => {
-                        const ok = await send("owner", { owner: nextOwner });
-                        if (ok) setNextOwner("");
-                        return ok;
-                      },
-                    })
-                  }
-                  data-testid="transfer-owner"
-                  className={ghostButtonClass()}
-                >
-                  Transfer ownership
-                </button>
-              </div>
-            ) : (
-              <p className="mt-3 text-[11.5px] text-[color:var(--color-ink-4)]">
-                Only the owner or an instance admin can hand a pipeline over.
-              </p>
-            )}
-          </section>
-        </>
+                  );
+                })}
+                {unlisted.length > 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-1">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <select
+                          aria-label="Account to give access to"
+                          value={addUser}
+                          onChange={(e) => setAddUser(e.target.value)}
+                          data-testid="add-member-user"
+                          className={toolInput()}
+                        >
+                          <option value="">Add a person…</option>
+                          {unlisted.map((a) => (
+                            <option key={a.username} value={a.username}>
+                              {label(a)}, {a.role} elsewhere
+                            </option>
+                          ))}
+                        </select>
+                        <select aria-label="Role to grant" value={addRole} onChange={(e) => setAddRole(e.target.value as Role)} className={toolInput()}>
+                          {ROLES.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          disabled={pending === "grant" || !addUser}
+                          onClick={async () => {
+                            if (await send("grant", { username: addUser, role: addRole })) setAddUser("");
+                          }}
+                          data-testid="add-member"
+                          className={toolPrimary()}
+                        >
+                          Add
+                        </button>
+                      </span>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
-      <Modal open={confirming !== null} onClose={() => (pending ? undefined : setConfirming(null))}>
-        <h2 className="text-lg font-semibold">{confirming?.title}</h2>
-        <p className="mt-2 text-sm text-[color:var(--color-ink-2)]">{confirming?.body}</p>
+      <Modal open={transferOpen} onClose={() => (pending === "owner" ? undefined : setTransferOpen(false))}>
+        <h2 className="text-[15px] font-semibold text-[color:var(--color-ink)]">{owner ? "Transfer ownership" : "Set an owner"}</h2>
+        <p className="mt-2 text-[13px] text-[color:var(--color-ink-2)]">
+          The owner always has admin here.
+          {owner && me?.username === owner && !isInstanceAdmin ? ` ${accessAfterTransfer()}` : ""}
+        </p>
+        <div className="mt-3">
+          <Select
+            label="Account to hand this pipeline to"
+            value={nextOwner}
+            onChange={(e) => setNextOwner(e.target.value)}
+            data-testid="transfer-owner-user"
+            className="w-full"
+          >
+            <option value="">Choose an account…</option>
+            {accounts
+              .filter((a) => a.username !== owner)
+              .map((a) => (
+                <option key={a.username} value={a.username}>
+                  {label(a)}
+                </option>
+              ))}
+          </Select>
+        </div>
         <div className="mt-5 flex justify-end gap-2">
+          <button type="button" disabled={pending === "owner"} onClick={() => setTransferOpen(false)} className={ghostButtonClass()}>
+            Cancel
+          </button>
           <button
             type="button"
-            disabled={pending !== null}
-            onClick={() => setConfirming(null)}
-            className={ghostButtonClass()}
+            disabled={pending === "owner" || !nextOwner}
+            onClick={() => void transfer()}
+            data-testid="transfer-owner"
+            className={primaryButtonClass()}
           >
+            {owner ? "Transfer" : "Set owner"}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={confirming !== null} onClose={() => (pending ? undefined : setConfirming(null))}>
+        <h2 className="text-[15px] font-semibold">{confirming?.title}</h2>
+        <p className="mt-2 text-[13px] text-[color:var(--color-ink-2)]">{confirming?.body}</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" disabled={pending !== null} onClick={() => setConfirming(null)} className={ghostButtonClass()}>
             Cancel
           </button>
           <button

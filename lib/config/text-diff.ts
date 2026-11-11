@@ -61,8 +61,9 @@ function sortKeys(value: unknown): unknown {
 }
 
 /**
- * Diff `from` (the live config) against `to` (the version being inspected), so
- * the result reads as "what restoring this would change".
+ * Diff `from` against `to`: the live config against an old version reads as
+ * "what restoring this would change", and the previous version against this
+ * one as "what this save changed".
  */
 export function unifiedConfigDiff(
   from: PipelineConfig | null,
