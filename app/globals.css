@@ -201,6 +201,21 @@ button:disabled,
   outline-offset: -1px;
   background: var(--color-carrot-soft);
 }
+/* The grid style for the small tables on the Properties tab, which sit in a
+   bordered box and do not scroll on their own. */
+.props-grid {
+  width: 100%;
+}
+.props-grid th {
+  position: static;
+}
+.props-grid th:last-child,
+.props-grid td:last-child {
+  border-right: none;
+}
+.props-grid tbody tr:last-child td {
+  border-bottom: none;
+}
 .result-grid-null {
   font-size: 11px;
   color: var(--color-ink-4);
