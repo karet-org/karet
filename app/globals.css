@@ -292,3 +292,19 @@ button:disabled,
   border: 1px solid var(--color-rule);
   box-shadow: none;
 }
+
+/* Dashboard grid: the configured column count, collapsing to one column on
+   phones, where three panels side by side are each too narrow to read.
+   !important beats the inline grid-column a panel's span sets. */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--dashboard-columns, 3), minmax(0, 1fr));
+}
+@media (max-width: 639px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dashboard-grid > .dashboard-slot {
+    grid-column: 1 / -1 !important;
+  }
+}

@@ -14,6 +14,7 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import type { PanelV2 } from "@/lib/types/dashboard-v2";
+import { formatLabel } from "@/lib/dashboard/format";
 import { CHART_PALETTE, CHART_SURFACE } from "@/lib/dashboard/palette";
 import { hoverGuidePlugin, lineHoverOptions } from "./line-hover";
 import { pivotSeries } from "./series";
@@ -48,7 +49,11 @@ function LinePanel({ config, data }: PanelProps<LineConfig>) {
     maintainAspectRatio: false,
     interaction,
     plugins: { legend: { display: datasets.length > 1 }, tooltip },
-    scales: { x: { grid: { display: false } }, y: { beginAtZero: false } },
+    scales: {
+      // Labels stay raw for the data; only what is drawn is shortened.
+      x: { grid: { display: false }, ticks: { callback: (_v: unknown, i: number) => formatLabel(labels[i] ?? "") } },
+      y: { beginAtZero: false },
+    },
   };
 
   return (

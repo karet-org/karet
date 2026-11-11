@@ -3,7 +3,7 @@
 // that x, and a vertical guide marks the x being read.
 
 import type { Chart, Plugin, TooltipItem } from "chart.js";
-import { formatValue } from "@/lib/dashboard/format";
+import { formatLabel, formatValue } from "@/lib/dashboard/format";
 
 const GUIDE_COLOR = "rgba(255, 255, 255, 0.35)";
 
@@ -45,6 +45,7 @@ export function lineHoverOptions(seriesCount: number) {
       // A series with no value at this x is left out rather than shown as NaN.
       filter: (item: TooltipItem<"line">) => item.parsed.y !== null && !Number.isNaN(item.parsed.y),
       callbacks: {
+        title: (items: TooltipItem<"line">[]) => (items[0] ? formatLabel(items[0].label) : ""),
         label: (item: TooltipItem<"line">) => tooltipLabel(item, seriesCount),
       },
     },

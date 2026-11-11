@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import type { PanelV2 } from "@/lib/types/dashboard-v2";
+import { formatLabel } from "@/lib/dashboard/format";
 import { panelCardClass, type PanelProps } from "./types";
 
 type TableConfig = Extract<PanelV2, { kind: "table" }>;
@@ -15,7 +16,7 @@ function formatCell(v: unknown): string {
   if (typeof v === "number" && !Number.isInteger(v)) {
     return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
   }
-  return String(v);
+  return formatLabel(String(v));
 }
 
 function TablePanel({ config, data }: PanelProps<TableConfig>) {
