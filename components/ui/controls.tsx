@@ -18,7 +18,7 @@ const CONTROL =
   "focus-visible:border-[color:var(--color-carrot)] focus-visible:ring-2 " +
   "focus-visible:ring-[color:var(--color-carrot-soft)] disabled:opacity-50";
 
-/** A select with the platform chevron replaced, so the arrow has room to breathe. */
+/** A select at the shared control size. Its chevron comes from globals.css. */
 export function Select({
   label,
   className = "",
@@ -27,26 +27,9 @@ export function Select({
 }: SelectHTMLAttributes<HTMLSelectElement> & { label: string }) {
   return (
     <span className="relative inline-flex">
-      <select
-        aria-label={label}
-        // pr-8 is the chevron's room; without it the arrow sits on the text.
-        className={`${CONTROL} appearance-none pl-2.5 pr-8 ${className}`}
-        {...props}
-      >
+      <select aria-label={label} className={`${CONTROL} pl-2.5 ${className}`} {...props}>
         {children}
       </select>
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        aria-hidden
-        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[color:var(--color-ink-3)]"
-      >
-        <path d="M4 6.5 8 10.5l4-4" />
-      </svg>
     </span>
   );
 }
