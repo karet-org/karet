@@ -90,14 +90,14 @@ export default function SqlWorkspace({
           schema={schema}
           placeholder="SELECT * FROM transactions LIMIT 50"
         />
-        <div className="flex items-center gap-1 border-t border-[color:var(--color-rule-soft)] py-1 pl-3 pr-1.5">
+        <div className="flex h-9 items-center gap-1 border-t border-[color:var(--color-rule-soft)] pl-3 pr-1.5">
           <span className="text-[11.5px] text-[color:var(--color-ink-3)]" data-testid="query-status">
             {result &&
               `${result.rows.length.toLocaleString()} row${result.rows.length === 1 ? "" : "s"}${
                 result.truncated ? `, cut off at ${RESULT_LIMIT.toLocaleString()}` : ""
               } in ${result.ms} ms`}
           </span>
-          <span className="ml-auto hidden text-[11px] text-[color:var(--color-ink-4)] sm:block">Ctrl+Enter</span>
+          <span className="ml-auto mr-1 hidden text-[11px] text-[color:var(--color-ink-4)] sm:block">Ctrl+Enter</span>
           <button
             type="button"
             disabled={!result || result.rows.length === 0}

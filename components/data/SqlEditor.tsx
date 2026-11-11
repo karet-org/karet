@@ -64,6 +64,8 @@ export default function SqlEditor({
         ),
         schemaCompartment.current.of(sql({ schema: {} })),
         cmPlaceholder(placeholder ?? ""),
+        // Line text starts 12px in, in line with the toolbars.
+        EditorView.theme({ ".cm-line": { paddingLeft: "12px" } }),
       ]}
     />
   );

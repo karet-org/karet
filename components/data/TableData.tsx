@@ -93,7 +93,7 @@ export default function TableData({ pipeline, table }: { pipeline: string; table
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <form
-        className="flex flex-wrap items-center gap-1.5 border-b border-[color:var(--color-rule-soft)] px-2 py-1"
+        className="flex min-h-9 shrink-0 flex-wrap items-center gap-1.5 border-b border-[color:var(--color-rule-soft)] py-0.5 pl-3 pr-1.5"
         onSubmit={(e) => {
           e.preventDefault();
           applyFilter();
@@ -192,15 +192,15 @@ export default function TableData({ pipeline, table }: { pipeline: string; table
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-[color:var(--color-rule-soft)] py-0.5 pl-3 pr-1 text-[11.5px] text-[color:var(--color-ink-3)]">
+      <div className="flex min-h-9 shrink-0 flex-wrap items-center gap-2 border-t border-[color:var(--color-rule-soft)] py-0.5 pl-3 pr-1.5 text-[11.5px] text-[color:var(--color-ink-3)]">
         <span data-testid="table-row-range">
           {total === 0
             ? "0 rows"
             : `Rows ${(offset + 1).toLocaleString()}–${Math.min(offset + pageSize, total).toLocaleString()} of ${total.toLocaleString()}`}
           {filter ? " matching the filter" : ""}
         </span>
-        <span className="ml-auto flex items-center gap-1">
-          <label htmlFor={`page-size-${table.id}`} className="mr-1">
+        <span className="ml-auto flex items-center gap-0.5">
+          <label htmlFor={`page-size-${table.id}`} className="mr-1.5">
             Rows per page
           </label>
           <select
@@ -210,7 +210,7 @@ export default function TableData({ pipeline, table }: { pipeline: string; table
               setPageSize(Number(e.target.value));
               setOffset(0);
             }}
-            className="rounded border border-[color:var(--color-rule)] bg-transparent px-1 py-0.5 text-[11.5px]"
+            className={toolInput("mr-1.5 px-1.5 text-[11.5px]")}
           >
             {PAGE_SIZES.map((n) => (
               <option key={n} value={n}>

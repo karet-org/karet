@@ -32,10 +32,10 @@ export default function CellViewer({
       data-testid="cell-viewer"
       className="flex w-full shrink-0 flex-col border-t border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] md:w-[300px] md:border-l md:border-t-0"
     >
-      <div className="flex items-center gap-1 border-b border-[color:var(--color-rule-soft)] py-1 pl-3 pr-1">
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[12.5px] font-semibold text-[color:var(--color-ink)]">{column}</div>
-          {type && <div className="text-[11px] text-[color:var(--color-ink-4)]">{type.toLowerCase()}</div>}
+      <div className="flex h-9 shrink-0 items-center gap-1 border-b border-[color:var(--color-rule-soft)] pl-3 pr-1.5">
+        <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
+          <span className="truncate text-[12.5px] font-semibold text-[color:var(--color-ink)]">{column}</span>
+          {type && <span className="shrink-0 text-[11px] text-[color:var(--color-ink-4)]">{type.toLowerCase()}</span>}
         </div>
         <button type="button" onClick={() => void copy()} disabled={text === null} className={toolButton()}>
           <IconCopy size={13} />

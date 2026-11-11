@@ -117,11 +117,11 @@ export default function DataNavigator({
 
   const match = filterNavigator(tables, queries, filter);
   const filtering = filter.trim() !== "";
-  const heading = "px-3 pb-0.5 pt-2 text-[10.5px] font-medium uppercase tracking-[0.06em] text-[color:var(--color-ink-4)]";
+  const heading = "pb-0.5 pl-3 pr-2 pt-2 text-[10.5px] font-medium uppercase tracking-[0.06em] text-[color:var(--color-ink-4)]";
 
   return (
     <nav data-testid="data-navigator" aria-label="Tables and saved queries" className="flex h-full flex-col text-[12.5px]">
-      <div className="flex items-center gap-1 border-b border-[color:var(--color-rule-soft)] px-2 py-1.5">
+      <div className="flex h-9 shrink-0 items-center gap-1 border-b border-[color:var(--color-rule-soft)] pl-3 pr-1.5">
         <input
           type="search"
           value={filter}
@@ -178,7 +178,7 @@ export default function DataNavigator({
                       e.preventDefault();
                       setMenu({ table: t, x: e.clientX, y: e.clientY });
                     }}
-                    className={`group flex items-center gap-0.5 pl-1.5 pr-1 ${
+                    className={`group relative flex items-center gap-0.5 pl-2 pr-2 ${
                       activeTable === t.id ? "bg-[color:var(--color-surface-2)]" : "hover:bg-[color:var(--color-surface-2)]"
                     }`}
                   >
@@ -196,10 +196,10 @@ export default function DataNavigator({
                       onClick={() => onOpenTable(t.id)}
                       data-testid={`open-table-${t.id}`}
                       title={t.collidesWith ? "Its SQL name collides with another table" : `Open ${t.name}${age ? `, published ${age}` : ""}`}
-                      className="flex h-6 min-w-0 flex-1 items-baseline gap-2 text-left"
+                      className="flex h-6 min-w-0 flex-1 items-center gap-2 text-left"
                     >
                       <span className="min-w-0 truncate font-medium text-[color:var(--color-ink)]">{t.name}</span>
-                      <span className="ml-auto shrink-0 text-[10.5px] tabular-nums text-[color:var(--color-ink-4)]" data-testid={`table-meta-${t.id}`}>
+                      <span className="ml-auto shrink-0 text-[10.5px] tabular-nums text-[color:var(--color-ink-4)] group-focus-within:opacity-0 group-hover:opacity-0" data-testid={`table-meta-${t.id}`}>
                         {rows}
                       </span>
                     </button>
@@ -211,13 +211,13 @@ export default function DataNavigator({
                         const r = e.currentTarget.getBoundingClientRect();
                         setMenu({ table: t, x: r.left, y: r.bottom + 2 });
                       }}
-                      className="grid h-5 w-5 shrink-0 place-items-center rounded text-[color:var(--color-ink-3)] opacity-0 hover:bg-[color:var(--color-rule-soft)] hover:text-[color:var(--color-ink)] focus-visible:opacity-100 group-hover:opacity-100"
+                      className="absolute right-1 top-0.5 grid h-5 w-5 place-items-center rounded text-[color:var(--color-ink-3)] opacity-0 hover:bg-[color:var(--color-rule-soft)] hover:text-[color:var(--color-ink)] focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
                     >
                       <IconMore size={14} />
                     </button>
                   </div>
                   {open && (
-                    <ul className="pb-0.5 pl-7 pr-2">
+                    <ul className="pb-0.5 pl-[42px] pr-2">
                       {columns.map((c) => (
                         <li key={c.name} className="flex items-baseline gap-2 py-px text-[11.5px]">
                           <span className="truncate text-[color:var(--color-ink-2)]">{c.name}</span>
@@ -243,7 +243,7 @@ export default function DataNavigator({
           <button
             type="button"
             onClick={onNewQuery}
-            className="ml-auto rounded px-1.5 normal-case tracking-normal text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
+            className="-mr-1.5 ml-auto rounded px-1.5 normal-case tracking-normal text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
           >
             SQL editor
           </button>
@@ -257,7 +257,7 @@ export default function DataNavigator({
         ) : (
           <ul className="pb-3">
             {match.queries.map((q) => (
-              <li key={q.id} className="group flex items-center px-3 hover:bg-[color:var(--color-surface-2)]">
+              <li key={q.id} className="group flex items-center pl-[30px] pr-1 hover:bg-[color:var(--color-surface-2)]">
                 <button type="button" onClick={() => onOpenQuery(q)} title={q.sql} className="h-6 min-w-0 flex-1 truncate text-left text-[color:var(--color-ink-2)]">
                   {q.name}
                 </button>

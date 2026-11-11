@@ -41,11 +41,17 @@ export default function ResultGrid({
           <th className="result-grid-rownum" aria-label="Row" />
           {columns.map((c) => {
             const active = sort?.column === c.name ? sort.dir : null;
+            const numeric = isNumericColumn(c.type, rows[0]?.[c.name]);
+            // Numeric headers sit on the right, over their values, with the arrow on the left.
+            const arrow = (
+              <span className={`grid w-3 shrink-0 place-items-center self-center text-[color:var(--color-carrot)] ${numeric ? "mr-auto" : "ml-auto"}`}>
+                {active === "asc" ? <IconArrowUp size={12} /> : active === "desc" ? <IconArrowDown size={12} /> : null}
+              </span>
+            );
             return (
               <th
                 key={c.name}
                 aria-sort={active === "asc" ? "ascending" : active === "desc" ? "descending" : "none"}
-                className={isNumericColumn(c.type, rows[0]?.[c.name]) ? "text-right" : ""}
               >
                 <button
                   type="button"
@@ -53,13 +59,12 @@ export default function ResultGrid({
                   title={`Sort by ${c.name}`}
                   className="flex w-full items-baseline gap-1.5 text-left"
                 >
+                  {numeric && arrow}
                   <span className="truncate font-medium text-[color:var(--color-ink-2)]">{c.name}</span>
                   {c.type && (
                     <span className="truncate font-normal text-[color:var(--color-ink-4)]">{c.type.toLowerCase()}</span>
                   )}
-                  <span className="ml-auto grid w-3 shrink-0 place-items-center self-center text-[color:var(--color-carrot)]">
-                    {active === "asc" ? <IconArrowUp size={12} /> : active === "desc" ? <IconArrowDown size={12} /> : null}
-                  </span>
+                  {!numeric && arrow}
                 </button>
               </th>
             );

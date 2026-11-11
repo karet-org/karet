@@ -48,6 +48,13 @@ body {
 html {
   scrollbar-gutter: stable;
 }
+/* From md up the shell is fixed to the screen and the page never scrolls,
+   so the reserved space would only be an empty strip on the right. */
+@media (min-width: 768px) {
+  html {
+    scrollbar-gutter: auto;
+  }
+}
 
 body {
   color: var(--color-ink);

@@ -23,7 +23,7 @@ type View = "data" | "properties";
 const SQL_TAB = "sql";
 
 const tabClass = (active: boolean) =>
-  `flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-1.5 text-[12.5px] ${
+  `flex shrink-0 items-center gap-1.5 border-b-2 px-3 text-[12.5px] ${
     active
       ? "border-[color:var(--color-carrot)] text-[color:var(--color-ink)]"
       : "border-transparent text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
@@ -222,9 +222,9 @@ export default function DataPage() {
           aria-label="Show the table list"
           title="Show the table list"
           data-testid="show-navigator"
-          className="hidden w-7 shrink-0 border-r border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] pt-2 text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)] md:block"
+          className="hidden w-9 shrink-0 items-start justify-center border-r border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] pt-2.5 text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)] md:flex"
         >
-          <IconPanelLeftOpen size={15} className="mx-auto" />
+          <IconPanelLeftOpen size={15} />
         </button>
       )}
       <aside
@@ -277,16 +277,16 @@ export default function DataPage() {
           </div>
         )}
 
-        <div className="flex items-center border-b border-[color:var(--color-rule-soft)]" role="tablist" aria-label="Open tables">
+        <div className="flex h-9 shrink-0 items-stretch border-b border-[color:var(--color-rule-soft)]" role="tablist" aria-label="Open tables">
           <button
             type="button"
             onClick={() => setNavOpen((v) => !v)}
             aria-expanded={navOpen}
-            className={toolSecondary("mx-2 md:hidden")}
+            className={toolSecondary("mx-2 self-center md:hidden")}
           >
             Tables
           </button>
-          <div className="flex min-w-0 flex-1 overflow-x-auto">
+          <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto">
             {openTables.map((id) => {
               const t = byId.get(id);
               if (!t) return null;
@@ -318,7 +318,7 @@ export default function DataPage() {
           const view = views[id] ?? "data";
           return (
             <section key={id} hidden={active !== id} className="flex min-h-0 flex-1 flex-col" aria-label={t.name}>
-              <div className="flex items-center gap-1 border-b border-[color:var(--color-rule-soft)] px-2">
+              <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-[color:var(--color-rule-soft)] pl-1 pr-3">
                 {(["data", "properties"] as const).map((v) => (
                   <button
                     key={v}
@@ -326,14 +326,14 @@ export default function DataPage() {
                     onClick={() => setViews((prev) => ({ ...prev, [id]: v }))}
                     aria-pressed={view === v}
                     data-testid={`view-${v}`}
-                    className={`rounded px-2 py-1 text-[11.5px] font-medium ${
+                    className={`h-6 rounded px-2 text-[11.5px] font-medium ${
                       view === v ? "bg-[color:var(--color-surface-2)] text-[color:var(--color-ink)]" : "text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
                     }`}
                   >
                     {v === "data" ? "Data" : "Properties"}
                   </button>
                 ))}
-                <code className="ml-auto truncate py-1.5 font-mono text-[11px] text-[color:var(--color-ink-4)]">{t.slug}</code>
+                <code className="ml-auto truncate font-mono text-[11px] text-[color:var(--color-ink-4)]">{t.slug}</code>
               </div>
               {view === "data" ? (
                 <TableData pipeline={pipeline} table={t} />
