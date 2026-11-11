@@ -56,6 +56,18 @@ html {
   }
 }
 
+/* One chevron for every select, with room on both sides. The platform arrow
+   sits against the right border and differs by browser. These rules are
+   outside any layer, so they win over padding utilities such as px-2. */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238f9098' stroke-width='1.6'%3E%3Cpath d='M4 6.5 8 10.5l4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 12px 12px;
+  padding-right: 1.75rem;
+}
+
 body {
   color: var(--color-ink);
   background-color: var(--color-bg);

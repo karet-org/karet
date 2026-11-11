@@ -175,7 +175,7 @@ function SearchView() {
           value={table ?? ""}
           onChange={(e) => navigate({ table: e.target.value, timeField: null })}
           disabled={!tables?.length}
-          className={toolInput("max-w-[12rem] pr-1")}
+          className={toolInput("max-w-[12rem]")}
         >
           {(tables ?? []).map((t) => (
             <option key={t.id} value={t.id}>
@@ -206,7 +206,7 @@ function SearchView() {
               data-testid="search-range"
               value={range}
               onChange={(e) => navigate({ range: e.target.value, from: null, to: null })}
-              className={toolInput("pr-1")}
+              className={toolInput()}
             >
               {custom && <option value="custom">{formatSpan(Number(from), Number(to))}</option>}
               {TIME_RANGES.map((r) => (
