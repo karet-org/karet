@@ -94,11 +94,14 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
       worldCopyJump: true,
       minZoom: 1,
       maxZoom: 7,
-      // Fine-grained zoom: one wheel notch is a quarter level, not a whole
-      // one (Leaflet's default 60px-per-level is a big jump on a world map).
+      // One mouse wheel notch or one + click is a whole zoom level, so the
+      // world view to the zoom limit is six steps; at a quarter level per
+      // click it was 24. 80px per level gives one level for Chromium's
+      // 100px notch, measured. zoomSnap stays fine so a trackpad's small
+      // scroll deltas still zoom smoothly instead of rounding to nothing.
       zoomSnap: 0.25,
-      zoomDelta: 0.25,
-      wheelPxPerZoomLevel: 240,
+      zoomDelta: 1,
+      wheelPxPerZoomLevel: 80,
       maxBoundsViscosity: 1,
       // SVG renderer: hover hit-testing is native, where Leaflet's canvas
       // renderer throttles it to 32ms and the tooltip visibly trails the
