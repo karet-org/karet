@@ -31,7 +31,9 @@ describe("planSearch", () => {
   it("takes an explicit range", () => {
     const p = plan({ from: "100", to: "200" });
     expect(p.range).toEqual({ from: 100, to: 200 });
-    expect(p.where).toBe("true AND _karet_time >= 100 AND _karet_time < 200");
+    expect(p.where).toBe(
+      'true AND (("ts" >= 100 AND "ts" < 200) OR ("ts" >= 100000 AND "ts" < 200000)) AND _karet_time >= 100 AND _karet_time < 200',
+    );
   });
 
   it("detects the time field and lets the request override it", () => {

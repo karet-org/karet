@@ -3,7 +3,7 @@
 // and every field joined into one lower-case string for free-text matching.
 
 import { compileSearch, parseSearch, quoteIdent, SearchSyntaxError, type SearchColumn } from "@/lib/search/query";
-import { detectTimeField, pickInterval, timeExpression, TIME_RANGES } from "@/lib/search/time";
+import { detectTimeField, pickInterval, timeExpression, timeRangePrefilter, TIME_RANGES } from "@/lib/search/time";
 
 export const SEARCH_ALIAS = "search_rows";
 export const TIME_COLUMN = "_karet_time";
@@ -86,7 +86,13 @@ export function planSearch(params: URLSearchParams, columns: SearchColumn[], now
     throw err;
   }
 
-  const timeCond = range ? ` AND ${TIME_COLUMN} >= ${num(range.from)} AND ${TIME_COLUMN} < ${num(range.to)}` : "";
+  let timeCond = "";
+  if (range && timeField) {
+    const prefilter = timeRangePrefilter(columns.find((c) => c.name === timeField)!, range.from, range.to);
+    timeCond =
+      `${prefilter ? ` AND ${prefilter}` : ""}` +
+      ` AND ${TIME_COLUMN} >= ${num(range.from)} AND ${TIME_COLUMN} < ${num(range.to)}`;
+  }
   return {
     columns,
     timeField,
