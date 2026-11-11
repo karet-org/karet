@@ -15,6 +15,7 @@ import type { SavedQuery } from "@/lib/types/query";
 import { nameToSlug } from "@/lib/config/name-to-slug";
 import { useCanHere } from "@/lib/client/use-current-user";
 import { secondaryButtonClass } from "@/components/ui/controls";
+import { clampNavWidth, NAV_DEFAULT_WIDTH } from "@/lib/data/navigator";
 
 type RawTable = Omit<TableInfo, "slug" | "collidesWith">;
 type View = "data" | "properties";
@@ -42,7 +43,10 @@ export default function DataPage() {
   const [openTables, setOpenTables] = useState<string[]>([]);
   const [active, setActive] = useState<string>(SQL_TAB);
   const [views, setViews] = useState<Record<string, View>>({});
+  // navOpen shows the navigator on phones; navHidden hides it on wider screens.
   const [navOpen, setNavOpen] = useState(false);
+  const [navHidden, setNavHidden] = useState(false);
+  const [navWidth, setNavWidth] = useState(NAV_DEFAULT_WIDTH);
 
   const [sql, setSql] = useState("");
   const [runRequest, setRunRequest] = useState<{ id: number; sql: string } | null>(null);
@@ -119,10 +123,27 @@ export default function DataPage() {
     return schema;
   }, [tables]);
 
-  const openTable = (id: string) => {
+  const openTable = (id: string, view?: View) => {
     setOpenTables((prev) => (prev.includes(id) ? prev : [...prev, id]));
     setActive(id);
+    if (view) setViews((prev) => ({ ...prev, [id]: view }));
     setNavOpen(false);
+  };
+
+  // Drag the navigator's right edge to resize it.
+  const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = navWidth;
+    const move = (ev: PointerEvent) => setNavWidth(clampNavWidth(startWidth + ev.clientX - startX));
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.style.cursor = "";
+    };
+    document.body.style.cursor = "col-resize";
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   };
 
   const closeTable = (id: string) => {
@@ -193,9 +214,37 @@ export default function DataPage() {
 
   return (
     <div className="flex flex-col md:h-full md:flex-row">
+      {navHidden && (
+        <button
+          type="button"
+          onClick={() => setNavHidden(false)}
+          aria-label="Show the table list"
+          title="Show the table list"
+          data-testid="show-navigator"
+          className="hidden w-7 shrink-0 border-r border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] pt-2.5 text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)] md:block"
+        >
+          »
+        </button>
+      )}
       <aside
-        className={`${navOpen ? "block" : "hidden"} max-h-[50vh] shrink-0 overflow-y-auto border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] md:block md:max-h-none md:w-[248px] md:border-b-0 md:border-r`}
+        style={{ "--nav-width": `${navWidth}px` } as React.CSSProperties}
+        className={`${navOpen ? "block" : "hidden"} ${navHidden ? "" : "md:block"} relative max-h-[50vh] shrink-0 border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] md:max-h-none md:w-[var(--nav-width)] md:border-b-0 md:border-r`}
       >
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the table list"
+          aria-valuenow={navWidth}
+          tabIndex={0}
+          onPointerDown={startResize}
+          onDoubleClick={() => setNavWidth(NAV_DEFAULT_WIDTH)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowLeft") setNavWidth((w) => clampNavWidth(w - 16));
+            if (e.key === "ArrowRight") setNavWidth((w) => clampNavWidth(w + 16));
+          }}
+          data-testid="navigator-resize"
+          className="absolute -right-1 top-0 z-10 hidden h-full w-2 cursor-col-resize hover:bg-[color:var(--color-carrot)]/30 focus-visible:bg-[color:var(--color-carrot)]/40 md:block"
+        />
         <DataNavigator
           tables={tables}
           tablesLoading={tablesLoading}
@@ -211,6 +260,10 @@ export default function DataPage() {
           }}
           onNewQuery={() => {
             setActive(SQL_TAB);
+            setNavOpen(false);
+          }}
+          onCollapse={() => {
+            setNavHidden(true);
             setNavOpen(false);
           }}
         />

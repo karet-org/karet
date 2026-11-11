@@ -14,6 +14,10 @@ export interface TableInfo {
   fileCount: number;
   /** 0 until a run has published the table. */
   version: number;
+  /** Null when it could not be counted. */
+  rowCount: number | null;
+  /** When the live version was published, ISO 8601. */
+  publishedAt: string | null;
   /** SQL identifier to use in a query. */
   slug: string;
   /** id of a table whose slug this one's collides with, else null. */

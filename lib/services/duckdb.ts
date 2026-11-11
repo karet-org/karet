@@ -139,6 +139,12 @@ export function isVanishedFileError(err: unknown): boolean {
   );
 }
 
+/** Rows in a `read_parquet(...)` source, from the Parquet footers. */
+export async function countSource(source: string): Promise<number> {
+  const rows = await query<{ n: number }>(`SELECT count(*) AS n FROM ${source}`);
+  return Number(rows[0]?.n ?? 0);
+}
+
 /** Column names and DuckDB types of a `read_parquet(...)` source. */
 export async function describeSource(
   source: string,

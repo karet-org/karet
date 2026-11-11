@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { wrapS3Error } from "@/lib/config/s3-client";
 
-import { readManifest } from "@/lib/services/table-manifest";
+import { manifestUrls, readManifest } from "@/lib/services/table-manifest";
+import { countSource, isVanishedFileError } from "@/lib/services/duckdb";
 import { withRole } from "@/lib/auth/guard";
 import { getLiveConfig } from "@/lib/services/pipeline-store";
 
@@ -21,6 +22,8 @@ async function handleGet(
     for (const t of pcfg.config.analytic_tables) {
       const manifest = await readManifest(pipeline, t.id);
       tables.push({
+        rowCount: manifest ? await rowCount(pipeline, t.id, manifest) : 0,
+        publishedAt: manifest?.created_at ?? null,
         id: t.id,
         name: t.name,
         schema: t.schema,
@@ -33,6 +36,25 @@ async function handleGet(
 
     return NextResponse.json({ tables });
   }, `GET /api/p/${pipeline}/tables`);
+}
+
+/** Null when the count cannot be read, so the navigator leaves it out. */
+async function rowCount(
+  pipeline: string,
+  tableId: string,
+  manifest: NonNullable<Awaited<ReturnType<typeof readManifest>>>,
+): Promise<number | null> {
+  if (manifest.files.length === 0) return 0;
+  const list = manifestUrls(pipeline, tableId, manifest)
+    .map((u) => `'${u.replace(/'/g, "''")}'`)
+    .join(", ");
+  try {
+    return await countSource(`read_parquet([${list}])`);
+  } catch (err) {
+    if (isVanishedFileError(err)) return null;
+    console.error(`row count for ${pipeline}/${tableId} failed:`, err);
+    return null;
+  }
 }
 
 export const GET = withRole(handleGet);
