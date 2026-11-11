@@ -2,7 +2,7 @@
 // rebuilds objects on every edit, so key order moves and layout drifts.
 
 import { describe, expect, it } from "vitest";
-import { diffConfigs, summarizeDiff } from "../diff";
+import { describeChange, diffConfigs, summarizeDiff } from "../diff";
 import type { PipelineConfig } from "@/lib/types/config";
 
 function base(): PipelineConfig {
@@ -102,5 +102,34 @@ describe("diffConfigs", () => {
   it("handles a missing side without pretending everything changed", () => {
     expect(diffConfigs(null, base())).toEqual({ changes: [], onlyLayout: false });
     expect(diffConfigs(base(), null)).toEqual({ changes: [], onlyLayout: false });
+  });
+});
+
+describe("diffConfigs renames", () => {
+  it("keeps the old name of a renamed entity", () => {
+    const after = base();
+    after.mappings[0].name = "Renamed";
+    expect(diffConfigs(base(), after).changes).toEqual([
+      { kind: "changed", entity: "Mapping", id: "m1", name: "Renamed", fields: ["name"], previousName: "Mapping" },
+    ]);
+  });
+});
+
+describe("describeChange", () => {
+  it("writes each kind of change as a sentence", () => {
+    expect(describeChange({ kind: "added", entity: "Mapping", id: "m2", name: "Errors" })).toBe("Added mapping Errors");
+    expect(describeChange({ kind: "removed", entity: "Source", id: "raw" })).toBe("Removed source raw");
+    expect(describeChange({ kind: "changed", entity: "Table", id: "t1", name: "Orders", fields: ["name", "schema"] })).toBe(
+      "Changed table Orders: name, schema",
+    );
+    expect(describeChange({ kind: "changed", entity: "Mapping", id: "m1", name: "B", fields: ["name"], previousName: "A" })).toBe(
+      "Renamed mapping A to B",
+    );
+    expect(
+      describeChange({ kind: "changed", entity: "Table", id: "t1", name: "B", fields: ["name", "schema"], previousName: "A" }),
+    ).toBe("Renamed table A to B, and changed schema");
+    expect(describeChange({ kind: "changed", entity: "Pipeline", id: "name", name: "Shop", fields: ["name"] })).toBe(
+      "Renamed the pipeline to Shop",
+    );
   });
 });

@@ -135,6 +135,35 @@ export async function listVersions(slug: string): Promise<ConfigVersionMeta[]> {
   }));
 }
 
+/** Every version with its config, newest first, for working out what each one changed. */
+export async function listVersionConfigs(slug: string): Promise<ConfigVersion[]> {
+  const rows = await query<VersionRow>(
+    `SELECT v.id, v.version, v.config, v.author_name, v.note, v.created_at,
+            (c.config_version_id = v.id) AS live
+       FROM config_versions v
+       LEFT JOIN pipelines_current c ON c.pipeline = v.pipeline
+      WHERE v.pipeline = $1
+      ORDER BY v.version DESC`,
+    [slug],
+  );
+  return rows.map(toVersion);
+}
+
+/** The newest version older than `version`, or null for the first one. */
+export async function getPreviousVersion(slug: string, version: number): Promise<ConfigVersion | null> {
+  const row = await queryOne<VersionRow>(
+    `SELECT v.id, v.version, v.config, v.author_name, v.note, v.created_at,
+            (c.config_version_id = v.id) AS live
+       FROM config_versions v
+       LEFT JOIN pipelines_current c ON c.pipeline = v.pipeline
+      WHERE v.pipeline = $1 AND v.version < $2
+      ORDER BY v.version DESC
+      LIMIT 1`,
+    [slug, version],
+  );
+  return row ? toVersion(row) : null;
+}
+
 export interface SaveResult {
   versionId: number;
   version: number;
