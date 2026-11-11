@@ -137,6 +137,59 @@ button:disabled,
   background: transparent;
 }
 
+/* Data page result grid: compact rows, gridlines, a sticky header and row
+   numbers, so a wide table reads like a spreadsheet. */
+.result-grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+  min-width: 100%;
+}
+.result-grid th,
+.result-grid td {
+  padding: 4px 10px;
+  border-right: 1px solid var(--color-rule-soft);
+  border-bottom: 1px solid var(--color-rule-soft);
+  white-space: nowrap;
+  color: var(--color-ink-2);
+}
+.result-grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface);
+  font-size: 11.5px;
+  text-align: left;
+}
+.result-grid td {
+  cursor: default;
+}
+.result-grid tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.025);
+}
+.result-grid .result-grid-rownum {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 3.5rem;
+  background: var(--color-surface);
+  color: var(--color-ink-4);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.result-grid th.result-grid-rownum {
+  z-index: 2;
+}
+.result-grid td.result-grid-selected {
+  outline: 1px solid var(--color-carrot);
+  outline-offset: -1px;
+  background: var(--color-carrot-soft);
+}
+.result-grid-null {
+  font-size: 11px;
+  color: var(--color-ink-4);
+}
+
 /* Thin dark scrollbars. */
 * {
   scrollbar-width: thin;

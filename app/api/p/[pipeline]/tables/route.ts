@@ -24,6 +24,8 @@ async function handleGet(
         id: t.id,
         name: t.name,
         schema: t.schema,
+        partitionKeys: t.partition_keys ?? [],
+        dedupKeys: t.dedup_keys ?? [],
         fileCount: manifest?.files.length ?? 0,
         version: manifest?.version ?? 0,
       });

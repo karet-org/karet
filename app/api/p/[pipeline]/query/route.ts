@@ -9,6 +9,8 @@ import { runPipelineQuery } from "@/lib/services/query-service";
 import { withRole } from "@/lib/auth/guard";
 import { getLiveConfig } from "@/lib/services/pipeline-store";
 
+const MAX_QUERY_LIMIT = 10_000;
+
 async function handlePost(
   request: Request,
   context: { params: Promise<{ pipeline: string }> },
@@ -19,6 +21,8 @@ async function handlePost(
     sql?: string;
     /** Read a table as of a retained version: `{ "requests": 3 }`. */
     versions?: Record<string, number>;
+    /** Return at most this many rows, and say whether there were more. */
+    limit?: number;
   } | null;
   const sql = body?.sql?.trim();
   if (!sql) {
@@ -35,13 +39,23 @@ async function handlePost(
     );
   }
 
+  const limit = body?.limit;
+  if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > MAX_QUERY_LIMIT)) {
+    return NextResponse.json(
+      { error: "invalid_limit", message: `limit must be between 1 and ${MAX_QUERY_LIMIT}.` },
+      { status: 422 },
+    );
+  }
+
   return wrapS3Error(async () => {
     const pcfg = await getLiveConfig(pipeline);
     if (!pcfg) {
       return NextResponse.json({ error: "pipeline_not_found" }, { status: 404 });
     }
 
-    const result = await runPipelineQuery(pipeline, pcfg.config, sql, {
+    // One extra row tells a capped result apart from one that fit exactly.
+    const capped = limit === undefined ? sql : `SELECT * FROM (${sql}\n) LIMIT ${limit + 1}`;
+    const result = await runPipelineQuery(pipeline, pcfg.config, capped, {
       versions: body?.versions,
     });
 
@@ -49,10 +63,13 @@ async function handlePost(
       return NextResponse.json({ error: "query_error", message: result.error }, { status: 400 });
     }
 
+    const truncated = limit !== undefined && result.rows.length > limit;
+    const rows = truncated ? result.rows.slice(0, limit) : result.rows;
     return NextResponse.json({
       columns: result.columns,
-      rows: result.rows,
-      rowCount: result.rows.length,
+      rows,
+      rowCount: rows.length,
+      truncated,
     });
   }, `POST /api/p/${pipeline}/query`);
 }
