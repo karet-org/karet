@@ -161,7 +161,7 @@ export default function DataNavigator({
           </div>
         ) : tables.length === 0 ? (
           <p className="px-3 text-[11.5px] text-[color:var(--color-ink-4)]">
-            No tables yet. Add an analytic table on the Graph page and run the pipeline.
+            No tables yet.
           </p>
         ) : match.tables.length === 0 ? (
           <p className="px-3 text-[11.5px] text-[color:var(--color-ink-4)]">No table or column matches.</p>
@@ -195,7 +195,7 @@ export default function DataNavigator({
                       type="button"
                       onClick={() => onOpenTable(t.id)}
                       data-testid={`open-table-${t.id}`}
-                      title={t.collidesWith ? "Its SQL name collides with another table" : `Open ${t.name}${age ? `, published ${age}` : ""}`}
+                      title={t.collidesWith ? "Another table has the same SQL name" : `Open ${t.name}${age ? `, published ${age}` : ""}`}
                       className="flex h-6 min-w-0 flex-1 items-center gap-2 text-left"
                     >
                       <span className="min-w-0 truncate font-medium text-[color:var(--color-ink)]">{t.name}</span>
@@ -252,7 +252,7 @@ export default function DataNavigator({
           <p className="px-3 text-[11.5px] text-[color:var(--color-rose-deep)]">{queriesError}</p>
         ) : match.queries.length === 0 ? (
           <p className="px-3 pb-3 text-[11.5px] text-[color:var(--color-ink-4)]">
-            {filtering && queries.length > 0 ? "No saved query matches." : "None yet. Save one from the SQL editor."}
+            {filtering && queries.length > 0 ? "No saved query matches." : "None yet."}
           </p>
         ) : (
           <ul className="pb-3">

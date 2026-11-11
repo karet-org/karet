@@ -162,7 +162,7 @@ export default function TableProperties({
         </div>
         {table.collidesWith && (
           <p className="mt-2 text-[12px] text-[color:var(--color-amber-deep)]">
-            This table&apos;s SQL name collides with another table&apos;s; rename one to query it by name.
+            Another table has the same SQL name. Rename one to query it.
           </p>
         )}
 
@@ -189,7 +189,7 @@ export default function TableProperties({
                   <tr>
                     <th className="w-8 text-right">#</th>
                     <th>Column</th>
-                    <th title="The type in the pipeline config. The Data tab shows the type DuckDB reads.">Type</th>
+                    <th>Type</th>
                     <th>Key</th>
                   </tr>
                 </thead>
@@ -218,9 +218,7 @@ export default function TableProperties({
               <dl className="mt-1.5 grid grid-cols-[8rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[12.5px]" data-testid="table-details">
                 <dt className="text-[color:var(--color-ink-3)]">Partition keys</dt>
                 <dd className="text-[color:var(--color-ink)]">{table.partitionKeys.length ? table.partitionKeys.join(", ") : "None"}</dd>
-                <dt className="text-[color:var(--color-ink-3)]" title="Rows with the same values in these columns are kept once.">
-                  Dedup keys
-                </dt>
+                <dt className="text-[color:var(--color-ink-3)]">Dedup keys</dt>
                 <dd className="text-[color:var(--color-ink)]">{table.dedupKeys.length ? table.dedupKeys.join(", ") : "None"}</dd>
                 <dt className="text-[color:var(--color-ink-3)]">Written by</dt>
                 <dd className="text-[color:var(--color-ink)]" data-testid="table-sources">
@@ -248,9 +246,6 @@ export default function TableProperties({
 
             <section aria-label="Versions">
               <h3 className={heading}>Versions</h3>
-              <p className="mt-1 text-[12px] text-[color:var(--color-ink-3)]">
-                Snapshots the worker still keeps. Restoring one makes it live again; no data is copied.
-              </p>
               {error ? (
                 <p className="mt-2 text-[12px] text-[color:var(--color-rose-deep)]" role="alert">
                   {error}

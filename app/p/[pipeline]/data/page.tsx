@@ -361,10 +361,6 @@ export default function DataPage() {
 
       <Modal open={saveOpen} onClose={() => !saving && setSaveOpen(false)}>
         <h2 className="text-lg font-semibold text-[color:var(--color-ink)]">Save query</h2>
-        <p className="mt-1 text-sm text-[color:var(--color-ink-3)]">
-          Give the query a unique name. The query is validated before saving, and you can reference it from a
-          dashboard config with <code className="rounded bg-[color:var(--color-surface-2)] px-1">query_id</code>.
-        </p>
         <input
           type="text"
           value={saveName}

@@ -71,10 +71,7 @@ export default function TableData({ pipeline, table }: { pipeline: string; table
       <div className="grid flex-1 place-items-center px-4 py-10 text-center" data-testid="empty-table-notice">
         <div>
           <p className="text-[12.5px] text-[color:var(--color-ink-2)]">{table.name} has no data yet.</p>
-          <p className="mx-auto mt-1 max-w-[46ch] text-[12px] text-[color:var(--color-ink-4)]">
-            A table fills up when the pipeline runs. Run it once and its rows appear here.
-          </p>
-          <Link href={`/p/${pipeline}/jobs`} className="mt-3 inline-block text-[12px] text-[color:var(--color-carrot)] hover:underline">
+          <Link href={`/p/${pipeline}/jobs`} className="mt-2 inline-block text-[12px] text-[color:var(--color-carrot)] hover:underline">
             Go to Jobs
           </Link>
         </div>
