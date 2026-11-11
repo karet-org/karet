@@ -94,12 +94,14 @@ function DashboardView({
   }, [pipeline, id, draft, params]);
 
   const columns = config.layout?.columns ?? 3;
-  const gridStyle = useMemo<React.CSSProperties>(
-    () => ({
-      display: "grid",
-      gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-      gap: config.layout?.gap ?? "1rem",
-    }),
+  // The column count is a CSS variable so the stylesheet can drop to one
+  // column on narrow screens (see `.dashboard-grid` in globals.css).
+  const gridStyle = useMemo(
+    () =>
+      ({
+        "--dashboard-columns": columns,
+        gap: config.layout?.gap ?? "1rem",
+      }) as React.CSSProperties,
     [columns, config.layout?.gap],
   );
 
@@ -120,9 +122,9 @@ function DashboardView({
           {error}
         </div>
       )}
-      <div style={gridStyle}>
+      <div className="dashboard-grid" style={gridStyle}>
         {config.panels.map((panel, i) => (
-          <div key={i} className="flex min-w-0" style={spanStyle(panel, columns)}>
+          <div key={i} className="dashboard-slot flex min-w-0" style={spanStyle(panel, columns)}>
             <PanelRenderer
               panel={panel}
               result={data?.panels[i]}

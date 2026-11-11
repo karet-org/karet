@@ -14,6 +14,7 @@ import {
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
 import type { PanelV2 } from "@/lib/types/dashboard-v2";
+import { formatLabel } from "@/lib/dashboard/format";
 import { CHART_ACCENT, CHART_PALETTE } from "@/lib/dashboard/palette";
 import type { Params } from "@/lib/services/dashboard-data";
 import { pivotSeries } from "./series";
@@ -32,6 +33,8 @@ function BarPanel({
   const { labels, datasets } = pivotSeries(data.rows, config.x, config.y, config.series);
   const emit = config.emit;
   const active = emit ? (params?.[emit.param] ?? null) : null;
+
+  const categoryTick = (_v: unknown, i: number) => formatLabel(labels[i] ?? "");
 
   const chartData = {
     labels,
@@ -65,10 +68,17 @@ function BarPanel({
       const target = event.native?.target as HTMLElement | null;
       if (target && emit) target.style.cursor = elements.length > 0 ? "pointer" : "default";
     },
-    plugins: { legend: { display: datasets.length > 1 } },
+    plugins: {
+      legend: { display: datasets.length > 1 },
+      tooltip: {
+        callbacks: { title: (items: { label: string }[]) => (items[0] ? formatLabel(items[0].label) : "") },
+      },
+    },
+    // Labels stay raw because `emit` sends them as the filter value; only
+    // what is drawn is shortened.
     scales: config.horizontal
-      ? { x: { beginAtZero: true }, y: { grid: { display: false } } }
-      : { x: { grid: { display: false } }, y: { beginAtZero: true } },
+      ? { x: { beginAtZero: true }, y: { grid: { display: false }, ticks: { callback: categoryTick } } }
+      : { x: { grid: { display: false }, ticks: { callback: categoryTick } }, y: { beginAtZero: true } },
   };
 
   return (
