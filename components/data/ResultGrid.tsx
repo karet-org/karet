@@ -4,6 +4,7 @@
 // sortable headers, NULL shown as NULL, and a selectable cell.
 
 import { cellText, isNumericColumn, type Row, type Sort } from "@/lib/data/grid";
+import { IconArrowDown, IconArrowUp } from "@/components/icons";
 
 export interface GridColumn {
   name: string;
@@ -56,8 +57,8 @@ export default function ResultGrid({
                   {c.type && (
                     <span className="truncate font-normal text-[color:var(--color-ink-4)]">{c.type.toLowerCase()}</span>
                   )}
-                  <span className="ml-auto w-2 shrink-0 text-[color:var(--color-carrot)]" aria-hidden>
-                    {active === "asc" ? "↑" : active === "desc" ? "↓" : ""}
+                  <span className="ml-auto grid w-3 shrink-0 place-items-center self-center text-[color:var(--color-carrot)]">
+                    {active === "asc" ? <IconArrowUp size={12} /> : active === "desc" ? <IconArrowDown size={12} /> : null}
                   </span>
                 </button>
               </th>
@@ -67,7 +68,7 @@ export default function ResultGrid({
       </thead>
       <tbody>
         {rows.map((row, i) => (
-          <tr key={rowOffset + i}>
+          <tr key={rowOffset + i} className={selected?.row === i ? "result-grid-row-selected" : ""}>
             <td className="result-grid-rownum">{rowOffset + i + 1}</td>
             {columns.map((c) => {
               const text = cellText(row[c.name]);

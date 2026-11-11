@@ -46,7 +46,7 @@ export default function SqlEditor({
       onChange={onChange}
       ariaLabel="SQL editor"
       testId="sql-editor"
-      className="h-[88px] overflow-hidden"
+      className="h-[64px] overflow-hidden"
       viewRef={viewRef}
       extensions={[
         closeBrackets(),

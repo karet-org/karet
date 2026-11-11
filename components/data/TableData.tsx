@@ -9,7 +9,15 @@ import ResultGrid, { type CellRef, type GridColumn } from "./ResultGrid";
 import CellViewer from "./CellViewer";
 import type { TableInfo } from "./types";
 import { downloadCsv, nextSort, toCsv, type Row, type Sort } from "@/lib/data/grid";
-import { ghostButtonClass, inputClass, secondaryButtonClass } from "@/components/ui/controls";
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronsLeft,
+  IconChevronsRight,
+  IconDownload,
+  IconRefresh,
+} from "@/components/icons";
+import { iconButton, toolButton, toolInput, toolSecondary } from "./toolbar";
 
 const PAGE_SIZES = [50, 100, 200, 500];
 
@@ -85,7 +93,7 @@ export default function TableData({ pipeline, table }: { pipeline: string; table
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <form
-        className="flex flex-wrap items-center gap-2 border-b border-[color:var(--color-rule-soft)] px-3 py-2"
+        className="flex flex-wrap items-center gap-1.5 border-b border-[color:var(--color-rule-soft)] px-2 py-1"
         onSubmit={(e) => {
           e.preventDefault();
           applyFilter();
@@ -101,9 +109,9 @@ export default function TableData({ pipeline, table }: { pipeline: string; table
           onChange={(e) => setFilterInput(e.target.value)}
           placeholder="status >= 500 AND path LIKE '/api/%'"
           spellCheck={false}
-          className={inputClass("min-w-[12rem] flex-1 font-mono text-[12px]")}
+          className={toolInput("min-w-[12rem] flex-1 font-mono")}
         />
-        <button type="submit" className={secondaryButtonClass()}>
+        <button type="submit" className={toolSecondary()}>
           Apply
         </button>
         {filter && (
@@ -114,13 +122,20 @@ export default function TableData({ pipeline, table }: { pipeline: string; table
               setFilter("");
               setOffset(0);
             }}
-            className={ghostButtonClass()}
+            className={toolButton()}
           >
             Clear
           </button>
         )}
-        <button type="button" onClick={() => void load()} disabled={loading} className={ghostButtonClass()} title="Reload this page of rows">
-          {loading ? "Loading…" : "Refresh"}
+        <button
+          type="button"
+          onClick={() => void load()}
+          disabled={loading}
+          className={iconButton()}
+          aria-label="Reload this page of rows"
+          title="Reload this page of rows"
+        >
+          <IconRefresh size={14} className={loading ? "animate-spin" : ""} />
         </button>
         <button
           type="button"
@@ -132,10 +147,11 @@ export default function TableData({ pipeline, table }: { pipeline: string; table
               toCsv(page.columns.map((c) => c.name), page.rows),
             )
           }
-          className={ghostButtonClass()}
+          className={iconButton()}
+          aria-label="Download the rows on this page as CSV"
           title="Download the rows on this page as CSV"
         >
-          Export page
+          <IconDownload size={14} />
         </button>
       </form>
 
@@ -176,7 +192,7 @@ export default function TableData({ pipeline, table }: { pipeline: string; table
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-[color:var(--color-rule-soft)] px-3 py-1.5 text-[11.5px] text-[color:var(--color-ink-3)]">
+      <div className="flex flex-wrap items-center gap-2 border-t border-[color:var(--color-rule-soft)] py-0.5 pl-3 pr-1 text-[11.5px] text-[color:var(--color-ink-3)]">
         <span data-testid="table-row-range">
           {total === 0
             ? "0 rows"
@@ -202,17 +218,17 @@ export default function TableData({ pipeline, table }: { pipeline: string; table
               </option>
             ))}
           </select>
-          <button type="button" onClick={() => setOffset(0)} disabled={offset === 0} className={ghostButtonClass()} aria-label="First page">
-            «
+          <button type="button" onClick={() => setOffset(0)} disabled={offset === 0} className={iconButton()} aria-label="First page" title="First page">
+            <IconChevronsLeft size={14} />
           </button>
-          <button type="button" onClick={() => setOffset((o) => Math.max(0, o - pageSize))} disabled={offset === 0} className={ghostButtonClass()} aria-label="Previous page">
-            ‹
+          <button type="button" onClick={() => setOffset((o) => Math.max(0, o - pageSize))} disabled={offset === 0} className={iconButton()} aria-label="Previous page" title="Previous page">
+            <IconChevronLeft size={14} />
           </button>
-          <button type="button" onClick={() => setOffset((o) => o + pageSize)} disabled={offset + pageSize >= total} className={ghostButtonClass()} aria-label="Next page">
-            ›
+          <button type="button" onClick={() => setOffset((o) => o + pageSize)} disabled={offset + pageSize >= total} className={iconButton()} aria-label="Next page" title="Next page">
+            <IconChevronRight size={14} />
           </button>
-          <button type="button" onClick={() => setOffset(last)} disabled={offset + pageSize >= total} className={ghostButtonClass()} aria-label="Last page">
-            »
+          <button type="button" onClick={() => setOffset(last)} disabled={offset + pageSize >= total} className={iconButton()} aria-label="Last page" title="Last page">
+            <IconChevronsRight size={14} />
           </button>
         </span>
       </div>

@@ -7,18 +7,12 @@ import { useEffect, useRef, useState } from "react";
 import type { SavedQuery } from "@/lib/types/query";
 import type { TableInfo } from "./types";
 import { ageLabel, filterNavigator, rowsLabel } from "@/lib/data/navigator";
+import { IconChevronRight, IconClose, IconMore, IconPanelLeftClose } from "@/components/icons";
+import { iconButton, toolInput } from "./toolbar";
 
 type View = "data" | "properties";
 
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden className={`shrink-0 transition-transform ${open ? "rotate-90" : ""}`}>
-      <path d="M6 3.5l4.5 4.5L6 12.5" />
-    </svg>
-  );
-}
-
-/** Actions for one table, opened from its "⋯" button or a right-click. */
+/** Actions for one table, opened from its menu button or a right-click. */
 function TableMenu({
   table,
   at,
@@ -58,7 +52,7 @@ function TableMenu({
     setTimeout(onClose, 600);
   };
 
-  const item = "block w-full px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)] focus:bg-[color:var(--color-surface-2)] focus:outline-none";
+  const item = "block w-full px-3 py-1 text-left text-[12.5px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)] focus:bg-[color:var(--color-surface-2)] focus:outline-none";
   const actions: [string, () => void][] = [
     ["Open data", () => onOpen("data")],
     ["Open properties", () => onOpen("properties")],
@@ -123,11 +117,11 @@ export default function DataNavigator({
 
   const match = filterNavigator(tables, queries, filter);
   const filtering = filter.trim() !== "";
-  const heading = "px-3 pb-1 pt-3 text-[10.5px] font-medium uppercase tracking-[0.06em] text-[color:var(--color-ink-4)]";
+  const heading = "px-3 pb-0.5 pt-2 text-[10.5px] font-medium uppercase tracking-[0.06em] text-[color:var(--color-ink-4)]";
 
   return (
     <nav data-testid="data-navigator" aria-label="Tables and saved queries" className="flex h-full flex-col text-[12.5px]">
-      <div className="flex items-center gap-1 border-b border-[color:var(--color-rule-soft)] p-2">
+      <div className="flex items-center gap-1 border-b border-[color:var(--color-rule-soft)] px-2 py-1.5">
         <input
           type="search"
           value={filter}
@@ -138,7 +132,7 @@ export default function DataNavigator({
           placeholder="Filter tables and columns"
           aria-label="Filter tables, columns and saved queries"
           data-testid="navigator-filter"
-          className="min-w-0 flex-1 rounded border border-[color:var(--color-rule)] bg-transparent px-2 py-1 text-[12px] text-[color:var(--color-ink)] placeholder:text-[color:var(--color-ink-4)] focus:border-[color:var(--color-carrot)] focus:outline-none"
+          className={toolInput("min-w-0 flex-1")}
         />
         {onCollapse && (
           <button
@@ -146,9 +140,9 @@ export default function DataNavigator({
             onClick={onCollapse}
             aria-label="Hide the table list"
             title="Hide the table list"
-            className="grid h-6 w-6 shrink-0 place-items-center rounded text-[color:var(--color-ink-3)] hover:bg-[color:var(--color-surface-2)] hover:text-[color:var(--color-ink)]"
+            className={iconButton()}
           >
-            «
+            <IconPanelLeftClose size={15} />
           </button>
         )}
       </div>
@@ -175,7 +169,8 @@ export default function DataNavigator({
           <ul>
             {match.tables.map(({ table: t, columns, matchedColumns }) => {
               const open = expanded.has(t.id) || matchedColumns;
-              const meta = t.version > 0 ? [rowsLabel(t.rowCount), ageLabel(t.publishedAt)].filter(Boolean).join(" · ") : "No data yet";
+              const rows = t.version > 0 ? (rowsLabel(t.rowCount) ?? "") : "No data";
+              const age = ageLabel(t.publishedAt);
               return (
                 <li key={t.id}>
                   <div
@@ -192,20 +187,20 @@ export default function DataNavigator({
                       onClick={() => toggle(t.id)}
                       aria-expanded={open}
                       aria-label={`${open ? "Hide" : "Show"} columns of ${t.name}`}
-                      className="grid h-8 w-5 shrink-0 place-items-center text-[color:var(--color-ink-4)]"
+                      className="grid h-6 w-5 shrink-0 place-items-center text-[color:var(--color-ink-4)]"
                     >
-                      <Chevron open={open} />
+                      <IconChevronRight size={12} className={`transition-transform ${open ? "rotate-90" : ""}`} />
                     </button>
                     <button
                       type="button"
                       onClick={() => onOpenTable(t.id)}
                       data-testid={`open-table-${t.id}`}
-                      title={t.collidesWith ? "Its SQL name collides with another table" : `Open ${t.name}`}
-                      className="min-w-0 flex-1 py-1 text-left"
+                      title={t.collidesWith ? "Its SQL name collides with another table" : `Open ${t.name}${age ? `, published ${age}` : ""}`}
+                      className="flex h-6 min-w-0 flex-1 items-baseline gap-2 text-left"
                     >
-                      <span className="block truncate font-medium text-[color:var(--color-ink)]">{t.name}</span>
-                      <span className="block truncate text-[10.5px] text-[color:var(--color-ink-4)]" data-testid={`table-meta-${t.id}`}>
-                        {meta}
+                      <span className="min-w-0 truncate font-medium text-[color:var(--color-ink)]">{t.name}</span>
+                      <span className="ml-auto shrink-0 text-[10.5px] tabular-nums text-[color:var(--color-ink-4)]" data-testid={`table-meta-${t.id}`}>
+                        {rows}
                       </span>
                     </button>
                     <button
@@ -216,15 +211,15 @@ export default function DataNavigator({
                         const r = e.currentTarget.getBoundingClientRect();
                         setMenu({ table: t, x: r.left, y: r.bottom + 2 });
                       }}
-                      className="grid h-6 w-6 shrink-0 place-items-center rounded text-[color:var(--color-ink-3)] opacity-0 hover:bg-[color:var(--color-rule-soft)] hover:text-[color:var(--color-ink)] focus-visible:opacity-100 group-hover:opacity-100"
+                      className="grid h-5 w-5 shrink-0 place-items-center rounded text-[color:var(--color-ink-3)] opacity-0 hover:bg-[color:var(--color-rule-soft)] hover:text-[color:var(--color-ink)] focus-visible:opacity-100 group-hover:opacity-100"
                     >
-                      ⋯
+                      <IconMore size={14} />
                     </button>
                   </div>
                   {open && (
-                    <ul className="pb-1 pl-8 pr-2">
+                    <ul className="pb-0.5 pl-7 pr-2">
                       {columns.map((c) => (
-                        <li key={c.name} className="flex items-baseline gap-2 py-0.5 text-[11.5px]">
+                        <li key={c.name} className="flex items-baseline gap-2 py-px text-[11.5px]">
                           <span className="truncate text-[color:var(--color-ink-2)]">{c.name}</span>
                           {t.partitionKeys.includes(c.name) && (
                             <span title="Partition key" className="text-[10px] text-[color:var(--color-carrot)]">P</span>
@@ -263,7 +258,7 @@ export default function DataNavigator({
           <ul className="pb-3">
             {match.queries.map((q) => (
               <li key={q.id} className="group flex items-center px-3 hover:bg-[color:var(--color-surface-2)]">
-                <button type="button" onClick={() => onOpenQuery(q)} title={q.sql} className="min-w-0 flex-1 truncate py-1 text-left text-[color:var(--color-ink-2)]">
+                <button type="button" onClick={() => onOpenQuery(q)} title={q.sql} className="h-6 min-w-0 flex-1 truncate text-left text-[color:var(--color-ink-2)]">
                   {q.name}
                 </button>
                 <button
@@ -272,7 +267,7 @@ export default function DataNavigator({
                   onClick={() => onDeleteQuery(q)}
                   className="grid h-5 w-5 place-items-center rounded text-[color:var(--color-ink-4)] opacity-0 hover:text-[color:var(--color-rose-deep)] focus-visible:opacity-100 group-hover:opacity-100"
                 >
-                  ✕
+                  <IconClose size={12} />
                 </button>
               </li>
             ))}

@@ -14,7 +14,8 @@ import type { TableInfo } from "@/components/data/types";
 import type { SavedQuery } from "@/lib/types/query";
 import { nameToSlug } from "@/lib/config/name-to-slug";
 import { useCanHere } from "@/lib/client/use-current-user";
-import { secondaryButtonClass } from "@/components/ui/controls";
+import { IconClose, IconPanelLeftOpen } from "@/components/icons";
+import { toolSecondary } from "@/components/data/toolbar";
 import { clampNavWidth, NAV_DEFAULT_WIDTH } from "@/lib/data/navigator";
 
 type RawTable = Omit<TableInfo, "slug" | "collidesWith">;
@@ -22,7 +23,7 @@ type View = "data" | "properties";
 const SQL_TAB = "sql";
 
 const tabClass = (active: boolean) =>
-  `flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[12.5px] ${
+  `flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-1.5 text-[12.5px] ${
     active
       ? "border-[color:var(--color-carrot)] text-[color:var(--color-ink)]"
       : "border-transparent text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
@@ -221,9 +222,9 @@ export default function DataPage() {
           aria-label="Show the table list"
           title="Show the table list"
           data-testid="show-navigator"
-          className="hidden w-7 shrink-0 border-r border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] pt-2.5 text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)] md:block"
+          className="hidden w-7 shrink-0 border-r border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] pt-2 text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)] md:block"
         >
-          »
+          <IconPanelLeftOpen size={15} className="mx-auto" />
         </button>
       )}
       <aside
@@ -281,7 +282,7 @@ export default function DataPage() {
             type="button"
             onClick={() => setNavOpen((v) => !v)}
             aria-expanded={navOpen}
-            className={secondaryButtonClass("mx-2 shrink-0 md:hidden")}
+            className={toolSecondary("mx-2 md:hidden")}
           >
             Tables
           </button>
@@ -298,9 +299,9 @@ export default function DataPage() {
                     type="button"
                     onClick={() => closeTable(id)}
                     aria-label={`Close ${t.name}`}
-                    className="grid h-4 w-4 place-items-center rounded text-[10px] text-[color:var(--color-ink-4)] hover:text-[color:var(--color-ink)]"
+                    className="grid h-4 w-4 place-items-center rounded text-[color:var(--color-ink-4)] hover:text-[color:var(--color-ink)]"
                   >
-                    ✕
+                    <IconClose size={11} />
                   </button>
                 </div>
               );

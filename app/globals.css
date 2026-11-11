@@ -147,7 +147,7 @@ button:disabled,
 }
 .result-grid th,
 .result-grid td {
-  padding: 4px 10px;
+  padding: 3px 10px;
   border-right: 1px solid var(--color-rule-soft);
   border-bottom: 1px solid var(--color-rule-soft);
   white-space: nowrap;
@@ -166,6 +166,15 @@ button:disabled,
 }
 .result-grid tbody tr:hover td {
   background: rgba(255, 255, 255, 0.025);
+}
+/* The row-number column stays over the cells scrolled under it, so its
+   background has to stay opaque when its row is hovered or selected. */
+.result-grid tbody tr:hover td.result-grid-rownum {
+  background: linear-gradient(rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.025)), var(--color-surface);
+}
+.result-grid tbody tr.result-grid-row-selected td.result-grid-rownum {
+  background: linear-gradient(var(--color-carrot-soft), var(--color-carrot-soft)), var(--color-surface);
+  color: var(--color-ink-2);
 }
 .result-grid .result-grid-rownum {
   position: sticky;

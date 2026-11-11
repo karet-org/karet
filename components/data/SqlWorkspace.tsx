@@ -7,7 +7,8 @@ import SqlEditor, { type SqlSchema } from "./SqlEditor";
 import ResultGrid, { type CellRef } from "./ResultGrid";
 import CellViewer from "./CellViewer";
 import { downloadCsv, nextSort, sortRows, toCsv, type Row, type Sort } from "@/lib/data/grid";
-import { ghostButtonClass, primaryButtonClass, secondaryButtonClass } from "@/components/ui/controls";
+import { IconDownload, IconPlay, IconSave } from "@/components/icons";
+import { iconButton, toolButton, toolPrimary } from "./toolbar";
 
 /** Rows a query returns to the page; the rest are counted as cut off. */
 const RESULT_LIMIT = 1000;
@@ -89,7 +90,7 @@ export default function SqlWorkspace({
           schema={schema}
           placeholder="SELECT * FROM transactions LIMIT 50"
         />
-        <div className="flex items-center gap-1.5 border-t border-[color:var(--color-rule-soft)] px-2.5 py-2">
+        <div className="flex items-center gap-1 border-t border-[color:var(--color-rule-soft)] py-1 pl-3 pr-1.5">
           <span className="text-[11.5px] text-[color:var(--color-ink-3)]" data-testid="query-status">
             {result &&
               `${result.rows.length.toLocaleString()} row${result.rows.length === 1 ? "" : "s"}${
@@ -101,18 +102,18 @@ export default function SqlWorkspace({
             type="button"
             disabled={!result || result.rows.length === 0}
             onClick={() => result && downloadCsv("query-result.csv", toCsv(result.columns, rows))}
-            className={ghostButtonClass("shrink-0")}
+            className={iconButton()}
+            aria-label="Download the result as CSV"
             title="Download the result as CSV"
           >
-            Export
+            <IconDownload size={14} />
           </button>
-          <button type="button" onClick={onSave} disabled={!sql.trim()} className={secondaryButtonClass("shrink-0")}>
+          <button type="button" onClick={onSave} disabled={!sql.trim()} className={toolButton()}>
+            <IconSave size={13} />
             Save query
           </button>
-          <button type="button" onClick={() => void run(sql)} disabled={loading} className={primaryButtonClass("shrink-0 gap-1.5")}>
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
-              <path d="M5 3.5v9l8-4.5-8-4.5z" />
-            </svg>
+          <button type="button" onClick={() => void run(sql)} disabled={loading} className={toolPrimary()}>
+            <IconPlay size={10} />
             {loading ? "Running…" : "Run"}
           </button>
         </div>
