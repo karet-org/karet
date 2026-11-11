@@ -11,8 +11,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Select, ghostButtonClass, primaryButtonClass } from "@/components/ui/controls";
-import { toolButton, toolInput, toolPrimary } from "@/components/data/toolbar";
+import { CARD, Radio, Select, ghostButtonClass, primaryButtonClass } from "@/components/ui/controls";
 import Modal from "@/components/ui/Modal";
 import { ROLES, type Role } from "@/lib/auth/roles";
 import { accessRows, sourceLabel, type Account, type AccessRow, type AccessState } from "@/lib/auth/access-rows";
@@ -175,81 +174,60 @@ export default function AccessPage() {
   const people = rows.length;
 
   return (
-    <div className="flex flex-col">
-      <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-[color:var(--color-rule-soft)] px-4 py-2">
-        <h1 className="text-[15px] font-semibold text-[color:var(--color-ink)]">Access</h1>
-        {!loading && (
-          <>
-            <span role="radiogroup" aria-label="Who can open this pipeline" className="flex rounded border border-[color:var(--color-rule)] p-0.5">
-              {(
-                [
-                  ["members", "Members only"],
-                  ["instance", "Everyone signed in"],
-                ] as const
-              ).map(([v, text]) => (
-                <button
-                  key={v}
-                  type="button"
-                  role="radio"
-                  aria-checked={visibility === v}
-                  disabled={pending === "visibility"}
-                  onClick={() => visibility !== v && void send("visibility", { visibility: v })}
-                  data-testid={`visibility-${v}`}
-                  className={`h-6 rounded-sm px-2.5 text-[12px] font-medium ${
-                    visibility === v
-                      ? "bg-[color:var(--color-surface-2)] text-[color:var(--color-ink)]"
-                      : "text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
-                  }`}
-                >
-                  {text}
-                </button>
-              ))}
-            </span>
-            <span className="text-[12px] text-[color:var(--color-ink-3)]" data-testid="access-summary">
-              {people} {people === 1 ? "person" : "people"} can open this pipeline
-            </span>
-            <span className="flex items-center gap-1 text-[12px] text-[color:var(--color-ink-3)] md:ml-auto">
-              {owner ? (
-                <>
-                  Owner <span className="font-medium text-[color:var(--color-ink)]">{owner}</span>
-                </>
-              ) : (
-                <span className="text-[color:var(--color-amber-deep)]">No owner</span>
-              )}
-              {canTransfer && (
-                <button type="button" onClick={() => setTransferOpen(true)} data-testid="transfer-owner-open" className={toolButton("h-6 px-1.5")}>
-                  {owner ? "Transfer" : "Set owner"}
-                </button>
-              )}
-            </span>
-          </>
-        )}
-      </header>
+    <div className="mx-auto max-w-3xl px-8 py-8 max-sm:px-4">
+      <h1 className="text-[19px] font-semibold tracking-[-0.01em] text-[color:var(--color-ink)]">Access</h1>
 
       {error && (
-        <p role="alert" className="mx-4 mt-3 rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-3 py-2 text-[12.5px] text-[color:var(--color-rose-deep)]">
+        <div role="alert" className="mt-5 rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]">
           {error}
-        </p>
+        </div>
       )}
 
       {loading ? (
-        <p className="p-4 text-[12.5px] text-[color:var(--color-ink-3)]">Loading…</p>
+        <p className="mt-6 text-sm text-[color:var(--color-ink-3)]">Loading…</p>
       ) : (
-        <div className="max-w-[1000px] p-4">
-          <div className="overflow-x-auto rounded border border-[color:var(--color-rule-soft)]">
-            <table className="result-grid props-grid" data-testid="members-table">
-              <thead>
-                <tr>
-                  <th>Person</th>
-                  <th className="w-[130px]">Role here</th>
-                  <th className="max-sm:hidden">From</th>
-                  <th className="w-0" aria-label="Actions" />
-                </tr>
-              </thead>
+        <>
+          <section className={`mt-6 ${CARD}`} role="radiogroup" aria-labelledby="visibility-heading">
+            <h2 id="visibility-heading" className="text-[14px] font-semibold text-[color:var(--color-ink)]">
+              Visibility
+            </h2>
+            <div className="mt-3 flex flex-col gap-3">
+              <Radio
+                name="visibility"
+                value="members"
+                checked={visibility === "members"}
+                disabled={pending === "visibility"}
+                onChange={() => void send("visibility", { visibility: "members" })}
+                label="Members only"
+                detail="Only the people listed below can open it."
+              />
+              <Radio
+                name="visibility"
+                value="instance"
+                checked={visibility === "instance"}
+                disabled={pending === "visibility"}
+                onChange={() => void send("visibility", { visibility: "instance" })}
+                label="Everyone signed in"
+                detail="Everyone can open it at their usual role, unless a grant below says otherwise."
+              />
+            </div>
+          </section>
+
+          <section className={`mt-5 ${CARD}`}>
+            <h2 className="text-[14px] font-semibold text-[color:var(--color-ink)]">
+              People with access <span className="font-normal text-[color:var(--color-ink-4)]" data-testid="access-summary">{people}</span>
+            </h2>
+
+            <table className="mt-3 w-full table-fixed border-collapse text-sm" data-testid="members-table">
+              <colgroup>
+                <col />
+                <col className="w-[120px]" />
+                <col className="w-[84px]" />
+              </colgroup>
               <tbody>
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-3 text-[color:var(--color-ink-4)]">
+                    <td colSpan={3} className="py-3 text-[12.5px] text-[color:var(--color-ink-4)]">
                       Nobody yet.
                     </td>
                   </tr>
@@ -257,34 +235,35 @@ export default function AccessPage() {
                 {rows.map((r) => {
                   const fixed = r.source === "owner" || r.source === "instance-admin";
                   return (
-                    <tr key={r.username} data-testid={`access-row-${r.username}`}>
-                      <td>
-                        <span className="text-[color:var(--color-ink)]">{r.displayName}</span>
-                        {r.displayName !== r.username && <span className="ml-1.5 text-[color:var(--color-ink-4)]">{r.username}</span>}
-                        {r.username === me?.username && <span className="ml-1.5 text-[11px] text-[color:var(--color-ink-4)]">you</span>}
-                        <span className="block text-[11px] text-[color:var(--color-ink-4)] sm:hidden">{sourceLabel(r)}</span>
+                    <tr key={r.username} data-testid={`access-row-${r.username}`} className="h-[54px] border-b border-[color:var(--color-rule-soft)] last:border-b-0">
+                      <td className="pr-3">
+                        <span className="block truncate font-medium text-[color:var(--color-ink)]">
+                          {r.displayName}
+                          {r.displayName !== r.username && <span className="ml-1.5 font-normal text-[color:var(--color-ink-4)]">{r.username}</span>}
+                          {r.username === me?.username && <span className="ml-1.5 text-[11.5px] font-normal text-[color:var(--color-ink-4)]">you</span>}
+                        </span>
+                        <span className="block truncate text-[11.5px] text-[color:var(--color-ink-4)]">{sourceLabel(r)}</span>
                       </td>
-                      <td className="py-0.5">
+                      <td className="pr-3">
                         {fixed ? (
-                          <span className="pl-2 text-[color:var(--color-ink-2)]">admin</span>
+                          <span className="pl-[11px] text-[12.5px] text-[color:var(--color-ink-2)]">admin</span>
                         ) : (
-                          <select
-                            aria-label={`Role for ${r.username} on this pipeline`}
+                          <Select
+                            label={`Role for ${r.username} on this pipeline`}
                             value={r.role}
                             disabled={pending === `role:${r.username}`}
                             onChange={(e) => setRole(r, e.target.value as Role)}
-                            className={toolInput()}
+                            className="w-[110px]"
                           >
                             {ROLES.map((role) => (
                               <option key={role} value={role}>
                                 {role}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         )}
                       </td>
-                      <td className="text-[color:var(--color-ink-3)] max-sm:hidden">{sourceLabel(r)}</td>
-                      <td className="whitespace-nowrap py-0.5 text-right">
+                      <td className="text-right">
                         {r.source === "grant" && (
                           <button
                             type="button"
@@ -292,7 +271,7 @@ export default function AccessPage() {
                             onClick={() => removeGrant(r)}
                             data-testid={`revoke-${r.username}`}
                             title={visibility === "members" ? "Remove their access" : "Go back to their usual role"}
-                            className={toolButton("h-6 px-1.5")}
+                            className={ghostButtonClass()}
                           >
                             {visibility === "members" ? "Remove" : "Reset"}
                           </button>
@@ -301,50 +280,59 @@ export default function AccessPage() {
                     </tr>
                   );
                 })}
-                {unlisted.length > 0 && (
-                  <tr>
-                    <td colSpan={4} className="py-1">
-                      <span className="flex flex-wrap items-center gap-1.5">
-                        <select
-                          aria-label="Account to give access to"
-                          value={addUser}
-                          onChange={(e) => setAddUser(e.target.value)}
-                          data-testid="add-member-user"
-                          className={toolInput()}
-                        >
-                          <option value="">Add a person…</option>
-                          {unlisted.map((a) => (
-                            <option key={a.username} value={a.username}>
-                              {label(a)}, {a.role} elsewhere
-                            </option>
-                          ))}
-                        </select>
-                        <select aria-label="Role to grant" value={addRole} onChange={(e) => setAddRole(e.target.value as Role)} className={toolInput()}>
-                          {ROLES.map((r) => (
-                            <option key={r} value={r}>
-                              {r}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          disabled={pending === "grant" || !addUser}
-                          onClick={async () => {
-                            if (await send("grant", { username: addUser, role: addRole })) setAddUser("");
-                          }}
-                          data-testid="add-member"
-                          className={toolPrimary()}
-                        >
-                          Add
-                        </button>
-                      </span>
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
-          </div>
-        </div>
+
+            {unlisted.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[color:var(--color-rule-soft)] pt-4">
+                <Select
+                  label="Account to give access to"
+                  value={addUser}
+                  onChange={(e) => setAddUser(e.target.value)}
+                  data-testid="add-member-user"
+                  className="min-w-[14rem]"
+                >
+                  <option value="">Add a person…</option>
+                  {unlisted.map((a) => (
+                    <option key={a.username} value={a.username}>
+                      {label(a)}, {a.role} elsewhere
+                    </option>
+                  ))}
+                </Select>
+                <Select label="Role to grant" value={addRole} onChange={(e) => setAddRole(e.target.value as Role)}>
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </Select>
+                <button
+                  type="button"
+                  disabled={pending === "grant" || !addUser}
+                  onClick={async () => {
+                    if (await send("grant", { username: addUser, role: addRole })) setAddUser("");
+                  }}
+                  data-testid="add-member"
+                  className={primaryButtonClass()}
+                >
+                  Add
+                </button>
+              </div>
+            )}
+          </section>
+
+          <section className={`mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 ${CARD}`}>
+            <h2 className="text-[14px] font-semibold text-[color:var(--color-ink)]">Owner</h2>
+            <span className="text-[13px] text-[color:var(--color-ink-2)]" data-testid="owner-name">
+              {owner ?? <span className="text-[color:var(--color-amber-deep)]">None</span>}
+            </span>
+            {canTransfer && (
+              <button type="button" onClick={() => setTransferOpen(true)} data-testid="transfer-owner-open" className={ghostButtonClass("ml-auto")}>
+                {owner ? "Transfer ownership" : "Set owner"}
+              </button>
+            )}
+          </section>
+        </>
       )}
 
       <Modal open={transferOpen} onClose={() => (pending === "owner" ? undefined : setTransferOpen(false))}>
