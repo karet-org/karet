@@ -46,7 +46,7 @@ export default function SqlEditor({
       onChange={onChange}
       ariaLabel="SQL editor"
       testId="sql-editor"
-      className="h-[88px] overflow-hidden"
+      className="h-[64px] overflow-hidden"
       viewRef={viewRef}
       extensions={[
         closeBrackets(),
@@ -64,6 +64,8 @@ export default function SqlEditor({
         ),
         schemaCompartment.current.of(sql({ schema: {} })),
         cmPlaceholder(placeholder ?? ""),
+        // Line text starts 12px in, in line with the toolbars.
+        EditorView.theme({ ".cm-line": { paddingLeft: "12px" } }),
       ]}
     />
   );

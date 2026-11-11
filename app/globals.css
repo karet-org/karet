@@ -48,6 +48,13 @@ body {
 html {
   scrollbar-gutter: stable;
 }
+/* From md up the shell is fixed to the screen and the page never scrolls,
+   so the reserved space would only be an empty strip on the right. */
+@media (min-width: 768px) {
+  html {
+    scrollbar-gutter: auto;
+  }
+}
 
 body {
   color: var(--color-ink);
@@ -135,6 +142,83 @@ button:disabled,
 }
 .data-table tbody tr.detail-row:hover td {
   background: transparent;
+}
+
+/* Data page result grid: compact rows, gridlines, a sticky header and row
+   numbers, so a wide table reads like a spreadsheet. */
+.result-grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12.5px;
+  min-width: 100%;
+}
+.result-grid th,
+.result-grid td {
+  padding: 3px 10px;
+  border-right: 1px solid var(--color-rule-soft);
+  border-bottom: 1px solid var(--color-rule-soft);
+  white-space: nowrap;
+  color: var(--color-ink-2);
+}
+.result-grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface);
+  font-size: 11.5px;
+  text-align: left;
+}
+.result-grid td {
+  cursor: default;
+}
+.result-grid tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.025);
+}
+/* The row-number column stays over the cells scrolled under it, so its
+   background has to stay opaque when its row is hovered or selected. */
+.result-grid tbody tr:hover td.result-grid-rownum {
+  background: linear-gradient(rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.025)), var(--color-surface);
+}
+.result-grid tbody tr.result-grid-row-selected td.result-grid-rownum {
+  background: linear-gradient(var(--color-carrot-soft), var(--color-carrot-soft)), var(--color-surface);
+  color: var(--color-ink-2);
+}
+.result-grid .result-grid-rownum {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 3.5rem;
+  background: var(--color-surface);
+  color: var(--color-ink-4);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.result-grid th.result-grid-rownum {
+  z-index: 2;
+}
+.result-grid td.result-grid-selected {
+  outline: 1px solid var(--color-carrot);
+  outline-offset: -1px;
+  background: var(--color-carrot-soft);
+}
+/* The grid style for the small tables on the Properties tab, which sit in a
+   bordered box and do not scroll on their own. */
+.props-grid {
+  width: 100%;
+}
+.props-grid th {
+  position: static;
+}
+.props-grid th:last-child,
+.props-grid td:last-child {
+  border-right: none;
+}
+.props-grid tbody tr:last-child td {
+  border-bottom: none;
+}
+.result-grid-null {
+  font-size: 11px;
+  color: var(--color-ink-4);
 }
 
 /* Thin dark scrollbars. */

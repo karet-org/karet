@@ -127,31 +127,32 @@ export async function warehouseSource(
 }
 
 /**
- * Load a table's rows, or `[]` when it has no published output yet. Pass a
- * `version` to read a retained snapshot instead of what is live.
+ * True for errors that mean a manifest outlived the objects it names (vacuum
+ * retired a version between resolving it and reading it).
  */
-export async function loadTableRowsDuckDB<T extends Record<string, unknown>>(
-  slug: string,
-  tableId: string,
-  version?: number,
-): Promise<T[]> {
-  const source = await warehouseSource(slug, tableId, version);
-  if (!source) return [];
-  try {
-    return await query<T>(`SELECT * FROM ${source}`);
-  } catch (err) {
-    // A manifest can outlive the objects it names (vacuum retires a version
-    // between resolving it and reading it); treat as no rows.
-    const msg = err instanceof Error ? err.message : String(err);
-    if (
-      msg.includes("No files found") ||
-      msg.includes("HTTP Error") ||
-      msg.includes("Could not read")
-    ) {
-      return [];
-    }
-    throw err;
-  }
+export function isVanishedFileError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    msg.includes("No files found") ||
+    msg.includes("HTTP Error") ||
+    msg.includes("Could not read")
+  );
+}
+
+/** Rows in a `read_parquet(...)` source, from the Parquet footers. */
+export async function countSource(source: string): Promise<number> {
+  const rows = await query<{ n: number }>(`SELECT count(*) AS n FROM ${source}`);
+  return Number(rows[0]?.n ?? 0);
+}
+
+/** Column names and DuckDB types of a `read_parquet(...)` source. */
+export async function describeSource(
+  source: string,
+): Promise<{ name: string; type: string }[]> {
+  const rows = await query<{ column_name: string; column_type: string }>(
+    `DESCRIBE SELECT * FROM ${source}`,
+  );
+  return rows.map((r) => ({ name: String(r.column_name), type: String(r.column_type) }));
 }
 
 /**
