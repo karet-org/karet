@@ -250,6 +250,12 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
           </svg>
           Data
         </Link>
+        <Link href={`${base}/search`} className={itemClass(isActive(`${base}/search`))}>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={iconClass(isActive(`${base}/search`))} aria-hidden>
+            <circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3 3" />
+          </svg>
+          Search
+        </Link>
         {isAdmin && (
           <Link href={`${base}/access`} className={itemClass(isActive(`${base}/access`))}>
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={iconClass(isActive(`${base}/access`))} aria-hidden>

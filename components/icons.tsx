@@ -42,6 +42,7 @@ export const IconClose = (p: IconProps) => <Svg {...p}><path d="M18 6 6 18M6 6l1
 export const IconDownload = (p: IconProps) => <Svg {...p}><path d="M12 3v12m-5-5 5 5 5-5M5 21h14" /></Svg>;
 export const IconUpload = (p: IconProps) => <Svg {...p}><path d="M12 21V9m-5 5 5-5 5 5M5 3h14" /></Svg>;
 export const IconPlus = (p: IconProps) => <Svg {...p}><path d="M12 5v14M5 12h14" /></Svg>;
+export const IconMinus = (p: IconProps) => <Svg {...p}><path d="M5 12h14" /></Svg>;
 export const IconChevronRight = (p: IconProps) => <Svg {...p}><polyline points="9 6 15 12 9 18" /></Svg>;
 export const IconChevronLeft = (p: IconProps) => <Svg {...p}><polyline points="15 6 9 12 15 18" /></Svg>;
 export const IconChevronsLeft = (p: IconProps) => <Svg {...p}><polyline points="11 17 6 12 11 7" /><polyline points="18 17 13 12 18 7" /></Svg>;
