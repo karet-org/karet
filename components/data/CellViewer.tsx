@@ -1,5 +1,3 @@
-"use client";
-
 // Side panel with the full value of the selected grid cell.
 
 import { useState } from "react";

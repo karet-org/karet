@@ -1,5 +1,3 @@
-"use client";
-
 // Lake folder picker: text input plus a browse popover backed by /api/lake.
 
 import { useEffect, useRef, useState } from "react";

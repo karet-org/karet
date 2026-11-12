@@ -1,5 +1,3 @@
-"use client";
-
 // Dashboard v2 renderer: fetches the batch /data endpoint on mount and
 // on (debounced) filter changes; each panel binds its own result.
 

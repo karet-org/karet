@@ -1,0 +1,118 @@
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { bucketForRelPath, withS3 } from "@/lib/config/s3-client";
+import { newId } from "@/lib/config/id";
+
+import { TEMPLATES, type TemplateId } from "@/lib/templates";
+import { isFileRows } from "@/lib/types/config";
+import type { PipelineConfig } from "@/lib/types/config";
+import { withRole } from "@/lib/auth/guard";
+import type { Principal } from "@/lib/auth/service-token";
+import { createPipeline, listPipelines, pipelineExists } from "@/lib/services/pipeline-store";
+import { visiblePipelineSlugs } from "@/lib/auth/pipeline-access";
+
+async function handleGet(_request: Request, _context: unknown, principal: Principal) {
+  return withS3("GET /api/pipelines", async (_client, _config) => {
+    // Members-only pipelines are invisible to non-members, so the list is
+    // filtered rather than the cards being 404s.
+    const visible = await visiblePipelineSlugs(principal);
+    const pipelines = (await listPipelines(visible === "all" ? undefined : visible)).map((p) => ({
+      id: p.slug,
+      name: p.name,
+    }));
+    return Response.json({ pipelines });
+  });
+}
+
+function absolutizeSourcePrefixes(cfg: PipelineConfig, prefix: string): PipelineConfig {
+  return {
+    ...cfg,
+    source_containers: cfg.source_containers.map((sc) => ({
+      ...sc,
+      path_prefix: `${prefix}${sc.path_prefix}`,
+    })),
+    // File-backed dimensions read the lake by prefix too.
+    dimensions: cfg.dimensions.map((d) =>
+      isFileRows(d.rows)
+        ? { ...d, rows: { ...d.rows, path_prefix: `${prefix}${d.rows.path_prefix}` } }
+        : d,
+    ),
+  };
+}
+
+/** Creates a pipeline; the generated id is immutable, rename only edits `name`. */
+async function handlePost(request: Request, _context: unknown, principal: Principal) {
+  const body = (await request.json().catch(() => null)) as {
+    name?: string;
+    template?: TemplateId;
+  } | null;
+
+  const name = body?.name?.trim() ?? "";
+  const template = body?.template && TEMPLATES[body.template] ? TEMPLATES[body.template] : undefined;
+
+  if (!name) return Response.json({ error: "invalid_name" }, { status: 422 });
+  if (!template) return Response.json({ error: "invalid_template" }, { status: 422 });
+
+  return withS3("POST /api/pipelines", async (client, config) => {
+    // A collision needs a same-millisecond create to also draw the same
+    // random suffix; retry a few times rather than clobber.
+    let slug = "";
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const candidate = newId("p");
+      // The registry's primary key owns uniqueness, so ask it.
+      if (!(await pipelineExists(candidate))) {
+        slug = candidate;
+        break;
+      }
+    }
+    if (!slug) {
+      return Response.json({ error: "id_collision" }, { status: 503 });
+    }
+
+    const prefix = `${config.pipelinesPrefix}${slug}/`;
+
+    for (const [relPath, content] of Object.entries(template.files)) {
+      if (relPath === "pipeline.json") {
+        // The config is the pipeline's first version in Postgres, not an object.
+        // Templates author source prefixes relative to the pipeline, so render
+        // them absolute here.
+        await createPipeline(
+          slug,
+          { ...absolutizeSourcePrefixes(content as PipelineConfig, prefix), name },
+          { id: principal.userId, name: principal.username },
+        );
+        continue;
+      }
+      // Dashboards and saved queries stay in S3: documents edited as text.
+      await client.send(
+        new PutObjectCommand({
+          Bucket: bucketForRelPath(config, relPath),
+          Key: `${prefix}${relPath}`,
+          Body: JSON.stringify(content, null, 2),
+          ContentType: "application/json",
+        }),
+      );
+    }
+
+    if (template.rawFiles) {
+      for (const [relPath, content] of Object.entries(template.rawFiles)) {
+        await client.send(
+          new PutObjectCommand({
+            Bucket: bucketForRelPath(config, relPath),
+            Key: `${prefix}${relPath}`,
+            Body: content,
+            ContentType: relPath.endsWith(".csv")
+              ? "text/csv"
+              : relPath.endsWith(".ndjson") || relPath.endsWith(".jsonl")
+                ? "application/x-ndjson"
+                : "application/octet-stream",
+          }),
+        );
+      }
+    }
+
+    return Response.json({ ok: true, pipeline: slug, name });
+  });
+}
+
+export const GET = withRole(handleGet);
+export const POST = withRole(handlePost);

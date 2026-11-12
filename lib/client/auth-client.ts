@@ -1,5 +1,3 @@
-"use client";
-
 // Better-auth's browser client. Sign-in and sign-out go through it so the cookie
 // handling stays in one place; everything else in the UI reads /api/auth/me.
 

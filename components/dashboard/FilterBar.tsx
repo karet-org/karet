@@ -1,5 +1,3 @@
-"use client";
-
 // FilterBar v2: one control per filter, reporting named SQL parameters.
 // Dropdown options come from the /data response (options_sql results).
 

@@ -1,5 +1,3 @@
-"use client";
-
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   Background,

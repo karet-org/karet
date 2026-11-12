@@ -1,7 +1,6 @@
 // Shared S3 client factory: env-derived config for RustFS-compatible path-style access.
 
 import { S3Client, S3ServiceException } from "@aws-sdk/client-s3";
-import { NextResponse } from "next/server";
 
 export interface S3Config {
   /** ELT control-plane data: pipeline configs, dashboards, job records. */
@@ -95,13 +94,13 @@ export function isNoSuchBucket(err: unknown): boolean {
 export async function wrapS3Error<T>(
   fn: () => Promise<T>,
   label: string,
-): Promise<T | NextResponse> {
+): Promise<T | Response> {
   try {
     return await fn();
   } catch (err) {
     console.error(`${label} failed:`, err);
     if (isNoSuchBucket(err)) {
-      return NextResponse.json(
+      return Response.json(
         {
           error: "bucket_not_found",
           message: `S3 bucket does not exist. Create it first or check the S3_BUCKET_PIPELINES / S3_BUCKET_LAKE / S3_BUCKET_WAREHOUSE environment variables.`,
@@ -109,7 +108,7 @@ export async function wrapS3Error<T>(
         { status: 502 },
       );
     }
-    return NextResponse.json(
+    return Response.json(
       { error: "s3_error", message: (err as Error).message },
       { status: 503 },
     );
@@ -121,7 +120,7 @@ export async function wrapS3Error<T>(
 export function withS3<T>(
   label: string,
   fn: (client: S3Client, config: S3Config) => Promise<T>,
-): Promise<T | NextResponse> {
+): Promise<T | Response> {
   const config = loadS3Config();
   const client = createS3Client(config);
   return wrapS3Error(() => fn(client, config), label);

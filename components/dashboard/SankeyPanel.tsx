@@ -1,5 +1,3 @@
-"use client";
-
 // Sankey panel: d3-sankey layout + SVG render, hover-only interaction.
 
 import { useEffect, useMemo, useRef, useState } from "react";

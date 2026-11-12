@@ -1,5 +1,3 @@
-"use client";
-
 // Dashboard YAML editor on the shared CodeEditor host: line numbers,
 // highlighting, context completion, and parent-supplied diagnostics.
 

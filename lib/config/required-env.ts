@@ -4,7 +4,7 @@
 /**
  * Env vars the Web service cannot start without; matches the Worker's
  * `REQUIRED_ENV_VARS` so both services share one contract. `PORT`/`HOSTNAME`
- * are excluded — Next.js defaults them.
+ * are excluded: the server defaults them.
  */
 export const REQUIRED_ENV_VARS = [
   "S3_BUCKET_PIPELINES",

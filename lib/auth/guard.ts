@@ -12,7 +12,6 @@
 //
 // Node runtime only.
 
-import { NextResponse } from "next/server";
 import { currentPrincipal, type Principal } from "@/lib/auth/current-user";
 import { effectiveRoleFor } from "@/lib/auth/pipeline-access";
 import { pipelineFromPath, requiredRole } from "@/lib/auth/policy";
@@ -30,7 +29,7 @@ export function withRole<C>(
   return async (request: Request, context: C) => {
     const principal = await currentPrincipal();
     if (!principal) {
-      return NextResponse.json(
+      return Response.json(
         { error: "unauthorized", message: "missing or invalid session" },
         { status: 401 },
       );
@@ -51,10 +50,10 @@ export function withRole<C>(
       // Members-only and they are not a member. 404 rather than 403: telling
       // someone a pipeline exists but is not for them leaks its existence, and
       // they cannot act on the information either way.
-      return NextResponse.json({ error: "not_found" }, { status: 404 });
+      return Response.json({ error: "not_found" }, { status: 404 });
     }
     if (!roleAtLeast(held, needed)) {
-      return NextResponse.json(
+      return Response.json(
         {
           error: "forbidden",
           message: `this action needs the ${needed} role; you have ${held}${

@@ -203,13 +203,13 @@ describe("connection rules", () => {
     expect(source).toContain("onConnectEnd");
     expect(source).toContain("rf-connect-target");
     expect(source).toContain("rf-connect-blocked");
-    const css = readFileSync("app/globals.css", "utf8");
+    const css = readFileSync("src/globals.css", "utf8");
     expect(css).toContain(".react-flow__node.rf-connect-target");
     expect(css).toContain(".react-flow__node.rf-connect-blocked");
   });
 
   it("grows a handle from cursor proximity to the handle, not the node", () => {
-    const css = readFileSync("app/globals.css", "utf8");
+    const css = readFileSync("src/globals.css", "utf8");
     // A padded invisible ring does the hit-testing…
     expect(css).toContain(".react-flow .react-flow__handle::after");
     expect(css).toContain(".react-flow .react-flow__handle:hover");

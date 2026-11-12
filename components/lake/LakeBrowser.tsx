@@ -1,5 +1,3 @@
-"use client";
-
 // Uploads under a pipeline prefix trigger a debounced run via the store webhook.
 
 import { useCallback, useEffect, useRef, useState } from "react";

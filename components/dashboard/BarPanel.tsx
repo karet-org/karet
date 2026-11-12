@@ -1,5 +1,3 @@
-"use client";
-
 // Bar panel: x/y bound columns, optional series pivot, optional
 // horizontal orientation.
 

@@ -5,15 +5,14 @@
 // the result here. Keeping the mapping in its own module is what lets the rules be
 // tested without a request.
 
-import { NextResponse } from "next/server";
 import type { Outcome } from "@/lib/outcome";
 
 export function respond<T>(
   outcome: Outcome<T>,
-  ok: (value: T) => NextResponse,
-): NextResponse {
+  ok: (value: T) => Response,
+): Response {
   if (outcome.ok) return ok(outcome.value);
-  return NextResponse.json(
+  return Response.json(
     { error: outcome.error, message: outcome.message },
     { status: outcome.status },
   );

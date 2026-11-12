@@ -10,7 +10,7 @@
 // Machine callers present `Authorization: Bearer $KARET_WORKER_TOKEN` instead of
 // a cookie; see `service-token.ts`, which middleware also uses.
 
-import { headers } from "next/headers";
+import { requestHeaders } from "@/lib/http/request-context";
 import { getAuth } from "@/lib/auth/auth";
 import { findUserByUsername } from "@/lib/auth/users";
 import { serviceTokenPrincipal, type Principal } from "@/lib/auth/service-token";
@@ -19,12 +19,12 @@ export { serviceTokenPrincipal, type Principal };
 
 /** The caller, or null when unauthenticated. */
 export async function currentPrincipal(): Promise<Principal | null> {
-  const requestHeaders = await headers();
+  const headers = requestHeaders();
 
-  const service = serviceTokenPrincipal(requestHeaders.get("authorization"));
+  const service = serviceTokenPrincipal(headers.get("authorization"));
   if (service) return service;
 
-  const session = await getAuth().api.getSession({ headers: requestHeaders });
+  const session = await getAuth().api.getSession({ headers });
   if (!session?.user) return null;
 
   const claimed = session.user.username ?? session.user.name;

@@ -1,5 +1,3 @@
-"use client";
-
 // The SQL tab: the editor above, its result grid below.
 
 import { useCallback, useEffect, useState } from "react";

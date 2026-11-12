@@ -99,10 +99,9 @@ let instance: ReturnType<typeof build> | null = null;
 /**
  * The auth instance, built on first use.
  *
- * Not a module-level constant: `next build` imports every route to collect page
- * data, and constructing this reads DATABASE_URL, so a top-level instance would
- * make the build require a database URL it has no business knowing. Deferring to
- * the first request also keeps pure helpers downstream unit-testable.
+ * Not a module-level constant: constructing this reads DATABASE_URL, so
+ * importing the module would need a database. Deferring to the first request
+ * keeps pure helpers downstream unit-testable.
  */
 export function getAuth(): ReturnType<typeof build> {
   instance ??= build();

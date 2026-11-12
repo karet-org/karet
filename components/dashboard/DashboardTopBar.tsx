@@ -1,10 +1,7 @@
-"use client";
-
 // Persistent top bar for the dashboard routes (rendered by the shared
 // layout). Pages portal their actions into the slot span.
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, usePathname } from "@/lib/client/navigation";
 import { useDashboardsIndex } from "@/lib/client/dashboards-index";
 
 export const TOPBAR_ACTIONS_ID = "dashboard-topbar-actions";

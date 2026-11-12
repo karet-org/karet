@@ -1,5 +1,3 @@
-"use client";
-
 // Accounts, for an admin: create, change a role, reset a password, delete.
 
 import { useCallback, useEffect, useState } from "react";

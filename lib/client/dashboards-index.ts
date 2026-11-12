@@ -1,5 +1,3 @@
-"use client";
-
 // Change-aware dashboards index: mutations notify, subscribers refetch.
 
 import { useEffect, useState } from "react";

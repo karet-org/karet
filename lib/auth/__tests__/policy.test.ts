@@ -109,11 +109,11 @@ describe("every API route is guarded", () => {
   // without a session, and they do their own checking. `[...all]` is
   // better-auth's handler, which owns sign-in, sign-out and session reads.
   const EXEMPT = new Set([
-    join("app", "api", "auth", "[...all]", "route.ts"),
-    join("app", "api", "auth", "me", "route.ts"),
+    join("server", "api", "auth", "[...all]", "route.ts"),
+    join("server", "api", "auth", "me", "route.ts"),
   ]);
 
-  const files = routeFiles(join("app", "api"));
+  const files = routeFiles(join("server", "api"));
 
   it("finds the route files", () => {
     expect(files.length).toBeGreaterThan(20);

@@ -1,5 +1,3 @@
-"use client";
-
 // Expands into a CodeMirror modal over the same value; closing calls `onCommit`.
 
 import { useState } from "react";

@@ -1,7 +1,5 @@
-"use client";
-
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/client/navigation";
 import Modal from "@/components/ui/Modal";
 import { IconPlus } from "@/components/icons";
 import { useCan } from "@/lib/client/use-current-user";

@@ -5,9 +5,10 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-2b2c33)](./LICENSE)
 
 Web app for Karet, a self-hosted analytics stack: ETL pipelines you draw as a
-graph, and dashboards you describe in YAML. This repo holds the Next.js app, the
-graph editor and the compose file for the whole stack. The pipeline runner lives
-in [karet-worker](https://github.com/karet-org/karet-worker).
+graph, and dashboards you describe in YAML. This repo holds the web app (React
+pages built with Vite, and an API server on Hono), the graph editor and the
+compose file for the whole stack. The pipeline runner lives in
+[karet-worker](https://github.com/karet-org/karet-worker).
 
 Docs: [karet-docs.pages.dev](https://karet-docs.pages.dev)
 
@@ -59,6 +60,8 @@ way in; see the
 ```sh
 npm install
 npm run dev                   # http://localhost:3000
+npm run build                 # dist/client (pages) and dist/server (API)
+npm start                     # runs dist/server/index.js
 npm test                      # vitest + fast-check property tests
 npm run typecheck
 npm run test:e2e              # Playwright, requires the full stack running

@@ -1,5 +1,3 @@
-"use client";
-
 // Matching events, newest first: the time, then each field as name=value.
 // Open an event to see its fields one per line, with buttons to add or
 // exclude a value.

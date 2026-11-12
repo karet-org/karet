@@ -1,5 +1,3 @@
-"use client";
-
 // The signed-in user, for hiding controls that would 403 anyway.
 //
 // Presentation only. Every route enforces its own role server-side, so a

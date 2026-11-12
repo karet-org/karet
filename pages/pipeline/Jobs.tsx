@@ -1,0 +1,481 @@
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "@/lib/client/navigation";
+import { IconPlay } from "@/components/icons";
+import type { JobRecord } from "@/lib/types/jobs";
+import { useCanHere } from "@/lib/client/use-current-user";
+
+type Job = JobRecord;
+
+export default function JobsPage() {
+  const { pipeline } = useParams<{ pipeline: string }>();
+  const canEdit = useCanHere(pipeline, "editor");
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [running, setRunning] = useState(false);
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [bucketError, setBucketError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  // Refs let long-lived effects (stream, poll timer) read current state
+  // without re-running on every render.
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  const pageSizeRef = useRef(pageSize);
+  pageSizeRef.current = pageSize;
+  const jobsRef = useRef(jobs);
+  jobsRef.current = jobs;
+
+  // Single-flight with a trailing rerun: SSE bursts arrive faster than a
+  // fetch completes, so per-event loads would pile up and starve the
+  // server. Asks during a flight collapse into one follow-up.
+  const loadInFlight = useRef(false);
+  const loadAgain = useRef(false);
+  const loadJobs = useCallback(async () => {
+    if (loadInFlight.current) {
+      loadAgain.current = true;
+      return;
+    }
+    loadInFlight.current = true;
+    try {
+      do {
+        loadAgain.current = false;
+        try {
+          const r = await fetch(
+            `/api/p/${pipeline}/jobs?page=${pageRef.current}&pageSize=${pageSizeRef.current}`,
+          );
+          if (!r.ok) {
+            const body = await r.json().catch(() => ({}));
+            if (body.error === "bucket_not_found") setBucketError(body.message);
+            else setLoadError(body.message ?? "Could not load jobs.");
+            continue;
+          }
+          const d = await r.json();
+          setJobs(d.jobs ?? []);
+          setTotalPages(d.totalPages ?? 1);
+          setTotal(d.total ?? 0);
+          setLoadError(null);
+        } catch (e) {
+          setLoadError(e instanceof Error ? e.message : String(e));
+        }
+      } while (loadAgain.current);
+    } finally {
+      loadInFlight.current = false;
+      setLoaded(true);
+    }
+  }, [pipeline]);
+
+  useEffect(() => {
+    loadJobs();
+  }, [loadJobs, page, pageSize]);
+
+  // Clamp the page when the total shrinks.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const loadJobsRef = useRef(loadJobs);
+  loadJobsRef.current = loadJobs;
+
+  // SSE row updates; unknown/terminal events trigger a repaginating reload.
+  // Only runs while visible: an EventSource pins one of the browser's 6
+  // per-origin connections, so background tabs would starve the app.
+  const [sseConnected, setSseConnected] = useState(false);
+  useEffect(() => {
+    let es: EventSource | null = null;
+
+    const onMessage = (e: MessageEvent) => {
+      const record = JSON.parse(e.data) as Job;
+      const known = jobsRef.current.some((j) => j.id === record.id);
+      if (known) {
+        setJobs((prev) =>
+          prev.map((j) => (j.id === record.id ? record : j)),
+        );
+      }
+      const terminal = record.status !== "queued" && record.status !== "running";
+      if (!known && pageRef.current === 1) loadJobsRef.current();
+      else if (terminal) loadJobsRef.current();
+    };
+
+    const open = () => {
+      if (es) return;
+      es = new EventSource(`/api/p/${pipeline}/jobs/events`);
+      es.onopen = () => setSseConnected(true);
+      es.onerror = () => setSseConnected(false);
+      es.onmessage = onMessage;
+    };
+    const close = () => {
+      es?.close();
+      es = null;
+      setSseConnected(false);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        close();
+      } else {
+        open();
+        // Catch up on anything that happened while hidden.
+        loadJobsRef.current();
+      }
+    };
+
+    if (document.visibilityState !== "hidden") open();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      close();
+    };
+  }, [pipeline]);
+
+  // Reconciliation poll: slow while SSE delivers, faster fallback when it
+  // doesn't. Skipped while hidden; the visibility handler catches up.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      loadJobsRef.current();
+    }, sseConnected ? 30000 : 5000);
+    return () => clearInterval(id);
+  }, [sseConnected]);
+
+  // Another trigger would just stack an identical clean run behind it.
+  const hasActiveJob = jobs.some(
+    (j) => j.status === "queued" || j.status === "running" || j.status === "scheduled",
+  );
+
+  // Synchronous lock: a double-click fires two POSTs before React
+  // rerenders the disabled state, racing two jobs over the same S3 prefix.
+  const triggerInFlight = useRef(false);
+  async function triggerJob() {
+    if (triggerInFlight.current) return;
+    triggerInFlight.current = true;
+    setRunning(true);
+    try {
+      await fetch(`/api/p/${pipeline}/jobs?clean=true`, { method: "POST" });
+      // Await the reload so the button stays locked until the queued job
+      // is on screen; a spam-click in the gap would enqueue extras.
+      if (page !== 1) setPage(1);
+      else await loadJobs();
+    } finally {
+      triggerInFlight.current = false;
+      setRunning(false);
+    }
+  }
+
+  const statusDot = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "bg-[color:var(--color-leaf)]";
+      case "failed":
+        return "bg-[color:var(--color-rose-deep)]";
+      case "abandoned":
+        return "bg-amber-500";
+      case "running":
+        return "bg-yellow-500 animate-pulse";
+      case "scheduled":
+      case "queued":
+        return "bg-[#6cb2ff] animate-pulse";
+      default:
+        return "bg-[color:var(--color-ink-4)]";
+    }
+  };
+
+  /** One-line live progress, e.g. `ingesting 3/7 mappings, 12 partitions`. */
+  function progressLine(job: Job): string {
+    const p = job.progress;
+    if (!p) return job.status === "queued" ? "waiting for a worker" : "running…";
+    if (p.stage === "downloading") {
+      return p.files_total
+        ? `downloading ${p.files_done ?? 0}/${p.files_total} files`
+        : "downloading…";
+    }
+    const parts = [`ingesting ${p.mappings_done ?? 0}/${p.mappings_total ?? "?"} mappings`];
+    if (job.partitions_written !== undefined) {
+      parts.push(`${job.partitions_written} partition(s)`);
+    }
+    return parts.join(", ");
+  }
+
+  /** Fraction complete for the progress bar; null = indeterminate. */
+  function progressPct(job: Job): number | null {
+    const p = job.progress;
+    if (!p) return null;
+    if (p.stage === "downloading") {
+      return p.files_total ? (0.5 * (p.files_done ?? 0)) / p.files_total : null;
+    }
+    return p.mappings_total ? 0.5 + (0.5 * (p.mappings_done ?? 0)) / p.mappings_total : null;
+  }
+
+  function scheduledCountdown(nextRunAt: string): string {
+    const ms = Date.parse(nextRunAt) - Date.now();
+    if (!Number.isFinite(ms)) return "soon";
+    if (ms <= 0) return "any moment now";
+    const s = Math.ceil(ms / 1000);
+    if (s < 60) return `runs in ${s}s`;
+    const m = Math.ceil(s / 60);
+    return `runs in ${m}m`;
+  }
+
+  function formatDuration(startedAt: string, completedAt: string): string {
+    const ms = Date.parse(completedAt) - Date.parse(startedAt);
+    if (!Number.isFinite(ms) || ms < 0) return "-";
+    if (ms < 1000) return `${ms}ms`;
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return `${m}m ${rem}s`;
+  }
+
+  return (
+    <main
+      className="px-4 py-4 sm:px-6"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-[color:var(--color-ink)]">Jobs</h1>
+          <p className="mt-1 text-[12.5px] text-[color:var(--color-ink-3)]">
+            Runs for this pipeline,{" "}
+            {sseConnected ? "live updates connected" : "reconnecting to live updates"}
+          </p>
+        </div>
+        {/* A viewer may read runs but not start them, so the button is hidden
+            rather than left to 403. */}
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => triggerJob()}
+            disabled={running || hasActiveJob}
+            title={hasActiveJob ? "A run is already queued or in progress" : undefined}
+            className="flex shrink-0 items-center gap-1.5 rounded-md bg-[color:var(--color-carrot)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
+          >
+            {running || hasActiveJob ? "Running…" : <><IconPlay size={12} /> Run Pipeline</>}
+          </button>
+        )}
+      </div>
+
+      <div className="mt-6">
+        {bucketError ? (
+          <div role="alert" className="rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]">
+            <strong>S3 bucket not found.</strong> {bucketError}
+          </div>
+        ) : loadError ? (
+          <div role="alert" className="rounded-md border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] px-4 py-3 text-sm text-[color:var(--color-rose-deep)]">
+            <strong>Couldn&apos;t load jobs.</strong> {loadError}
+          </div>
+        ) : !loaded ? (
+          <div className="divide-y divide-[color:var(--color-rule-soft)] overflow-hidden rounded-lg border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)]">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-[color:var(--color-rule)]" />
+                <span className="h-3 w-24 animate-pulse rounded bg-[color:var(--color-rule)]" />
+                <span className="h-3 flex-1 animate-pulse rounded bg-[color:var(--color-surface-2)]" />
+              </div>
+            ))}
+          </div>
+        ) : jobs.length === 0 ? (
+          <p className="py-8 text-center text-sm text-[color:var(--color-ink-3)]">
+            No jobs yet. Click &quot;Run Pipeline&quot; to start one.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            {/* Fixed layout: live content can't reflow the columns. */}
+            <table className="data-table w-full table-fixed">
+              <colgroup>
+                <col className="w-[215px]" />
+                <col className="w-[110px]" />
+                <col className="w-[80px]" />
+                <col />
+                <col className="w-[175px]" />
+                <col className="w-[90px]" />
+                <col className="w-8" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Job</th>
+                  <th>Status</th>
+                  <th>Trigger</th>
+                  <th>Progress</th>
+                  <th>Started</th>
+                  <th>Duration</th>
+                  <th aria-hidden />
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map((job) => {
+                  const expanded = expandedJobId === job.id;
+                  const terminal =
+                    job.status !== "running" &&
+                    job.status !== "scheduled" &&
+                    job.status !== "queued";
+                  const active = job.status === "queued" || job.status === "running";
+                  return (
+                    <Fragment key={job.id}>
+                      <tr
+                        onClick={() => terminal && setExpandedJobId(expanded ? null : job.id)}
+                        aria-expanded={terminal ? expanded : undefined}
+                        className={terminal ? "cursor-pointer" : ""}
+                      >
+                        <td>
+                          <code className="block truncate text-[12px]" title={job.id}>{job.id}</code>
+                        </td>
+                        <td>
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className={`h-[7px] w-[7px] rounded-full ${statusDot(job.status)}`} aria-hidden />
+                            {job.status}
+                          </span>
+                        </td>
+                        <td>
+                          {job.trigger === "webhook" ? "webhook" : "manual"}
+                        </td>
+                        <td>
+                          {job.status === "scheduled" && job.nextRunAt ? (
+                            scheduledCountdown(job.nextRunAt)
+                          ) : active ? (
+                            <span className="block" title={progressLine(job)}>
+                              <span className="block h-1 max-w-[220px] overflow-hidden rounded-full bg-[color:var(--color-surface-2)]">
+                                {progressPct(job) === null ? (
+                                  <span className="block h-full w-1/3 animate-pulse rounded-full bg-[color:var(--color-carrot)]" />
+                                ) : (
+                                  <span
+                                    className="block h-full rounded-full bg-[color:var(--color-carrot)] transition-[width]"
+                                    style={{ width: `${Math.round(progressPct(job)! * 100)}%` }}
+                                  />
+                                )}
+                              </span>
+                              <span className="mt-1 block truncate text-[11px]">{progressLine(job)}</span>
+                            </span>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap tabular-nums">
+                          {new Date(job.startedAt).toLocaleString()}
+                        </td>
+                        <td className="whitespace-nowrap tabular-nums">
+                          {job.completedAt ? formatDuration(job.startedAt, job.completedAt) : "-"}
+                        </td>
+                        <td className="text-[color:var(--color-ink-4)]" aria-hidden>
+                          {terminal && (
+                            <span className={`inline-block transition-transform ${expanded ? "rotate-90" : ""}`}>›</span>
+                          )}
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr className="detail-row">
+                          <td colSpan={7}>
+                            <div className="space-y-2 rounded-[10px] border border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] p-3 text-[11px] text-[color:var(--color-ink-2)]">
+                              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                                <dt className="text-[color:var(--color-ink-3)]">Job ID</dt>
+                                <dd className="font-mono">{job.id}</dd>
+                                <dt className="text-[color:var(--color-ink-3)]">Status</dt>
+                                <dd>{job.status}</dd>
+                                <dt className="text-[color:var(--color-ink-3)]">Started</dt>
+                                <dd>{new Date(job.startedAt).toLocaleString()}</dd>
+                                {job.completedAt && (
+                                  <>
+                                    <dt className="text-[color:var(--color-ink-3)]">Completed</dt>
+                                    <dd>{new Date(job.completedAt).toLocaleString()}</dd>
+                                  </>
+                                )}
+                                {job.files_processed !== undefined && (
+                                  <>
+                                    <dt className="text-[color:var(--color-ink-3)]">Files processed</dt>
+                                    <dd>{job.files_processed}</dd>
+                                  </>
+                                )}
+                                {job.partitions_written !== undefined && (
+                                  <>
+                                    <dt className="text-[color:var(--color-ink-3)]">Partitions written</dt>
+                                    <dd>{job.partitions_written}</dd>
+                                  </>
+                                )}
+                                {job.errors !== undefined && (
+                                  <>
+                                    <dt className="text-[color:var(--color-ink-3)]">Errors</dt>
+                                    <dd>{job.errors.length}</dd>
+                                  </>
+                                )}
+                              </dl>
+                              {job.errors && job.errors.length > 0 ? (
+                                // The summary bakes in errors[0]; show one or the other.
+                                <div className="rounded border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] p-2 text-[11px] text-[color:var(--color-rose-deep)]">
+                                  <div className="mb-0.5 font-medium">
+                                    {job.errors.length === 1 ? "Error" : `Errors (${job.errors.length})`}
+                                  </div>
+                                  <ul className="max-h-60 space-y-1 overflow-auto font-mono">
+                                    {job.errors.map((e, i) => (
+                                      <li key={i} className="whitespace-pre-wrap break-words">
+                                        {e}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : job.error ? (
+                                <div className="rounded border border-[color:var(--color-rose-deep)] bg-[color:var(--color-rose-soft)] p-2 text-[11px] text-[color:var(--color-rose-deep)]">
+                                  <div className="mb-0.5 font-medium">Error</div>
+                                  <p className="whitespace-pre-wrap break-words font-mono">{job.error}</p>
+                                </div>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!bucketError && total > 0 && (
+          <div className="mt-4 flex items-center justify-between gap-3 text-xs text-[color:var(--color-ink-3)]">
+            <div className="flex items-center gap-2">
+              <label htmlFor="job-page-size">Per page</label>
+              <select
+                id="job-page-size"
+                value={pageSize}
+                onChange={(e) => {
+                  setPage(1);
+                  setPageSize(Number(e.target.value));
+                }}
+                className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-2 py-1 text-xs text-[color:var(--color-ink-2)]"
+              >
+                {[25, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <span>{total} job{total !== 1 ? "s" : ""} total</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1 text-xs text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-40"
+              >
+                ← Prev
+              </button>
+              <span>
+                Page {page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="rounded border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-1 text-xs text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-40"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
