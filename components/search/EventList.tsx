@@ -61,7 +61,8 @@ export default function EventList({
   const names = columns.map((c) => c.name);
   const types = Object.fromEntries(columns.map((c) => [c.name, c.type]));
   const shown = names.filter((c) => c !== timeField);
-  const formatTime = timeField && types[timeField] === "DATE" ? formatEventDate : formatEventTime;
+  const dateOnly = timeField !== null && types[timeField] === "DATE";
+  const formatTime = dateOnly ? formatEventDate : formatEventTime;
 
   return (
     <ol className="font-mono text-[12px]" data-testid="search-events">
@@ -83,7 +84,7 @@ export default function EventList({
               }
               className="flex w-full gap-3 px-3 py-1.5 text-left hover:bg-[color:var(--color-surface-2)] max-sm:flex-col max-sm:gap-0.5"
             >
-              <span className="w-[8.75rem] shrink-0 tabular-nums text-[color:var(--color-ink-3)]">
+              <span className={`${dateOnly ? "w-[3.5rem]" : "w-[8.75rem]"} shrink-0 tabular-nums text-[color:var(--color-ink-3)]`}>
                 {e.time === null ? "No time" : formatTime(e.time)}
               </span>
               <span className="min-w-0 flex-1 leading-[1.55] text-[color:var(--color-ink-2)]">
