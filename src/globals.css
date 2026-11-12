@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
 :root {
+  /* Dark browser controls, such as the option list of a select. */
+  color-scheme: dark;
+
   /* Surface: neutral near-blacks shared with the docs site's dark mode */
   --color-bg: #1b1b1f;
   --color-surface: #202127;
