@@ -13,6 +13,14 @@ export function formatEventTime(seconds: number): string {
   return `${dayLabel(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
 }
 
+/**
+ * `Nov 6`, for a DATE time field. A DATE arrives as midnight UTC, so it is
+ * read in UTC; in local time it would fall on the day before west of UTC.
+ */
+export function formatEventDate(seconds: number): string {
+  return new Date(seconds * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
 /** `Nov 6, 2026, 22:58` */
 export function formatDateTime(seconds: number): string {
   return new Date(seconds * 1000).toLocaleString(undefined, {
