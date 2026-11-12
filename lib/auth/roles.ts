@@ -1,8 +1,4 @@
-// Roles and credential fingerprints.
-//
-// Edge-safe on purpose: middleware imports the session module, which imports
-// this, so nothing here may reach for `node:crypto` or the S3 SDK. Web Crypto
-// only.
+// Roles. The browser code imports this too, so no Node imports here.
 
 export const ROLES = ["viewer", "editor", "admin"] as const;
 export type Role = (typeof ROLES)[number];

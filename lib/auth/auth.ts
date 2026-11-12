@@ -8,8 +8,6 @@
 // What Karet keeps: the three roles, the policy table that says which role a
 // request needs, and the guard that enforces it. Those are authorization
 // decisions about pipelines, not identity, and no auth library knows them.
-//
-// Node runtime only. Middleware checks for a session cookie and nothing more.
 
 import { betterAuth } from "better-auth";
 import { username } from "better-auth/plugins";

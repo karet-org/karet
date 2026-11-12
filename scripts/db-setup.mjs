@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 // Bring the database up to date, then assert the bootstrap admin.
 //
-// Runs before the server starts, not inside it. Next compiles the
-// instrumentation hook for the Edge runtime as well as Node, and Edge cannot
-// bundle `pg` (it reads `fs` lazily for TLS material), so schema work lives in a
-// plain script that the bundler never sees. That also makes it runnable by hand
-// against any environment.
+// Runs before the server starts, and can be run by hand against any environment.
 //
 //   node scripts/db-setup.mjs
 //

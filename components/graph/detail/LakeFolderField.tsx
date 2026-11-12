@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { kvInputClass } from "./inspector";
 
-export function LakeFolderField({
+export default function LakeFolderField({
   value,
   onChange,
 }: {
@@ -87,4 +87,3 @@ export function LakeFolderField({
   );
 }
 
-export default LakeFolderField;

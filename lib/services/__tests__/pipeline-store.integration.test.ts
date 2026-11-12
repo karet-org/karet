@@ -90,7 +90,7 @@ suite("pipeline store", () => {
   });
 
   it("lists versions newest first and marks exactly one live", async () => {
-    const versions = await store.listVersions(SLUG);
+    const versions = await store.listVersionConfigs(SLUG);
     expect(versions.map((v) => v.version)).toEqual([2, 1]);
     expect(versions.filter((v) => v.live)).toHaveLength(1);
     expect(versions.find((v) => v.live)?.version).toBe(2);
@@ -157,7 +157,7 @@ suite("pipeline store", () => {
   it("cascades versions when a pipeline is deleted", async () => {
     await store.deletePipeline(SLUG);
     expect(await store.getLiveConfig(SLUG)).toBeNull();
-    expect(await store.listVersions(SLUG)).toEqual([]);
+    expect(await store.listVersionConfigs(SLUG)).toEqual([]);
   });
 
   // A members-only default is only safe if creating a pipeline also grants its

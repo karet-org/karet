@@ -4,8 +4,6 @@
 // sessions, the pipeline registry, config versions and job history. The lake,
 // the warehouse and the documents people edit as text stay in S3, so a bucket
 // sync is still a complete, portable dataset.
-//
-// Node runtime only. Edge code (middleware) must not import this.
 
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
 
@@ -23,7 +21,7 @@ export function databaseUrl(): string {
 }
 
 /**
- * The shared pool. Small on purpose: Next runs one process per container and
+ * The shared pool. Small on purpose: there is one server process per container and
  * queries here are short control-plane reads, not analytics (that is DuckDB
  * over S3), so a large pool would only hold connections open.
  */
