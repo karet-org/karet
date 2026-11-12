@@ -41,12 +41,12 @@ function RailContent({ workspaceName, starred }: RailProps) {
       <div className="flex flex-col gap-0.5">
         <Link
           href="/"
-          className={item(pathname === "/" || pathname === "/settings")}
+          className={item(pathname === "/")}
         >
           <IconGrid
             size={15}
             className={
-              pathname !== "/lake"
+              pathname === "/"
                 ? "text-[color:var(--color-carrot)]"
                 : "text-[color:var(--color-ink-3)]"
             }

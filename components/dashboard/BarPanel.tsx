@@ -13,7 +13,7 @@ import {
 import { Bar } from "react-chartjs-2";
 import type { PanelV2 } from "@/lib/types/dashboard-v2";
 import { formatLabel } from "@/lib/dashboard/format";
-import { CHART_ACCENT, CHART_PALETTE } from "@/lib/dashboard/palette";
+import { barColors, CHART_ACCENT } from "@/lib/dashboard/palette";
 import type { Params } from "@/lib/services/dashboard-data";
 import { pivotSeries } from "./series";
 import { chartAreaProps, panelCardClass, type PanelProps } from "./types";
@@ -39,13 +39,7 @@ function BarPanel({
     datasets: datasets.map((d, i) => ({
       label: d.name ?? config.title,
       data: d.values,
-      backgroundColor:
-        datasets.length > 1
-          ? CHART_PALETTE[i % CHART_PALETTE.length]
-          : labels.map((label, j) => {
-              const base = CHART_PALETTE[j % CHART_PALETTE.length];
-              return active !== null && label !== active ? base + "40" : base;
-            }),
+      backgroundColor: barColors(labels, i, active),
       borderColor: labels.map((label) =>
         active !== null && label === active ? CHART_ACCENT : "transparent",
       ),
