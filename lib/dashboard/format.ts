@@ -28,3 +28,19 @@ export function formatLabel(v: string): string {
   if (!m) return v;
   return m[2] === "00:00" && !/[1-9]/.test(m[3] ?? "") ? m[1] : `${m[1]} ${m[2]}`;
 }
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Epoch milliseconds for each label when every label is a date or an ISO
+ * timestamp, so a chart can place them by time. Null otherwise.
+ */
+export function labelTimes(labels: string[]): number[] | null {
+  if (labels.length === 0) return null;
+  const times: number[] = [];
+  for (const label of labels) {
+    if (!ISO_DATE.test(label) && !ISO_TIMESTAMP.test(label)) return null;
+    times.push(Date.parse(ISO_DATE.test(label) ? `${label}T00:00:00Z` : label));
+  }
+  return times;
+}

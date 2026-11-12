@@ -36,7 +36,7 @@ export function tooltipLabel(item: TooltipItem<"line">, seriesCount: number): st
 }
 
 /** Interaction and tooltip options for a line panel with `seriesCount` lines. */
-export function lineHoverOptions(seriesCount: number) {
+export function lineHoverOptions(labels: string[], seriesCount: number) {
   return {
     interaction: { mode: "index" as const, intersect: false },
     tooltip: {
@@ -45,7 +45,8 @@ export function lineHoverOptions(seriesCount: number) {
       // A series with no value at this x is left out rather than shown as NaN.
       filter: (item: TooltipItem<"line">) => item.parsed.y !== null && !Number.isNaN(item.parsed.y),
       callbacks: {
-        title: (items: TooltipItem<"line">[]) => (items[0] ? formatLabel(items[0].label) : ""),
+        // Taken from the x labels: on a time axis, the item's own label is the raw number.
+        title: (items: TooltipItem<"line">[]) => (items[0] ? formatLabel(labels[items[0].dataIndex] ?? "") : ""),
         label: (item: TooltipItem<"line">) => tooltipLabel(item, seriesCount),
       },
     },
