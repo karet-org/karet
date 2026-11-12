@@ -1,5 +1,3 @@
-"use client";
-
 // Table panel: renders the query result as-is, optionally subset and
 // reordered by `columns`, paginated client-side.
 

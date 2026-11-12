@@ -1,5 +1,3 @@
-"use client";
-
 // Matches per time bar. Hover a bar to see its count; click a bar, or drag
 // across several, to search that span.
 

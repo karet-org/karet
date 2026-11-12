@@ -1,5 +1,3 @@
-"use client";
-
 // Summary panel: row and column counts of its query result.
 
 import type { PanelV2 } from "@/lib/types/dashboard-v2";

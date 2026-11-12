@@ -1,5 +1,3 @@
-"use client";
-
 // Dispatch a v2 panel to its component, or an ErrorPanel when its query
 // failed. Failures are isolated per panel.
 

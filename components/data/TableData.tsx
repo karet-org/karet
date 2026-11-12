@@ -1,10 +1,8 @@
-"use client";
-
 // The Data tab of one table: a WHERE filter, a server-sorted and paged grid,
 // and the cell viewer.
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { Link } from "@/lib/client/navigation";
 import ResultGrid, { type CellRef, type GridColumn } from "./ResultGrid";
 import CellViewer from "./CellViewer";
 import type { TableInfo } from "./types";

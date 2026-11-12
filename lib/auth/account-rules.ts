@@ -18,7 +18,7 @@ export const MAX_DISPLAY_NAME = 64;
  * "Anne-Marie", "O’Neill", "J. R.", "李雷". Not a free text field, so it cannot be
  * used to write a sentence, fake a role or smuggle markup into a list of people.
  */
-const DISPLAY_NAME_PATTERN = /^[\p{L}\p{M}\p{N} '’.\-]+$/u;
+const DISPLAY_NAME_PATTERN = /^[\p{L}\p{M}\p{N} '’.-]+$/u;
 
 /** Collapses runs of whitespace, so two names cannot look the same but differ. */
 export function cleanDisplayName(displayName: string): string {

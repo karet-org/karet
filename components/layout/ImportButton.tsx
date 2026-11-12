@@ -1,7 +1,5 @@
-"use client";
-
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/client/navigation";
 import { IconUpload } from "@/components/icons";
 import { useCan } from "@/lib/client/use-current-user";
 import { secondaryButtonClass } from "@/components/ui/controls";

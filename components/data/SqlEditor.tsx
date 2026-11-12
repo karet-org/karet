@@ -1,5 +1,3 @@
-"use client";
-
 // CodeMirror SQL editor on the shared CodeEditor host: schema-aware
 // autocomplete (reconfigured in place), Ctrl+Enter runs.
 

@@ -1,5 +1,3 @@
-"use client";
-
 // Single-stat KPI tile. The query aggregates; this renders the bound
 // value from the first result row.
 

@@ -1,5 +1,3 @@
-"use client";
-
 // Your own account: what you are called, and your password.
 //
 // Every signed-in role sees this card. The workspace name below it is an admin

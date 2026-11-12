@@ -1,5 +1,3 @@
-"use client";
-
 // Doughnut panel: label/value bound columns.
 
 import { ArcElement, Chart as ChartJS, Legend, Tooltip } from "chart.js";

@@ -1,4 +1,4 @@
-# Run typecheck and unit tests on every push and pull request.
+# Run lint, typecheck, unit tests and the build on every push and pull request.
 # Playwright e2e (tests-e2e/) needs the full compose stack and is
 # intentionally not run here.
 name: CI
@@ -30,5 +30,6 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run build
         env:
           REDIS_TEST_URL: redis://127.0.0.1:6379

@@ -1,5 +1,3 @@
-"use client";
-
 // The Properties tab of one table: a summary, the columns, where the rows
 // come from, and the retained versions with restore.
 

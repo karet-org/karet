@@ -1,5 +1,3 @@
-"use client";
-
 // Left panel of the Data page: a filter, the pipeline's tables with their
 // columns, row counts and last publish, and the saved queries.
 

@@ -1,5 +1,3 @@
-"use client";
-
 // Line panel: x/y bound columns, optional series pivot.
 
 import {

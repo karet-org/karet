@@ -1,11 +1,8 @@
-"use client";
-
 // Rail user row with a popover menu: what this person calls themselves, and the
 // role that says what they can do. Which account it is lives in the menu.
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Link, useRouter } from "@/lib/client/navigation";
 import {
   IconChevronDown,
   IconSettings,

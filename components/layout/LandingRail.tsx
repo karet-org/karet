@@ -1,11 +1,8 @@
-"use client";
-
 // Left rail for the landing page: brand, primary nav, starred pipelines,
 // and the user menu (Settings, Sign out) anchored at the bottom.
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, usePathname } from "@/lib/client/navigation";
 import { IconGrid, IconMenu, IconStar, KaretLogo } from "@/components/icons";
 import RailUserMenu from "@/components/layout/RailUserMenu";
 import { SearchInput } from "@/components/layout/LandingSearch";

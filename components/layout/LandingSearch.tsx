@@ -1,5 +1,3 @@
-"use client";
-
 // Landing search state shared between the rail input and the grid.
 
 import { createContext, useContext, useState } from "react";

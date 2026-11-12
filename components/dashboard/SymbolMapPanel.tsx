@@ -1,5 +1,3 @@
-"use client";
-
 // Proportional-symbol map using chartjs-chart-geo's BubbleMapController.
 // Renders a world outline and one bubble per aggregated lat/lon bucket,
 // with radius proportional to the aggregated value via chart.js's built-in

@@ -1,10 +1,7 @@
-"use client";
-
 // Sort/filter happen client-side; stars persist via /api/settings.
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Link, useRouter } from "@/lib/client/navigation";
 import DagThumbnail, { EmptyThumb, type ThumbGraph } from "@/components/layout/DagThumbnail";
 import { useSearch } from "@/components/layout/LandingSearch";
 import { pipelineHue } from "@/lib/config/pipeline-hue";

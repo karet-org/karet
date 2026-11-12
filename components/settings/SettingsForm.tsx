@@ -1,5 +1,3 @@
-"use client";
-
 // Workspace settings; persists via /api/settings.
 //
 // Laid out like the pipeline Access page, and saved on blur rather than behind a
@@ -7,7 +5,7 @@
 // everything else commits as you go.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/lib/client/navigation";
 import { invalidateCached } from "@/lib/client/fetch-cache";
 import { CARD, inputClass } from "@/components/ui/controls";
 import { useCan } from "@/lib/client/use-current-user";

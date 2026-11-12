@@ -1,5 +1,3 @@
-"use client";
-
 // Shared CodeMirror host; callbacks live in refs so the view never remounts.
 
 import { useEffect, useRef, type MutableRefObject } from "react";

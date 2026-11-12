@@ -1,5 +1,3 @@
-"use client";
-
 // The fields of the searched table. Open a field to see its most common
 // values among the matches; pick a value to add it to the search.
 

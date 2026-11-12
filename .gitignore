@@ -6,12 +6,8 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
+# build output
+/dist/
 
 # misc
 .DS_Store
@@ -29,18 +25,11 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
 
 # playwright
 /test-results/
 /playwright-report/
 /playwright/.cache/
-
-# vercel
-.vercel
-
-# turbo
-.turbo
 
 # editors
 .idea/

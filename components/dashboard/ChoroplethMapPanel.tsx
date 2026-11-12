@@ -1,12 +1,10 @@
-"use client";
-
 // Interactive world choropleth on Leaflet: country polygons as a GeoJSON
 // vector layer (no tile basemap), with pan/zoom, hover highlight, value
 // tooltips and a colour legend. Rows are bucketed by ISO-3166 numeric code via
 // resolveCountry() so alpha-2/alpha-3/numeric/name data all work.
 
 import { useEffect, useMemo, useRef } from "react";
-import type * as LeafletNS from "leaflet";
+import L from "leaflet";
 import type { Feature, Geometry } from "geojson";
 import type { PanelV2 } from "@/lib/types/dashboard-v2";
 import { resolveCountry } from "@/lib/dashboard/iso3166";
@@ -33,8 +31,8 @@ type CountryFeature = Feature<Geometry, { name: string }>;
 function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfig>) {
   const atlas = useWorldAtlas();
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<LeafletNS.Map | null>(null);
-  const layerRef = useRef<LeafletNS.GeoJSON | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const layerRef = useRef<L.GeoJSON | null>(null);
 
   // Antarctica (ISO numeric 010) is empty map area; dropping it keeps the
   // world fit on inhabited landmass. Rings that cross the antimeridian
@@ -82,11 +80,6 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
   // (below), so the zoom and pan the reader chose are kept.
   useEffect(() => {
     if (!features || !containerRef.current) return;
-    // Required, not imported: Leaflet touches `window` at module scope, and this
-    // effect is synchronous so there is nowhere to await a dynamic import.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const L = require("leaflet") as typeof LeafletNS;
-
     const map = L.map(containerRef.current, {
       zoomControl: false,
       attributionControl: false,
@@ -119,15 +112,15 @@ function ChoroplethMapPanel({ config, data }: PanelProps<ChoroplethMapPanelConfi
     // moves. Per-feature bound tooltips churn open/close on every border
     // crossing, which left the previous country's text on screen.
     const tooltip = L.tooltip({ direction: "top", offset: [0, -8], opacity: 0.95 });
-    let hovered: LeafletNS.Path | null = null;
+    let hovered: L.Path | null = null;
 
     const clearHover = () => {
       hovered?.setStyle({ weight: 0.7, color: BORDER });
       hovered = null;
     };
 
-    layer.on("mousemove", (e: LeafletNS.LeafletMouseEvent) => {
-      const lyr = (e.propagatedFrom ?? e.target) as LeafletNS.Path & { feature?: CountryFeature };
+    layer.on("mousemove", (e: L.LeafletMouseEvent) => {
+      const lyr = (e.propagatedFrom ?? e.target) as L.Path & { feature?: CountryFeature };
       const cf = lyr.feature;
       if (!cf) return;
       if (hovered !== lyr) {

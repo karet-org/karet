@@ -1,5 +1,3 @@
-"use client";
-
 // Spreadsheet-style result grid: row numbers, column types under the names,
 // sortable headers, NULL shown as NULL, and a selectable cell.
 

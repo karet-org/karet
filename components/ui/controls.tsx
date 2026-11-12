@@ -1,5 +1,3 @@
-"use client";
-
 // Form controls for page-level forms.
 //
 // Native selects and radios render with OS chrome, which looks wrong in a dark

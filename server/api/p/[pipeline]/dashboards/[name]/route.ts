@@ -1,0 +1,82 @@
+import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import {
+  deleteDashboardV2,
+  getDashboardV2,
+  putDashboardV2,
+} from "@/lib/services/document-store";
+import { fullDashboardGate } from "@/lib/services/dashboard-data";
+import { withRole } from "@/lib/auth/guard";
+
+async function handleGet(
+  request: Request,
+  context: { params: Promise<{ pipeline: string; name: string }> },
+) {
+  const { pipeline, name } = await context.params;
+  const config = pipelineS3Config(loadS3Config(), pipeline);
+  const client = createS3Client(config);
+  const wantDraft = new URL(request.url).searchParams.get("draft") === "1";
+
+  return wrapS3Error(async () => {
+    if (wantDraft) {
+      const draft = await getDashboardV2(client, config, name, { draft: true });
+      if (draft !== null) {
+        return new Response(draft.body, {
+          headers: { "Content-Type": "application/yaml", "X-Karet-Draft": "1" },
+        });
+      }
+    }
+    const dashboard = await getDashboardV2(client, config, name);
+    if (dashboard === null) {
+      return Response.json({ error: "dashboard_not_found", name }, { status: 404 });
+    }
+    return new Response(dashboard.body, {
+      headers: { "Content-Type": "application/yaml" },
+    });
+  }, `GET /api/p/${pipeline}/dashboards/${name}`);
+}
+
+/** Saves a dashboard body. `?draft=1` skips validation (mid-edit). */
+async function handlePut(
+  request: Request,
+  context: { params: Promise<{ pipeline: string; name: string }> },
+) {
+  const { pipeline, name } = await context.params;
+  const config = pipelineS3Config(loadS3Config(), pipeline);
+  const client = createS3Client(config);
+  const draft = new URL(request.url).searchParams.get("draft") === "1";
+
+  const body = await request.text();
+  return wrapS3Error(async () => {
+    if (!draft) {
+      // Published saves pass the same full gate as publish, including
+      // SQL planning and binding checks.
+      const gate = await fullDashboardGate(client, config, pipeline, name, body);
+      if (!gate.ok) {
+        return Response.json(
+          { error: "invalid_config", errors: gate.errors },
+          { status: 422 },
+        );
+      }
+    }
+    await putDashboardV2(client, config, name, body, { draft });
+    return Response.json({ ok: true, draft });
+  }, `PUT /api/p/${pipeline}/dashboards/${name}`);
+}
+
+async function handleDelete(
+  _request: Request,
+  context: { params: Promise<{ pipeline: string; name: string }> },
+) {
+  const { pipeline, name } = await context.params;
+  const config = pipelineS3Config(loadS3Config(), pipeline);
+  const client = createS3Client(config);
+
+  return wrapS3Error(async () => {
+    await deleteDashboardV2(client, config, name);
+    return Response.json({ ok: true });
+  }, `DELETE /api/p/${pipeline}/dashboards/${name}`);
+}
+
+export const GET = withRole(handleGet);
+export const PUT = withRole(handlePut);
+export const DELETE = withRole(handleDelete);

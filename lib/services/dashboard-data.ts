@@ -6,9 +6,10 @@ import type {
   DashboardConfigV2,
   PanelV2,
 } from "@/lib/types/dashboard-v2";
-import { extractParams } from "@/lib/types/dashboard-v2";
+import { extractParams, validateDashboardV2 } from "@/lib/types/dashboard-v2";
 import type { SavedQuery } from "@/lib/types/query";
-import { relationsForConfig, runPipelineQuery } from "@/lib/services/query-service";
+import { describePipelineQuery, relationsForConfig, runPipelineQuery } from "@/lib/services/query-service";
+import { getQuery } from "@/lib/services/document-store";
 import type { QueryRelation } from "@/lib/services/duckdb";
 import { getLiveConfig } from "@/lib/services/pipeline-store";
 
@@ -123,7 +124,6 @@ async function validateDashboardSql(
   dashboard: DashboardConfigV2,
   savedQueries: Map<string, SavedQuery>,
 ): Promise<string[]> {
-  const { describePipelineQuery } = await import("@/lib/services/query-service");
   const errors: string[] = [];
   for (const [i, panel] of dashboard.panels.entries()) {
     const sql = panelSql(panel, savedQueries);
@@ -162,8 +162,6 @@ export async function fullDashboardGate(
   expectedId: string,
   body: string,
 ): Promise<{ ok: boolean; errors: string[] }> {
-  const { validateDashboardV2 } = await import("@/lib/types/dashboard-v2");
-  const { getQuery } = await import("@/lib/services/document-store");
 
   const result = validateDashboardV2(body);
   if (!result.ok) return { ok: false, errors: result.errors };
