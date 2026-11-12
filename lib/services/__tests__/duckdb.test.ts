@@ -71,6 +71,19 @@ describe("executeUserQuery sandbox", () => {
     expect(result).toEqual({ columns: ["k", "s", "redacted"], rows: [{ k: "", s: "", redacted: true }] });
     expect(await executeUserQuery([], "SELECT * FROM duckdb_secrets(redact := false)")).toHaveProperty("error");
   });
+
+  it("applies the sandbox on every connection when queries run at once", async () => {
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => executeUserQuery([], "SELECT * FROM read_text('/etc/hostname')")),
+    );
+    for (const r of results) expect(r).toHaveProperty("error", expect.stringMatching(/LocalFileSystem/));
+    const settings = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        executeUserQuery([], "SELECT current_setting('parquet_metadata_cache') AS m, current_setting('s3_secret_access_key') AS s"),
+      ),
+    );
+    for (const r of settings) expect(r).toEqual({ columns: ["m", "s"], rows: [{ m: true, s: "" }] });
+  });
 });
 
 describe("warehouseSource", () => {

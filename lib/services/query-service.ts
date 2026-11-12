@@ -71,9 +71,11 @@ export async function runPipelineQuery(
     values?: (string | null)[];
     /** Per-table version to read as of; omitted tables read what is live. */
     versions?: Record<string, number>;
+    /** Relations already resolved, so a batch of queries reads the manifests once. */
+    relations?: QueryRelation[];
   } = {},
 ): ReturnType<typeof executeUserQuery> {
-  const relations = await relationsForConfig(pipeline, config, options.versions);
+  const relations = options.relations ?? (await relationsForConfig(pipeline, config, options.versions));
   const result = await executeUserQuery(relations, sql, options);
   return "error" in result
     ? { error: explainMissingRelation(result.error, config, relations) }

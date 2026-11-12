@@ -1,21 +1,31 @@
 // Server-side Parquet querying over S3 via DuckDB (httpfs). One in-memory
-// database is shared across requests; queries read straight from S3.
+// database is shared across requests; queries read straight from S3. A query
+// runs on one of a few connections, since a connection runs one query at a
+// time and a dashboard or two users would otherwise wait in line.
 
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { loadS3Config } from "@/lib/config/s3-client";
 import { manifestUrls, readManifest } from "@/lib/services/table-manifest";
 
-let conn: DuckDBConnection | null = null;
-let initializing: Promise<DuckDBConnection> | null = null;
+const POOL_SIZE = Number(process.env.DUCKDB_CONNECTIONS) > 0 ? Number(process.env.DUCKDB_CONNECTIONS) : 4;
+
+let pool: DuckDBConnection[] | null = null;
+let initializing: Promise<DuckDBConnection[]> | null = null;
+const idle: DuckDBConnection[] = [];
+const waiting: ((c: DuckDBConnection) => void)[] = [];
 
 /**
- * Lazily open the shared connection, point httpfs at S3, and apply the
- * sandbox. The handle is published only after every statement succeeds: user
- * SQL runs on this session, so a half-initialized (unsandboxed) session must
- * never be cached.
+ * Lazily open the database, point httpfs at S3, apply the sandbox, and open
+ * the connections. The pool is published only after every statement
+ * succeeds: user SQL runs on these sessions, so a half-initialized
+ * (unsandboxed) one must never be used.
+ *
+ * Settings are GLOBAL so every connection sees them; a plain SET would apply
+ * to the first connection only, and the lock below stops the others from
+ * setting anything themselves.
  */
-function getConn(): Promise<DuckDBConnection> {
-  if (conn) return Promise.resolve(conn);
+function getPool(): Promise<DuckDBConnection[]> {
+  if (pool) return Promise.resolve(pool);
   if (initializing) return initializing;
 
   initializing = (async () => {
@@ -32,8 +42,8 @@ function getConn(): Promise<DuckDBConnection> {
     const home = process.env.DUCKDB_HOME || process.env.HOME || "/tmp";
 
     const stmts = [
-      `SET home_directory = '${home}'`,
-      `SET extension_directory = '${home}/.duckdb/extensions'`,
+      `SET GLOBAL home_directory = '${home}'`,
+      `SET GLOBAL extension_directory = '${home}/.duckdb/extensions'`,
       `INSTALL httpfs`,
       `LOAD httpfs`,
       // DuckDB >=1.4 lazily initializes persistent secret storage on the
@@ -41,7 +51,7 @@ function getConn(): Promise<DuckDBConnection> {
       // that init fails and takes every s3:// read down with it. In-memory
       // secrets only, which also keeps credentials off disk. Must come before
       // the secret is created.
-      `SET allow_persistent_secrets = false`,
+      `SET GLOBAL allow_persistent_secrets = false`,
       // Credentials go in a secret, not in s3_* settings: a setting can be
       // read back by any query with current_setting(), and a secret's key is
       // shown redacted.
@@ -61,34 +71,53 @@ function getConn(): Promise<DuckDBConnection> {
       // httpfs also copies AWS_* environment variables into the s3_* settings,
       // where current_setting() would show them. Blank them; the secret
       // above is what reads use.
-      `SET s3_access_key_id = ''`,
-      `SET s3_secret_access_key = ''`,
-      `SET s3_session_token = ''`,
+      `SET GLOBAL s3_access_key_id = ''`,
+      `SET GLOBAL s3_secret_access_key = ''`,
+      `SET GLOBAL s3_session_token = ''`,
+      // Table files never change once written (a new version gets new keys),
+      // so their Parquet footers can be kept instead of fetched per query.
+      `SET GLOBAL parquet_metadata_cache = true`,
       // Sandbox: user SQL runs on this session, so lock it down after
       // INSTALL/LOAD (which themselves need local-filesystem access).
       // Without this, any SELECT can read_text('/proc/self/environ') or read
       // local csv/parquet; httpfs (s3://) is unaffected.
-      `SET disabled_filesystems = 'LocalFileSystem'`,
+      `SET GLOBAL disabled_filesystems = 'LocalFileSystem'`,
       // Bound a runaway query instead of letting it OOM the web process.
-      `SET memory_limit = '${process.env.DUCKDB_MEMORY_LIMIT || "512MB"}'`,
+      `SET GLOBAL memory_limit = '${process.env.DUCKDB_MEMORY_LIMIT || "512MB"}'`,
       // Session is shared by every dashboard and ad-hoc query; don't let one
       // hot query monopolize the container's cores.
-      `SET threads = ${Number(process.env.DUCKDB_THREADS) > 0 ? Number(process.env.DUCKDB_THREADS) : 2}`,
+      `SET GLOBAL threads = ${Number(process.env.DUCKDB_THREADS) > 0 ? Number(process.env.DUCKDB_THREADS) : 2}`,
       // Must be last: freezes every setting above (filesystems and limits)
       // so user SQL cannot SET, RESET, or re-enable anything.
-      `SET lock_configuration = true`,
+      `SET GLOBAL lock_configuration = true`,
     ];
 
     for (const stmt of stmts) {
       await candidate.run(stmt);
     }
 
-    conn = candidate;
-    return candidate;
+    const connections = [candidate];
+    while (connections.length < POOL_SIZE) connections.push(await instance.connect());
+    idle.push(...connections);
+    pool = connections;
+    return connections;
   })().finally(() => {
     initializing = null;
   });
   return initializing;
+}
+
+async function acquire(): Promise<DuckDBConnection> {
+  await getPool();
+  const free = idle.pop();
+  if (free) return free;
+  return new Promise((resolve) => waiting.push(resolve));
+}
+
+function release(connection: DuckDBConnection) {
+  const next = waiting.shift();
+  if (next) next(connection);
+  else idle.push(connection);
 }
 
 /** Coerce a DuckDB value into a JSON-serializable one (BigInt -> Number). */
@@ -103,8 +132,13 @@ async function query<T extends Record<string, unknown> = Record<string, unknown>
   sql: string,
   values: (string | null)[] = [],
 ): Promise<T[]> {
-  const connection = await getConn();
-  const reader = await connection.runAndReadAll(sql, values);
+  const connection = await acquire();
+  let reader;
+  try {
+    reader = await connection.runAndReadAll(sql, values);
+  } finally {
+    release(connection);
+  }
   return reader.getRowObjectsJS().map((row) => {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(row)) out[k] = toJson(v);
