@@ -1,16 +1,11 @@
 // Route-level authorization.
 //
-// Middleware refused anything without a session cookie. This is the
+// `server/auth-gate.ts` refused anything without a session cookie. This is the
 // authoritative pass, and it answers two questions rather than one:
 //
 //   * what does this request need? — the policy table, keyed on method and path
 //   * what does this caller have *here*? — their instance role, narrowed or
 //     widened by a per-pipeline membership
-//
-// Resolving against the pipeline is why authorization cannot live in middleware:
-// the answer depends on rows, and the edge cannot read them.
-//
-// Node runtime only.
 
 import { currentPrincipal, type Principal } from "@/lib/auth/current-user";
 import { effectiveRoleFor } from "@/lib/auth/pipeline-access";
@@ -20,8 +15,8 @@ import { roleAtLeast, type Role } from "@/lib/auth/roles";
 /**
  * Wrap a route handler so it runs only for a caller who may do this, here.
  *
- * The required role is not passed in: taking it from the same table middleware
- * uses means a route cannot quietly disagree with the gate in front of it.
+ * The required role is not passed in, so every route takes it from the policy
+ * table and two routes cannot disagree about the same path.
  */
 export function withRole<C>(
   handler: (request: Request, context: C, principal: Principal) => Promise<Response>,

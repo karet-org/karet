@@ -1,21 +1,21 @@
 // Who is making this request, resolved server-side.
 //
-// Middleware can only see whether a session cookie exists. This runs in Node
-// handlers, where the database is reachable, so it is the authoritative check.
+// `server/auth-gate.ts` only checks that a session cookie exists. This reads the
+// session table, so it is the authoritative check.
 //
 // The role comes from the `user` row rather than the session claim, and a session
 // whose account has gone is no session at all. That costs one indexed lookup and
 // makes a demotion or a deletion effective on the next request.
 //
 // Machine callers present `Authorization: Bearer $KARET_WORKER_TOKEN` instead of
-// a cookie; see `service-token.ts`, which middleware also uses.
+// a cookie; see `service-token.ts`.
 
 import { requestHeaders } from "@/lib/http/request-context";
 import { getAuth } from "@/lib/auth/auth";
 import { findUserByUsername } from "@/lib/auth/users";
 import { serviceTokenPrincipal, type Principal } from "@/lib/auth/service-token";
 
-export { serviceTokenPrincipal, type Principal };
+export type { Principal };
 
 /** The caller, or null when unauthenticated. */
 export async function currentPrincipal(): Promise<Principal | null> {

@@ -2,9 +2,6 @@
 //
 // One table, read by `withRole` in the route handler, where the database is
 // reachable and a demotion, a deletion or a per-pipeline grant can be seen.
-// Middleware only checks that a session cookie exists.
-//
-// Edge-safe: no Node built-ins, no S3.
 
 import { type Role } from "./roles";
 

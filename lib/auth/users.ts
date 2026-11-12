@@ -14,8 +14,6 @@ import { query, queryOne, transaction } from "@/lib/db";
 import { isRole, type Role } from "./roles";
 import { syntheticEmail } from "./auth";
 
-export { ROLES, isRole, roleAtLeast, type Role } from "./roles";
-
 export interface User {
   id: string;
   username: string;

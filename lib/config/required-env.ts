@@ -1,9 +1,9 @@
-// Required-env validation, run from `instrumentation.ts` at server start so the
-// app fails fast instead of running with incomplete configuration.
+// Required-env validation, run from `server/app.ts` at startup so the app fails
+// fast instead of running with incomplete configuration.
 
 /**
  * Env vars the Web service cannot start without; matches the Worker's
- * `REQUIRED_ENV_VARS` so both services share one contract. `PORT`/`HOSTNAME`
+ * `REQUIRED_ENV_VARS` so both services share one contract. `PORT`/`HOST`
  * are excluded: the server defaults them.
  */
 export const REQUIRED_ENV_VARS = [

@@ -28,8 +28,6 @@ export interface ConfigVersion {
   live: boolean;
 }
 
-export type ConfigVersionMeta = Omit<ConfigVersion, "config">;
-
 interface VersionRow {
   id: string | number;
   version: number;
@@ -112,27 +110,6 @@ export async function getVersion(slug: string, version: number): Promise<ConfigV
     [slug, version],
   );
   return row ? toVersion(row) : null;
-}
-
-/** Version metadata, newest first. Configs are not fetched. */
-export async function listVersions(slug: string): Promise<ConfigVersionMeta[]> {
-  const rows = await query<Omit<VersionRow, "config">>(
-    `SELECT v.id, v.version, v.author_name, v.note, v.created_at,
-            (c.config_version_id = v.id) AS live
-       FROM config_versions v
-       LEFT JOIN pipelines_current c ON c.pipeline = v.pipeline
-      WHERE v.pipeline = $1
-      ORDER BY v.version DESC`,
-    [slug],
-  );
-  return rows.map((r) => ({
-    id: Number(r.id),
-    version: r.version,
-    authorName: r.author_name,
-    note: r.note,
-    createdAt: r.created_at.toISOString(),
-    live: r.live,
-  }));
 }
 
 /** Every version with its config, newest first, for working out what each one changed. */

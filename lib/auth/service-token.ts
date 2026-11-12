@@ -4,9 +4,6 @@
 // instead of a session cookie. The token already authorizes the worker's own
 // API, so it grants an admin-equivalent service identity rather than a new
 // privilege.
-//
-// Edge-safe: middleware checks this before the cookie, so no Node built-ins or
-// S3 imports here.
 
 import type { Role } from "./roles";
 
