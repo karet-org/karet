@@ -189,31 +189,32 @@ export default function UsersPanel() {
         <p className="mt-4 text-[12.5px] text-[color:var(--color-ink-4)]">Loading…</p>
       ) : (
         <table
-          className="mt-4 w-full table-fixed border-collapse text-sm"
+          className="mt-4 w-full table-fixed border-collapse text-sm max-sm:block"
           data-testid="users-table"
         >
-          {/* Fixed layout: adding or removing a row must not move the columns. */}
+          {/* Fixed layout: adding or removing a row must not move the columns. On a
+              phone the columns do not fit, so each row stacks: name, then role and actions. */}
           <colgroup>
             <col />
             <col className="w-[130px]" />
             <col className="w-[230px]" />
           </colgroup>
-          <thead>
+          <thead className="max-sm:hidden">
             <tr className="border-b border-[color:var(--color-rule)] text-left text-[11px] text-[color:var(--color-ink-3)]">
               <th className="pb-1.5 pr-3 font-medium">Account</th>
               <th className="pb-1.5 pl-[11px] pr-3 font-medium">Role</th>
               <th className="pb-1.5 font-medium" />
             </tr>
           </thead>
-          <tbody>
+          <tbody className="max-sm:block">
             {accounts.map((a) => {
               const isMe = a.username === me?.username;
               return (
                 <tr
                   key={a.username}
-                  className="border-b border-[color:var(--color-rule-soft)] last:border-b-0"
+                  className="border-b border-[color:var(--color-rule-soft)] last:border-b-0 max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:py-2"
                 >
-                  <td className="py-2 pr-3">
+                  <td className="py-2 pr-3 max-sm:w-full max-sm:py-0 max-sm:pb-1">
                     <span className="block truncate font-medium text-[color:var(--color-ink)]">
                       {a.displayName}
                       {isMe ? (
@@ -228,10 +229,10 @@ export default function UsersPanel() {
                       </span>
                     ) : null}
                   </td>
-                  <td className="py-2 pr-3">
+                  <td className="py-2 pr-3 max-sm:py-0">
                     {a.bootstrap || isMe ? (
                       <span
-                        className="pl-[11px] text-[12.5px] text-[color:var(--color-ink-2)]"
+                        className="pl-[11px] text-[12.5px] text-[color:var(--color-ink-2)] max-sm:pl-0"
                         title={
                           a.bootstrap
                             ? "The environment sets this account to admin on every start."
@@ -256,7 +257,7 @@ export default function UsersPanel() {
                       </Select>
                     )}
                   </td>
-                  <td className="py-2 text-right">
+                  <td className="py-2 text-right max-sm:ml-auto max-sm:py-0">
                     {a.bootstrap ? (
                       <span
                         className="text-[11.5px] text-[color:var(--color-ink-4)]"
