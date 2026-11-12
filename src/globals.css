@@ -202,9 +202,9 @@ button:disabled,
   position: sticky;
   left: 0;
   z-index: 1;
-  /* Keep the column at its content width; extra table width goes to the data columns. */
-  width: 1%;
-  min-width: 3.5rem;
+  /* A set width keeps extra table width on the data columns. The column still
+     grows to fit longer row numbers. */
+  width: 3.5rem;
   background: var(--color-surface);
   color: var(--color-ink-4);
   text-align: right;
