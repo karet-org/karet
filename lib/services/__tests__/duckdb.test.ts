@@ -23,7 +23,10 @@ vi.mock("@/lib/services/table-manifest", async (importOriginal) => {
 });
 
 // These run against a real (in-memory) DuckDB instance, exercising the
-// sandbox SETs applied at session init.
+// sandbox SETs applied at session init. httpfs copies AWS_* variables into
+// its settings, so set them to check they do not show.
+process.env.AWS_ACCESS_KEY_ID = "AKIDTEST";
+process.env.AWS_SECRET_ACCESS_KEY = "test-secret";
 describe("executeUserQuery sandbox", () => {
   it("runs a plain SELECT", async () => {
     const result = await executeUserQuery([], "SELECT 1 AS one");
@@ -57,6 +60,16 @@ describe("executeUserQuery sandbox", () => {
     // Reading settings is fine; the lock only forbids writes. This query
     // succeeding proves the session is still usable after the lock.
     expect(result).not.toHaveProperty("error");
+  });
+
+  it("does not show the S3 credentials to a query", async () => {
+    const result = await executeUserQuery(
+      [],
+      `SELECT current_setting('s3_access_key_id') AS k, current_setting('s3_secret_access_key') AS s,
+              (SELECT bool_and(secret_string LIKE '%secret=redacted%') FROM duckdb_secrets()) AS redacted`,
+    );
+    expect(result).toEqual({ columns: ["k", "s", "redacted"], rows: [{ k: "", s: "", redacted: true }] });
+    expect(await executeUserQuery([], "SELECT * FROM duckdb_secrets(redact := false)")).toHaveProperty("error");
   });
 });
 

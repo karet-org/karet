@@ -36,21 +36,34 @@ function getConn(): Promise<DuckDBConnection> {
       `SET extension_directory = '${home}/.duckdb/extensions'`,
       `INSTALL httpfs`,
       `LOAD httpfs`,
-      `SET s3_region = '${config.region}'`,
-      `SET s3_access_key_id = '${process.env.AWS_ACCESS_KEY_ID ?? ""}'`,
-      `SET s3_secret_access_key = '${process.env.AWS_SECRET_ACCESS_KEY ?? ""}'`,
-      `SET s3_url_style = 'path'`,
-      ...(config.endpoint
-        ? [
-            `SET s3_endpoint = '${config.endpoint.replace(/^https?:\/\//, "")}'`,
-            `SET s3_use_ssl = ${config.endpoint.startsWith("https") ? "true" : "false"}`,
-          ]
-        : []),
       // DuckDB >=1.4 lazily initializes persistent secret storage on the
       // local filesystem at first S3 access; with LocalFileSystem disabled
       // that init fails and takes every s3:// read down with it. In-memory
-      // secrets only — also keeps credentials off disk.
+      // secrets only, which also keeps credentials off disk. Must come before
+      // the secret is created.
       `SET allow_persistent_secrets = false`,
+      // Credentials go in a secret, not in s3_* settings: a setting can be
+      // read back by any query with current_setting(), and a secret's key is
+      // shown redacted.
+      `CREATE SECRET karet_s3 (${[
+        "TYPE s3",
+        `KEY_ID '${sqlLit(process.env.AWS_ACCESS_KEY_ID ?? "")}'`,
+        `SECRET '${sqlLit(process.env.AWS_SECRET_ACCESS_KEY ?? "")}'`,
+        `REGION '${sqlLit(config.region)}'`,
+        "URL_STYLE 'path'",
+        ...(config.endpoint
+          ? [
+              `ENDPOINT '${sqlLit(config.endpoint.replace(/^https?:\/\//, ""))}'`,
+              `USE_SSL ${config.endpoint.startsWith("https") ? "true" : "false"}`,
+            ]
+          : []),
+      ].join(", ")})`,
+      // httpfs also copies AWS_* environment variables into the s3_* settings,
+      // where current_setting() would show them. Blank them; the secret
+      // above is what reads use.
+      `SET s3_access_key_id = ''`,
+      `SET s3_secret_access_key = ''`,
+      `SET s3_session_token = ''`,
       // Sandbox: user SQL runs on this session, so lock it down after
       // INSTALL/LOAD (which themselves need local-filesystem access).
       // Without this, any SELECT can read_text('/proc/self/environ') or read
@@ -61,7 +74,7 @@ function getConn(): Promise<DuckDBConnection> {
       // Session is shared by every dashboard and ad-hoc query; don't let one
       // hot query monopolize the container's cores.
       `SET threads = ${Number(process.env.DUCKDB_THREADS) > 0 ? Number(process.env.DUCKDB_THREADS) : 2}`,
-      // Must be last: freezes every setting above (S3 credentials and limits)
+      // Must be last: freezes every setting above (filesystems and limits)
       // so user SQL cannot SET, RESET, or re-enable anything.
       `SET lock_configuration = true`,
     ];
