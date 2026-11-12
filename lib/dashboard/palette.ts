@@ -13,6 +13,16 @@ export const CHART_PALETTE = [
 /** Accent used for the "active filter" ring in interactive panels. */
 export const CHART_ACCENT = "#ff6b35" as const;
 
+/**
+ * One color per dataset, for every bar in it. With an active filter value,
+ * the other bars are dimmed. A color per bar would carry no meaning, and the
+ * palette's red would read as an error.
+ */
+export function barColors(labels: string[], datasetIndex: number, active: string | null): string[] {
+  const base = CHART_PALETTE[datasetIndex % CHART_PALETTE.length];
+  return labels.map((label) => (active !== null && label !== active ? base + "40" : base));
+}
+
 // Imported for the side effect below: Chart.js dark-theme globals.
 import { defaults } from "chart.js";
 
