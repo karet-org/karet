@@ -34,10 +34,8 @@ RUN addgroup --system --gid 1001 karet && \
 COPY --from=deps --chown=karet:karet /app/node_modules ./node_modules
 COPY --from=builder --chown=karet:karet /app/package.json ./package.json
 COPY --from=builder --chown=karet:karet /app/dist ./dist
-# Schema work runs from the image, not from a checkout: `db-setup.mjs` applies
-# `migrations/` under an advisory lock, and the operational scripts (the S3
-# import, manifest adoption, account management) are runnable with
-# `docker compose run`.
+# `db-setup.mjs` applies `migrations/` under an advisory lock before the server
+# starts. `manage-users.mjs` can be run with `docker compose run`.
 COPY --from=builder --chown=karet:karet /app/scripts ./scripts
 COPY --from=builder --chown=karet:karet /app/migrations ./migrations
 

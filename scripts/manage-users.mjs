@@ -6,7 +6,6 @@
 //   node scripts/manage-users.mjs set-role <username> <role>
 //   node scripts/manage-users.mjs set-password <username>
 //   node scripts/manage-users.mjs remove <username>
-//   node scripts/manage-users.mjs import-s3   # one-off, from _auth/users.json
 //
 // `add` and `set-password` read the password from stdin so it stays out of shell
 // history. The bootstrap admin lives in KARET_ADMIN_PASSWORD_HASH and is
@@ -106,41 +105,6 @@ async function createUser(username, role, passwordHash) {
   return id;
 }
 
-/** One-off: bring accounts over from the pre-Postgres `_auth/users.json`. */
-async function importFromS3() {
-  const { GetObjectCommand, S3Client } = await import("@aws-sdk/client-s3");
-  const s3 = new S3Client({
-    region: process.env.AWS_REGION || "us-east-1",
-    endpoint: process.env.AWS_ENDPOINT_URL || undefined,
-    forcePathStyle: process.env.S3_FORCE_PATH_STYLE !== "false",
-  });
-  const bucket = process.env.S3_BUCKET_PIPELINES || "karet-pipelines";
-  let store;
-  try {
-    const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: "_auth/users.json" }));
-    store = JSON.parse(await res.Body.transformToString());
-  } catch {
-    console.log("No _auth/users.json found; nothing to import.");
-    return;
-  }
-  let imported = 0;
-  for (const u of store.users ?? []) {
-    if (!u?.username || !ROLES.includes(u.role) || !u.password_hash) {
-      console.log(`  skipped ${u?.username ?? "<unnamed>"}: incomplete or unknown role`);
-      continue;
-    }
-    if (await findUser(u.username)) {
-      console.log(`  ${u.username}: already present`);
-      continue;
-    }
-    // The hash format is unchanged, so imported accounts keep their passwords.
-    await createUser(u.username, u.role, u.password_hash);
-    console.log(`  ${u.username}: imported as ${u.role}`);
-    imported += 1;
-  }
-  console.log(`${imported} account(s) imported. The S3 store is now unused and safe to delete.`);
-}
-
 const [command, username, role] = process.argv.slice(2);
 await client.connect();
 
@@ -202,11 +166,8 @@ try {
       console.log(`Removed ${username}.`);
       break;
     }
-    case "import-s3":
-      await importFromS3();
-      break;
     default:
-      console.error("Commands: list | add | set-role | set-password | remove | import-s3");
+      console.error("Commands: list | add | set-role | set-password | remove");
       process.exit(1);
   }
 } finally {
