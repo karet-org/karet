@@ -8,7 +8,8 @@ import type {
 } from "@/lib/types/dashboard-v2";
 import { extractParams } from "@/lib/types/dashboard-v2";
 import type { SavedQuery } from "@/lib/types/query";
-import { runPipelineQuery } from "@/lib/services/query-service";
+import { relationsForConfig, runPipelineQuery } from "@/lib/services/query-service";
+import type { QueryRelation } from "@/lib/services/duckdb";
 import { getLiveConfig } from "@/lib/services/pipeline-store";
 
 const PANEL_ROW_CAP = 10_000;
@@ -197,11 +198,13 @@ async function runOne(
   sql: string,
   params: Params,
   cap: number,
+  relations: QueryRelation[],
 ): Promise<PanelResult | PanelError> {
   const bound = bindParams(sql, params);
   if ("error" in bound) return { error: bound.error };
   const result = await runPipelineQuery(pipeline, config, bound.sql, {
     values: bound.values,
+    relations,
   });
   if ("error" in result) return { error: result.error };
   const truncated = result.rows.length > cap;
@@ -233,6 +236,8 @@ export async function executeDashboard(
 ): Promise<DashboardData> {
   type Task = () => Promise<void>;
   const tasks: Task[] = [];
+  // Every panel reads the same table versions, so resolve them once.
+  const relations = await relationsForConfig(pipeline, pipelineConfig);
 
   const panels: (PanelResult | PanelError)[] = new Array(dashboard.panels.length);
   dashboard.panels.forEach((panel, i) => {
@@ -240,7 +245,7 @@ export async function executeDashboard(
       const sql = panelSql(panel, savedQueries);
       panels[i] =
         typeof sql === "string"
-          ? await runOne(pipeline, pipelineConfig, sql, params, PANEL_ROW_CAP)
+          ? await runOne(pipeline, pipelineConfig, sql, params, PANEL_ROW_CAP, relations)
           : sql;
     });
   });
@@ -249,7 +254,7 @@ export async function executeDashboard(
   for (const f of dashboard.filters) {
     if (f.kind !== "dropdown" || !f.options_sql) continue;
     tasks.push(async () => {
-      const r = await runOne(pipeline, pipelineConfig, f.options_sql!, {}, OPTIONS_ROW_CAP);
+      const r = await runOne(pipeline, pipelineConfig, f.options_sql!, {}, OPTIONS_ROW_CAP, relations);
       filters[f.name] = {
         options:
           "error" in r
