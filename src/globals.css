@@ -70,6 +70,12 @@ select {
   background-size: 12px 12px;
   padding-right: 1.75rem;
 }
+/* Brave still drew the open option list on a white background with
+   color-scheme: dark, so set the option colors directly. */
+select option {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+}
 
 body {
   color: var(--color-ink);
