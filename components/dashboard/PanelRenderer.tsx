@@ -3,19 +3,23 @@
 // Dispatch a v2 panel to its component, or an ErrorPanel when its query
 // failed. Failures are isolated per panel.
 
+import { lazy, Suspense } from "react";
 import type { PanelV2 } from "@/lib/types/dashboard-v2";
 import BarPanel from "./BarPanel";
 import DoughnutPanel from "./DoughnutPanel";
 import ErrorPanel from "./ErrorPanel";
 import KpiPanel from "./KpiPanel";
 import LinePanel from "./LinePanel";
-import SankeyPanel from "./SankeyPanel";
 import SummaryPanel from "./SummaryPanel";
 import TablePanel from "./TablePanel";
-import ChoroplethMapPanel from "./ChoroplethMapPanel";
-import SymbolMapPanel from "./SymbolMapPanel";
 import { chartAreaProps, panelCardClass, type PanelData } from "./types";
 import type { Params } from "@/lib/services/dashboard-data";
+
+// The map and Sankey panels pull in Leaflet, chartjs-chart-geo, topojson and
+// d3-sankey. Load them only on a dashboard that has one.
+const SankeyPanel = lazy(() => import("./SankeyPanel"));
+const ChoroplethMapPanel = lazy(() => import("./ChoroplethMapPanel"));
+const SymbolMapPanel = lazy(() => import("./SymbolMapPanel"));
 
 /**
  * Loading placeholder with the same geometry as the rendered panel:
@@ -119,11 +123,23 @@ function PanelRenderer({
     case "table":
       return <TablePanel config={panel} data={result} />;
     case "sankey":
-      return <SankeyPanel config={panel} data={result} />;
+      return (
+        <Suspense fallback={<PanelSkeleton panel={panel} />}>
+          <SankeyPanel config={panel} data={result} />
+        </Suspense>
+      );
     case "choropleth_map":
-      return <ChoroplethMapPanel config={panel} data={result} />;
+      return (
+        <Suspense fallback={<PanelSkeleton panel={panel} />}>
+          <ChoroplethMapPanel config={panel} data={result} />
+        </Suspense>
+      );
     case "symbol_map":
-      return <SymbolMapPanel config={panel} data={result} />;
+      return (
+        <Suspense fallback={<PanelSkeleton panel={panel} />}>
+          <SymbolMapPanel config={panel} data={result} />
+        </Suspense>
+      );
     case "summary":
       return <SummaryPanel config={panel} data={result} />;
   }
