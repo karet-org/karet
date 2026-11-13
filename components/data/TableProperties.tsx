@@ -211,37 +211,6 @@ export default function TableProperties({
           </section>
 
           <div className="space-y-5">
-            <section aria-label="Details">
-              <h3 className={heading}>Details</h3>
-              <dl className="mt-1.5 grid grid-cols-[8rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[12.5px]" data-testid="table-details">
-                <dt className="text-[color:var(--color-ink-3)]">Partition keys</dt>
-                <dd className="text-[color:var(--color-ink)]">{table.partitionKeys.length ? table.partitionKeys.join(", ") : "None"}</dd>
-                <dt className="text-[color:var(--color-ink-3)]">Dedup keys</dt>
-                <dd className="text-[color:var(--color-ink)]">{table.dedupKeys.length ? table.dedupKeys.join(", ") : "None"}</dd>
-                <dt className="text-[color:var(--color-ink-3)]">Written by</dt>
-                <dd className="text-[color:var(--color-ink)]" data-testid="table-sources">
-                  {sources === null ? (
-                    <span className="text-[color:var(--color-ink-4)]">Loading…</span>
-                  ) : sources.length === 0 ? (
-                    <span className="text-[color:var(--color-ink-4)]">No mapping writes into this table.</span>
-                  ) : (
-                    <ul className="space-y-1.5">
-                      {sources.map((s) => (
-                        <li key={s.mapping}>
-                          {s.mapping}
-                          <span className="text-[color:var(--color-ink-3)]">
-                            {" "}
-                            from {s.source}
-                            {s.filtered ? ", with a row filter" : ""}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </dd>
-              </dl>
-            </section>
-
             <section aria-label="Versions">
               <h3 className={heading}>Versions</h3>
               {error ? (
@@ -301,6 +270,37 @@ export default function TableProperties({
                   </table>
                 </div>
               )}
+            </section>
+
+            <section aria-label="Details">
+              <h3 className={heading}>Details</h3>
+              <dl className="mt-1.5 grid grid-cols-[8rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[12.5px]" data-testid="table-details">
+                <dt className="text-[color:var(--color-ink-3)]">Partition keys</dt>
+                <dd className="text-[color:var(--color-ink)]">{table.partitionKeys.length ? table.partitionKeys.join(", ") : "None"}</dd>
+                <dt className="text-[color:var(--color-ink-3)]">Dedup keys</dt>
+                <dd className="text-[color:var(--color-ink)]">{table.dedupKeys.length ? table.dedupKeys.join(", ") : "None"}</dd>
+                <dt className="text-[color:var(--color-ink-3)]">Written by</dt>
+                <dd className="text-[color:var(--color-ink)]" data-testid="table-sources">
+                  {sources === null ? (
+                    <span className="text-[color:var(--color-ink-4)]">Loading…</span>
+                  ) : sources.length === 0 ? (
+                    <span className="text-[color:var(--color-ink-4)]">No mapping writes into this table.</span>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {sources.map((s) => (
+                        <li key={s.mapping}>
+                          {s.mapping}
+                          <span className="text-[color:var(--color-ink-3)]">
+                            {" "}
+                            from {s.source}
+                            {s.filtered ? ", with a row filter" : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </dd>
+              </dl>
             </section>
           </div>
         </div>
