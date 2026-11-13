@@ -1,5 +1,5 @@
-// The Properties tab of one table: a summary, the columns, where the rows
-// come from, and the retained versions with restore.
+// The Properties tab of one table, in one column: a summary, where the rows
+// come from, the columns, and the retained versions with restore.
 
 import { useCallback, useEffect, useState } from "react";
 import type { TableInfo } from "./types";
@@ -130,7 +130,7 @@ export default function TableProperties({
 
   return (
     <div className="min-h-0 flex-1 overflow-auto" data-testid="table-properties">
-      <div className="max-w-[1180px] px-3 py-3">
+      <div className="max-w-[760px] px-3 py-3">
         <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="text-[15px] font-semibold text-[color:var(--color-ink)]">{table.name}</h2>
           <span className="text-[12px] text-[color:var(--color-ink-3)]" data-testid="table-published">
@@ -178,7 +178,38 @@ export default function TableProperties({
           ))}
         </dl>
 
-        <div className="mt-5 grid gap-x-6 gap-y-5 lg:grid-cols-2">
+        <div className="mt-5 space-y-5">
+          <section aria-label="Details">
+            <h3 className={heading}>Details</h3>
+            <dl className="mt-1.5 grid grid-cols-[8rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[12.5px]" data-testid="table-details">
+              <dt className="text-[color:var(--color-ink-3)]">Partition keys</dt>
+              <dd className="text-[color:var(--color-ink)]">{table.partitionKeys.length ? table.partitionKeys.join(", ") : "None"}</dd>
+              <dt className="text-[color:var(--color-ink-3)]">Dedup keys</dt>
+              <dd className="text-[color:var(--color-ink)]">{table.dedupKeys.length ? table.dedupKeys.join(", ") : "None"}</dd>
+              <dt className="text-[color:var(--color-ink-3)]">Written by</dt>
+              <dd className="text-[color:var(--color-ink)]" data-testid="table-sources">
+                {sources === null ? (
+                  <span className="text-[color:var(--color-ink-4)]">Loading…</span>
+                ) : sources.length === 0 ? (
+                  <span className="text-[color:var(--color-ink-4)]">No mapping writes into this table.</span>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {sources.map((s) => (
+                      <li key={s.mapping}>
+                        {s.mapping}
+                        <span className="text-[color:var(--color-ink-3)]">
+                          {" "}
+                          from {s.source}
+                          {s.filtered ? ", with a row filter" : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </dd>
+            </dl>
+          </section>
+
           <section aria-label="Columns">
             <h3 className={heading}>Columns</h3>
             <div className="mt-1.5 overflow-x-auto rounded border border-[color:var(--color-rule-soft)]">
@@ -210,99 +241,66 @@ export default function TableProperties({
             </div>
           </section>
 
-          <div className="space-y-5">
-            <section aria-label="Versions">
-              <h3 className={heading}>Versions</h3>
-              {error ? (
-                <p className="mt-2 text-[12px] text-[color:var(--color-rose-deep)]" role="alert">
-                  {error}
-                </p>
-              ) : versions === null ? (
-                <p className="mt-2 text-[12px] text-[color:var(--color-ink-4)]">Loading…</p>
-              ) : versions.length === 0 ? (
-                <p className="mt-2 text-[12px] text-[color:var(--color-ink-4)]">No published versions yet.</p>
-              ) : (
-                <div className="mt-1.5 overflow-x-auto rounded border border-[color:var(--color-rule-soft)]">
-                  <table className="result-grid props-grid" data-testid="table-versions">
-                    <thead>
-                      <tr>
-                        <th>Version</th>
-                        <th>Published</th>
-                        <th className="props-num">Files</th>
-                        <th className="props-num">Size</th>
-                        {restorable && <th aria-label="Actions" />}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {versions.map((v) => (
-                        <tr key={v.version}>
-                          <td>
-                            <span className="flex items-center gap-1.5 text-[color:var(--color-ink)]">
-                              v{v.version}
-                              {v.live && (
-                                <span className="rounded bg-[color:var(--color-carrot-soft)] px-1 text-[10.5px] font-medium text-[color:var(--color-carrot)]">
-                                  live
-                                </span>
-                              )}
-                            </span>
-                          </td>
-                          <td title={ageLabel(v.created_at) ?? undefined}>{dateTime(v.created_at)}</td>
-                          <td className="props-num">{v.files}</td>
-                          <td className="props-num">{formatBytes(v.bytes)}</td>
-                          {restorable && (
-                            <td className="props-action">
-                              {!v.live && (
-                                <button
-                                  type="button"
-                                  onClick={() => void restore(v.version)}
-                                  disabled={restoring !== null}
-                                  data-testid={`restore-table-v${v.version}`}
-                                  className={toolSecondary("px-2 text-[11.5px]")}
-                                >
-                                  {restoring === v.version ? "Restoring…" : "Restore"}
-                                </button>
-                              )}
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            <section aria-label="Details">
-              <h3 className={heading}>Details</h3>
-              <dl className="mt-1.5 grid grid-cols-[8rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[12.5px]" data-testid="table-details">
-                <dt className="text-[color:var(--color-ink-3)]">Partition keys</dt>
-                <dd className="text-[color:var(--color-ink)]">{table.partitionKeys.length ? table.partitionKeys.join(", ") : "None"}</dd>
-                <dt className="text-[color:var(--color-ink-3)]">Dedup keys</dt>
-                <dd className="text-[color:var(--color-ink)]">{table.dedupKeys.length ? table.dedupKeys.join(", ") : "None"}</dd>
-                <dt className="text-[color:var(--color-ink-3)]">Written by</dt>
-                <dd className="text-[color:var(--color-ink)]" data-testid="table-sources">
-                  {sources === null ? (
-                    <span className="text-[color:var(--color-ink-4)]">Loading…</span>
-                  ) : sources.length === 0 ? (
-                    <span className="text-[color:var(--color-ink-4)]">No mapping writes into this table.</span>
-                  ) : (
-                    <ul className="space-y-1.5">
-                      {sources.map((s) => (
-                        <li key={s.mapping}>
-                          {s.mapping}
-                          <span className="text-[color:var(--color-ink-3)]">
-                            {" "}
-                            from {s.source}
-                            {s.filtered ? ", with a row filter" : ""}
+          <section aria-label="Versions">
+            <h3 className={heading}>Versions</h3>
+            {error ? (
+              <p className="mt-2 text-[12px] text-[color:var(--color-rose-deep)]" role="alert">
+                {error}
+              </p>
+            ) : versions === null ? (
+              <p className="mt-2 text-[12px] text-[color:var(--color-ink-4)]">Loading…</p>
+            ) : versions.length === 0 ? (
+              <p className="mt-2 text-[12px] text-[color:var(--color-ink-4)]">No published versions yet.</p>
+            ) : (
+              <div className="mt-1.5 overflow-x-auto rounded border border-[color:var(--color-rule-soft)]">
+                <table className="result-grid props-grid" data-testid="table-versions">
+                  <thead>
+                    <tr>
+                      <th>Version</th>
+                      <th>Published</th>
+                      <th className="props-num">Files</th>
+                      <th className="props-num">Size</th>
+                      {restorable && <th aria-label="Actions" />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {versions.map((v) => (
+                      <tr key={v.version}>
+                        <td>
+                          <span className="flex items-center gap-1.5 text-[color:var(--color-ink)]">
+                            v{v.version}
+                            {v.live && (
+                              <span className="rounded bg-[color:var(--color-carrot-soft)] px-1 text-[10.5px] font-medium text-[color:var(--color-carrot)]">
+                                live
+                              </span>
+                            )}
                           </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </dd>
-              </dl>
-            </section>
-          </div>
+                        </td>
+                        <td title={ageLabel(v.created_at) ?? undefined}>{dateTime(v.created_at)}</td>
+                        <td className="props-num">{v.files}</td>
+                        <td className="props-num">{formatBytes(v.bytes)}</td>
+                        {restorable && (
+                          <td className="props-action">
+                            {!v.live && (
+                              <button
+                                type="button"
+                                onClick={() => void restore(v.version)}
+                                disabled={restoring !== null}
+                                data-testid={`restore-table-v${v.version}`}
+                                className={toolSecondary("px-2 text-[11.5px]")}
+                              >
+                                {restoring === v.version ? "Restoring…" : "Restore"}
+                              </button>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </div>
