@@ -178,14 +178,14 @@ export default function TableProperties({
           ))}
         </dl>
 
-        <div className="mt-5 grid gap-x-6 gap-y-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+        <div className="mt-5 grid gap-x-6 gap-y-5 lg:grid-cols-2">
           <section aria-label="Columns">
             <h3 className={heading}>Columns</h3>
             <div className="mt-1.5 overflow-x-auto rounded border border-[color:var(--color-rule-soft)]">
               <table className="result-grid props-grid" data-testid="table-columns">
                 <thead>
                   <tr>
-                    <th className="w-8 text-right">#</th>
+                    <th className="props-num w-8">#</th>
                     <th>Column</th>
                     <th>Type</th>
                     <th>Key</th>
@@ -194,7 +194,7 @@ export default function TableProperties({
                 <tbody>
                   {table.schema.map((c, i) => (
                     <tr key={c.name}>
-                      <td className="text-right tabular-nums text-[color:var(--color-ink-4)]">{i + 1}</td>
+                      <td className="props-num text-[color:var(--color-ink-4)]">{i + 1}</td>
                       <td className="text-[color:var(--color-ink)]">{c.name}</td>
                       <td className="font-mono text-[11.5px]">{c.type}</td>
                       <td>
@@ -225,7 +225,7 @@ export default function TableProperties({
                   ) : sources.length === 0 ? (
                     <span className="text-[color:var(--color-ink-4)]">No mapping writes into this table.</span>
                   ) : (
-                    <ul className="space-y-0.5">
+                    <ul className="space-y-1.5">
                       {sources.map((s) => (
                         <li key={s.mapping}>
                           {s.mapping}
@@ -259,8 +259,8 @@ export default function TableProperties({
                       <tr>
                         <th>Version</th>
                         <th>Published</th>
-                        <th className="text-right">Files</th>
-                        <th className="text-right">Size</th>
+                        <th className="props-num">Files</th>
+                        <th className="props-num">Size</th>
                         {restorable && <th aria-label="Actions" />}
                       </tr>
                     </thead>
@@ -278,17 +278,17 @@ export default function TableProperties({
                             </span>
                           </td>
                           <td title={ageLabel(v.created_at) ?? undefined}>{dateTime(v.created_at)}</td>
-                          <td className="text-right tabular-nums">{v.files}</td>
-                          <td className="text-right tabular-nums">{formatBytes(v.bytes)}</td>
+                          <td className="props-num">{v.files}</td>
+                          <td className="props-num">{formatBytes(v.bytes)}</td>
                           {restorable && (
-                            <td className="w-0 py-0 text-right">
+                            <td className="props-action">
                               {!v.live && (
                                 <button
                                   type="button"
                                   onClick={() => void restore(v.version)}
                                   disabled={restoring !== null}
                                   data-testid={`restore-table-v${v.version}`}
-                                  className={toolSecondary("h-6 px-2 text-[11.5px]")}
+                                  className={toolSecondary("px-2 text-[11.5px]")}
                                 >
                                   {restoring === v.version ? "Restoring…" : "Restore"}
                                 </button>

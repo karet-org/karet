@@ -239,6 +239,23 @@ button:disabled,
 .props-grid tbody tr:last-child td {
   border-bottom: none;
 }
+/* Number columns, header included. A text-right utility cannot do this on a
+   header cell, because `.result-grid th` above is outside any layer and its
+   text-align: left wins over utilities. */
+.props-grid .props-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* The cell that holds a Restore button. The button is no taller than a line
+   of text, so a row with a button is the same height as a row without one. */
+.props-grid td.props-action {
+  width: 0;
+  padding: 0 6px;
+  text-align: right;
+}
+.props-grid td.props-action button {
+  height: 20px;
+}
 .result-grid-null {
   font-size: 11px;
   color: var(--color-ink-4);
