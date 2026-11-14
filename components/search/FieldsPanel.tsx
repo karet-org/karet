@@ -6,8 +6,6 @@ import { IconChevronRight, IconMinus } from "@/components/icons";
 
 interface FieldValues {
   total: number;
-  present: number;
-  distinct: number;
   values: { value: string; count: number }[];
 }
 
@@ -49,10 +47,6 @@ function Values({
 
   return (
     <div className="pb-1.5" data-testid={`field-values-${field}`}>
-      <p className="pb-1 pl-7 pr-2 text-[11px] text-[color:var(--color-ink-4)]">
-        {data.distinct.toLocaleString()} value{data.distinct === 1 ? "" : "s"}, in{" "}
-        {data.total ? Math.round((data.present / data.total) * 100) : 0}% of events
-      </p>
       <ul>
         {data.values.map((v) => {
           const share = data.total ? v.count / data.total : 0;
