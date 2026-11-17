@@ -10,16 +10,16 @@ import {
   IconTrash,
   KaretLogo,
 } from "@/components/icons";
-import Modal from "@/components/ui/Modal";
-import { cachedJson, invalidateCached } from "@/lib/client/fetch-cache";
+import { cachedJson } from "@/lib/client/fetch-cache";
 import { notifyDashboardsChanged, useDashboardsIndex } from "@/lib/client/dashboards-index";
-
-/** Mobile top bar height; pages offset content by this below md. */
-const MOBILE_NAV_HEIGHT_PX = 48;
-
 import { pipelineHue } from "@/lib/config/pipeline-hue";
 import { formatRelative } from "@/lib/format/relative-time";
 import { useCanHere } from "@/lib/client/use-current-user";
+import { useDismiss } from "@/lib/client/use-dismiss";
+import { DeletePipelineModal, RenamePipelineModal } from "./PipelineModals";
+
+/** Mobile top bar height; pages offset content by this below md. */
+const MOBILE_NAV_HEIGHT_PX = 48;
 
 export default function SideNav({ pipeline }: { pipeline: string }) {
   const pathname = usePathname() ?? "/";
@@ -30,14 +30,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
   const [creating, setCreating] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [renameOpen, setRenameOpen] = useState(false);
-  const [renameValue, setRenameValue] = useState("");
-  const [renaming, setRenaming] = useState(false);
-  const [renameError, setRenameError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
   // Admin *here*: an owner holds admin on their pipeline and less elsewhere.
   const isAdmin = useCanHere(pipeline, "admin");
   const switcherRef = useRef<HTMLDivElement>(null);
@@ -47,7 +40,6 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
   useEffect(() => {
     setDrawerOpen(false);
   }, [pathname]);
-
 
   // The `pipeline` prop is the immutable id; the name is cosmetic.
   useEffect(() => {
@@ -95,24 +87,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
     };
   }, [pipeline]);
 
-
-  useEffect(() => {
-    if (!switcherOpen) return;
-    const onClick = (e: MouseEvent) => {
-      if (!switcherRef.current?.contains(e.target as Node)) setSwitcherOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setSwitcherOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [switcherOpen]);
+  useDismiss(switcherRef, switcherOpen, () => setSwitcherOpen(false));
 
   const isActive = (href: string) => pathname.startsWith(href);
   const itemClass = (active: boolean) =>
@@ -134,7 +109,6 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
         All pipelines
       </Link>
 
-      {/* Pipeline identity + switcher */}
       <div ref={switcherRef} className="relative border-b border-[color:var(--color-rule-soft)] pb-2.5">
         <button
           type="button"
@@ -179,9 +153,7 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
                 data-testid="side-nav-rename-pipeline"
                 onClick={() => {
                   setSwitcherOpen(false);
-                  setRenameValue(displayName);
-                  setRenameError(null);
-                  setRenameOpen(true);
+                  setDialog("rename");
                 }}
                 className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-rule-soft)] hover:text-[color:var(--color-ink)]"
               >
@@ -207,14 +179,11 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
                 type="button"
                 role="menuitem"
                 data-testid="side-nav-delete-pipeline"
-                disabled={deleting}
                 onClick={() => {
                   setSwitcherOpen(false);
-                  setDeleteConfirm("");
-                  setDeleteError(null);
-                  setDeleteOpen(true);
+                  setDialog("delete");
                 }}
-                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)] disabled:opacity-50"
+                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)]"
               >
                 <IconTrash size={14} />
                 Delete pipeline…
@@ -224,7 +193,6 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
         ) : null}
       </div>
 
-      {/* Primary tabs */}
       <div className="flex flex-col gap-0.5 pt-2.5">
         <Link href={`${base}/graph`} className={itemClass(isActive(`${base}/graph`))}>
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={iconClass(isActive(`${base}/graph`))} aria-hidden>
@@ -270,7 +238,6 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
         </Link>
       </div>
 
-      {/* Dashboards */}
       <div className="flex items-center justify-between px-2.5 pb-1 pt-4 text-[10.5px] font-medium tracking-[0.06em] text-[color:var(--color-ink-3)]">
         Dashboards
         <button
@@ -336,13 +303,11 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
           );
         })}
       </div>
-
     </div>
   );
 
   return (
     <>
-      {/* Mobile top bar */}
       <div
         className="sticky top-0 z-20 flex items-center gap-2 border-b border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] px-3 md:hidden"
         style={{ height: MOBILE_NAV_HEIGHT_PX }}
@@ -367,7 +332,6 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
         </span>
       </div>
 
-      {/* Mobile drawer */}
       {drawerOpen ? (
         <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true">
           <button
@@ -385,7 +349,6 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
         </div>
       ) : null}
 
-      {/* Desktop rail */}
       <nav
         data-testid="side-nav"
         className="hidden h-full w-[220px] shrink-0 border-r border-[color:var(--color-rule-soft)] bg-[color:var(--color-surface)] md:block"
@@ -393,204 +356,15 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
         {rail}
       </nav>
 
-      {deleteOpen ? (
-        <Modal
-          open={deleteOpen}
-          onClose={() => {
-            if (!deleting) setDeleteOpen(false);
-          }}
-        >
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (deleteConfirm.trim() !== displayName) {
-                setDeleteError(`Type "${displayName}" exactly to confirm deletion.`);
-                return;
-              }
-              setDeleting(true);
-              setDeleteError(null);
-              try {
-                const res = await fetch(`/api/pipelines/${encodeURIComponent(pipeline)}`, {
-                  method: "DELETE",
-                });
-                if (!res.ok) {
-                  const body = await res.json().catch(() => ({}));
-                  setDeleteError(
-                    `Delete failed: ${body.message ?? body.error ?? res.statusText}`,
-                  );
-                  return;
-                }
-                setDeleteOpen(false);
-                router.push("/");
-                router.refresh();
-              } catch (err) {
-                setDeleteError((err as Error).message);
-              } finally {
-                setDeleting(false);
-              }
-            }}
-          >
-            <h2 className="text-lg font-semibold text-[color:var(--color-rose-deep)]">
-              Delete pipeline
-            </h2>
-            <p className="mt-1 text-xs text-[color:var(--color-ink-3)]">
-              This permanently removes the config, dashboards, Parquet
-              output, and job history for{" "}
-              <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono text-[11px]">
-                {displayName}
-              </code>
-              . Cannot be undone.
-            </p>
-
-            <div className="mt-4 rounded-md border border-[color:var(--color-amber-soft)] bg-[color:var(--color-amber-soft)] px-3 py-2 text-xs text-[color:var(--color-amber-deep)]">
-              Want a backup first?{" "}
-              <a href={`/api/p/${pipeline}/export`} download className="font-medium underline">
-                Download a .zip
-              </a>{" "}
-              of this pipeline before deleting.
-            </div>
-
-            <label className="mt-4 block text-sm font-medium text-[color:var(--color-ink-2)]">
-              Type{" "}
-              <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono text-[11px]">
-                {displayName}
-              </code>{" "}
-              to confirm
-            </label>
-            <input
-              autoFocus
-              type="text"
-              data-testid="delete-pipeline-confirm"
-              value={deleteConfirm}
-              onChange={(e) => setDeleteConfirm(e.target.value)}
-              autoComplete="off"
-              className="mt-1 w-full rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-2 font-mono text-sm focus:border-[color:var(--color-rose-deep)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-rose-soft)]"
-            />
-
-            {deleteError ? (
-              <p className="mt-3 text-sm text-[color:var(--color-rose-deep)]" role="alert">
-                {deleteError}
-              </p>
-            ) : null}
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDeleteOpen(false)}
-                disabled={deleting}
-                className="rounded-md px-4 py-2 text-sm text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={deleting || deleteConfirm.trim() !== displayName}
-                data-testid="delete-pipeline-submit"
-                className="rounded-md bg-[color:var(--color-rose-deep)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-              >
-                {deleting ? "Deleting…" : "Delete pipeline"}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      ) : null}
-
-      {renameOpen ? (
-        <Modal
-          open={renameOpen}
-          onClose={() => {
-            if (!renaming) setRenameOpen(false);
-          }}
-        >
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const newName = renameValue.trim();
-              if (!newName) {
-                setRenameError("Name is required");
-                return;
-              }
-              if (newName === displayName) {
-                setRenameError("New name is the same as the current name");
-                return;
-              }
-              setRenaming(true);
-              setRenameError(null);
-              try {
-                const res = await fetch(`/api/pipelines/${encodeURIComponent(pipeline)}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ name: newName }),
-                  signal: AbortSignal.timeout(30_000),
-                });
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok || !data.ok) {
-                  setRenameError(data.message ?? data.error ?? `Rename failed (${res.status})`);
-                  return;
-                }
-                setDisplayName(newName);
-                invalidateCached(`/api/p/${pipeline}/config`);
-                setRenameOpen(false);
-                router.refresh();
-              } catch (err) {
-                setRenameError(
-                  (err as Error).name === "TimeoutError"
-                    ? "Rename timed out. Check your connection and try again."
-                    : (err as Error).message,
-                );
-              } finally {
-                setRenaming(false);
-              }
-            }}
-          >
-            <h2 className="text-lg font-semibold">Rename pipeline</h2>
-            <p className="mt-1 text-xs text-[color:var(--color-ink-3)]">
-              Changes the display name only. The URL and stored data keep the
-              id{" "}
-              <code className="rounded bg-[color:var(--color-surface-2)] px-1 font-mono text-[11px]">
-                {pipeline}
-              </code>
-              , so links keep working.
-            </p>
-
-            <label className="mt-4 block text-sm font-medium text-[color:var(--color-ink-2)]">
-              New name
-            </label>
-            <input
-              autoFocus
-              type="text"
-              data-testid="rename-pipeline-input"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              className="mt-1 w-full rounded-md border border-[color:var(--color-rule)] bg-[color:var(--color-surface)] px-3 py-2 text-sm focus:border-[color:var(--color-carrot)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-carrot-soft)]"
-            />
-
-            {renameError ? (
-              <p className="mt-3 text-sm text-[color:var(--color-rose-deep)]" role="alert">
-                {renameError}
-              </p>
-            ) : null}
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setRenameOpen(false)}
-                disabled={renaming}
-                className="rounded-md px-4 py-2 text-sm text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-surface-2)] disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={renaming}
-                data-testid="rename-pipeline-submit"
-                className="rounded-md bg-[color:var(--color-carrot)] px-4 py-2 text-sm font-medium text-white hover:bg-[color:var(--color-carrot-deep)] disabled:opacity-50"
-              >
-                {renaming ? "Renaming…" : "Rename"}
-              </button>
-            </div>
-          </form>
-        </Modal>
+      {dialog === "delete" ? (
+        <DeletePipelineModal pipeline={pipeline} displayName={displayName} onClose={() => setDialog(null)} />
+      ) : dialog === "rename" ? (
+        <RenamePipelineModal
+          pipeline={pipeline}
+          displayName={displayName}
+          onClose={() => setDialog(null)}
+          onRenamed={setDisplayName}
+        />
       ) : null}
     </>
   );
