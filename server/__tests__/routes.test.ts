@@ -16,7 +16,7 @@ describe("ROUTES", () => {
   const paths = ROUTES.map((r) => r.path);
 
   it("has every route file", () => {
-    expect(paths).toContain("/api/p/:pipeline/search/fields");
+    expect(paths).toContain("/api/p/:pipeline/tables/:table/rows");
     expect(paths).toContain("/api/pipelines/overview");
     expect(paths.length).toBeGreaterThan(30);
   });
