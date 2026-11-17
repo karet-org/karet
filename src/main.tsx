@@ -68,7 +68,6 @@ const routes: RouteObject[] = [
           { path: "graph", lazy: page(() => import("@/pages/pipeline/Graph")) },
           { path: "jobs", lazy: page(() => import("@/pages/pipeline/Jobs")) },
           { path: "data", lazy: page(() => import("@/pages/pipeline/Data")) },
-          { path: "search", lazy: page(() => import("@/pages/pipeline/Search")) },
           { path: "access", lazy: page(() => import("@/pages/pipeline/Access")) },
           { path: "history", lazy: page(() => import("@/pages/pipeline/History")) },
           {
