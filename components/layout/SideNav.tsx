@@ -151,11 +151,12 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
                 type="button"
                 role="menuitem"
                 data-testid="side-nav-rename-pipeline"
+                disabled={dialog !== null}
                 onClick={() => {
                   setSwitcherOpen(false);
                   setDialog("rename");
                 }}
-                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-rule-soft)] hover:text-[color:var(--color-ink)]"
+                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-ink-2)] hover:bg-[color:var(--color-rule-soft)] hover:text-[color:var(--color-ink)] disabled:opacity-50"
               >
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
                   <path d="M11.1 2.4a1.4 1.4 0 0 1 2 2L5.5 12l-2.8.8.8-2.8 7.6-7.6Z" />
@@ -179,11 +180,12 @@ export default function SideNav({ pipeline }: { pipeline: string }) {
                 type="button"
                 role="menuitem"
                 data-testid="side-nav-delete-pipeline"
+                disabled={dialog !== null}
                 onClick={() => {
                   setSwitcherOpen(false);
                   setDialog("delete");
                 }}
-                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)]"
+                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] text-[color:var(--color-rose-deep)] hover:bg-[color:var(--color-rose-soft)] disabled:opacity-50"
               >
                 <IconTrash size={14} />
                 Delete pipeline…

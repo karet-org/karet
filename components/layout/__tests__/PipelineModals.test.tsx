@@ -23,6 +23,32 @@ describe("DeletePipelineModal", () => {
     fireEvent.change(screen.getByTestId("delete-pipeline-confirm"), { target: { value: "Spending" } });
     expect(submit.disabled).toBe(false);
   });
+
+  it("deletes the pipeline and shows the server's message when it fails", async () => {
+    const fetchSpy = vi.fn(async () => Response.json({ message: "pipeline is running" }, { status: 409 }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const onClose = vi.fn();
+    renderInRouter(<DeletePipelineModal pipeline="p 1" displayName="Spending" onClose={onClose} />);
+    fireEvent.change(screen.getByTestId("delete-pipeline-confirm"), { target: { value: "Spending" } });
+    fireEvent.click(screen.getByTestId("delete-pipeline-submit"));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("Delete failed: pipeline is running"));
+    expect(fetchSpy).toHaveBeenCalledWith("/api/pipelines/p%201", { method: "DELETE" });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("ignores Escape while the delete is in flight", async () => {
+    let finish: (r: Response) => void = () => {};
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => (finish = resolve))));
+    const onClose = vi.fn();
+    renderInRouter(<DeletePipelineModal pipeline="p-1" displayName="Spending" onClose={onClose} />);
+    fireEvent.change(screen.getByTestId("delete-pipeline-confirm"), { target: { value: "Spending" } });
+    fireEvent.click(screen.getByTestId("delete-pipeline-submit"));
+    await waitFor(() => expect(screen.getByTestId("delete-pipeline-submit").textContent).toBe("Deleting…"));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+    finish(Response.json({ ok: true }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+  });
 });
 
 describe("RenamePipelineModal", () => {
