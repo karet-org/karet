@@ -1,4 +1,4 @@
-import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import { withPipelineS3 } from "@/lib/config/s3-client";
 import {
   deleteDashboardV2,
   getDashboardV2,
@@ -12,11 +12,9 @@ async function handleGet(
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
   const { pipeline, name } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
   const wantDraft = new URL(request.url).searchParams.get("draft") === "1";
 
-  return wrapS3Error(async () => {
+  return withPipelineS3(pipeline, `GET /api/p/${pipeline}/dashboards/${name}`, async (client, config) => {
     if (wantDraft) {
       const draft = await getDashboardV2(client, config, name, { draft: true });
       if (draft !== null) {
@@ -32,7 +30,7 @@ async function handleGet(
     return new Response(dashboard.body, {
       headers: { "Content-Type": "application/yaml" },
     });
-  }, `GET /api/p/${pipeline}/dashboards/${name}`);
+  });
 }
 
 /** Saves a dashboard body. `?draft=1` skips validation (mid-edit). */
@@ -41,12 +39,10 @@ async function handlePut(
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
   const { pipeline, name } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
   const draft = new URL(request.url).searchParams.get("draft") === "1";
 
   const body = await request.text();
-  return wrapS3Error(async () => {
+  return withPipelineS3(pipeline, `PUT /api/p/${pipeline}/dashboards/${name}`, async (client, config) => {
     if (!draft) {
       // Published saves pass the same full gate as publish, including
       // SQL planning and binding checks.
@@ -60,7 +56,7 @@ async function handlePut(
     }
     await putDashboardV2(client, config, name, body, { draft });
     return Response.json({ ok: true, draft });
-  }, `PUT /api/p/${pipeline}/dashboards/${name}`);
+  });
 }
 
 async function handleDelete(
@@ -68,13 +64,11 @@ async function handleDelete(
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
   const { pipeline, name } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
 
-  return wrapS3Error(async () => {
+  return withPipelineS3(pipeline, `DELETE /api/p/${pipeline}/dashboards/${name}`, async (client, config) => {
     await deleteDashboardV2(client, config, name);
     return Response.json({ ok: true });
-  }, `DELETE /api/p/${pipeline}/dashboards/${name}`);
+  });
 }
 
 export const GET = withRole(handleGet);

@@ -136,10 +136,8 @@ const DEFAULT_CONFIG: S3Config = {
   warehouseBucket: "karet-warehouse",
   region: "us-east-1",
   forcePathStyle: true,
-  pipelineConfigKey: "config/pipeline.json",
   dashboardsPrefix: "dashboards/",
   queriesPrefix: "queries/",
-  warehousePrefix: "",
   pipelinesPrefix: "pipelines/",
 };
 
