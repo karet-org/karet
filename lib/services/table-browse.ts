@@ -4,7 +4,7 @@
 
 /** Name the table is exposed under inside a browse query. */
 export const BROWSE_ALIAS = "browse_rows";
-export const DEFAULT_PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = 100;
 export const MAX_PAGE_SIZE = 500;
 const MAX_WHERE_LENGTH = 2000;
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { kvInputClass } from "./inspector";
+import { useDismiss } from "@/lib/client/use-dismiss";
 
 export default function LakeFolderField({
   value,
@@ -14,14 +15,7 @@ export default function LakeFolderField({
   const [folders, setFolders] = useState<string[] | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
+  useDismiss(ref, open, () => setOpen(false));
 
   // List folders under the deepest complete segment of the value.
   const browsePrefix = value.includes("/") ? value.slice(0, value.lastIndexOf("/") + 1) : "";

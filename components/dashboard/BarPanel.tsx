@@ -16,7 +16,8 @@ import { formatLabel } from "@/lib/dashboard/format";
 import { barColors, CHART_ACCENT } from "@/lib/dashboard/palette";
 import type { Params } from "@/lib/services/dashboard-data";
 import { pivotSeries } from "./series";
-import { chartAreaProps, panelCardClass, type PanelProps } from "./types";
+import { type PanelProps } from "./types";
+import { ChartCard, emitOptions } from "./ChartCard";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -51,15 +52,7 @@ function BarPanel({
     indexAxis: config.horizontal ? ("y" as const) : ("x" as const),
     responsive: true,
     maintainAspectRatio: false,
-    onClick: (_e: unknown, elements: { index: number }[]) => {
-      if (!emit || !onEmit || elements.length === 0) return;
-      const label = labels[elements[0].index];
-      if (label) onEmit(emit.param, label);
-    },
-    onHover: (event: { native: Event | null }, elements: unknown[]) => {
-      const target = event.native?.target as HTMLElement | null;
-      if (target && emit) target.style.cursor = elements.length > 0 ? "pointer" : "default";
-    },
+    ...emitOptions(labels, emit, onEmit),
     plugins: {
       legend: { display: datasets.length > 1 },
       tooltip: {
@@ -74,18 +67,9 @@ function BarPanel({
   };
 
   return (
-    <div data-testid="bar-panel" className={panelCardClass()}>
-      <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
-      <div {...chartAreaProps(config)}>
-        {labels.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-[color:var(--color-ink-3)]">
-            No data
-          </div>
-        ) : (
-          <Bar data={chartData} options={options} />
-        )}
-      </div>
-    </div>
+    <ChartCard testId="bar-panel" config={config} empty={labels.length === 0}>
+      <Bar data={chartData} options={options} />
+    </ChartCard>
   );
 }
 

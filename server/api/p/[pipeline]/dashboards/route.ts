@@ -1,5 +1,5 @@
 import { newId } from "@/lib/config/id";
-import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import { withPipelineS3 } from "@/lib/config/s3-client";
 import {
   getDashboardV2,
   listDashboardsWithNamesV2,
@@ -16,10 +16,8 @@ async function handleGet(
   context: { params: Promise<{ pipeline: string }> },
 ) {
   const { pipeline } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
 
-  return wrapS3Error(async () => {
+  return withPipelineS3(pipeline, `GET /api/p/${pipeline}/dashboards`, async (client, config) => {
     const [listings, draftIds] = await Promise.all([
       listDashboardsWithNamesV2(client, config),
       listDraftDashboardsV2(client, config),
@@ -31,7 +29,7 @@ async function handleGet(
       listings,
       drafts,
     });
-  }, `GET /api/p/${pipeline}/dashboards`);
+  });
 }
 
 /** Creates a new draft dashboard from the v2 YAML template. */
@@ -40,8 +38,6 @@ async function handlePost(
   context: { params: Promise<{ pipeline: string }> },
 ) {
   const { pipeline } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
 
   const body = (await request.json().catch(() => ({}))) as { id?: string };
   const id = body.id ?? newId("dash");
@@ -49,13 +45,13 @@ async function handlePost(
     return Response.json({ error: "invalid_id" }, { status: 422 });
   }
 
-  return wrapS3Error(async () => {
+  return withPipelineS3(pipeline, `POST /api/p/${pipeline}/dashboards`, async (client, config) => {
     if ((await getDashboardV2(client, config, id, { draft: true })) !== null) {
       return Response.json({ error: "draft_exists", id }, { status: 409 });
     }
     await putDashboardV2(client, config, id, templateV2(id), { draft: true });
     return Response.json({ ok: true, id }, { status: 201 });
-  }, `POST /api/p/${pipeline}/dashboards`);
+  });
 }
 
 export const GET = withRole(handleGet);

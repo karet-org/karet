@@ -3,27 +3,19 @@
 import { S3Client, S3ServiceException } from "@aws-sdk/client-s3";
 
 export interface S3Config {
-  /** ELT control-plane data: pipeline configs, dashboards, job records. */
+  /** Dashboards, saved queries, seeds, UI settings, and any imported file that is not source data or Parquet. */
   pipelinesBucket: string;
-  /** Raw ingested CSV data. */
+  /** Uploaded source files: CSV and JSON lines. */
   lakeBucket: string;
   /** Query-ready partitioned Parquet output. */
   warehouseBucket: string;
   region: string;
   endpoint?: string;
   forcePathStyle: boolean;
-  /**
-   * S3 key for the Pipeline_Config JSON. `loadS3Config()` leaves a
-   * placeholder — always run it through `pipelineS3Config(base, slug)` before
-   * calling `getPipelineConfig` / `putPipelineConfig`.
-   */
-  pipelineConfigKey: string;
   /** Prefix under which dashboard JSON files live. */
   dashboardsPrefix: string;
   /** Prefix under which saved-query JSON files live. */
   queriesPrefix: string;
-  /** Warehouse-bucket prefix; each table's Parquet lives at `<warehousePrefix><tableId>/`. */
-  warehousePrefix: string;
   /** Prefix under which pipeline folders live. */
   pipelinesPrefix: string;
 }
@@ -44,11 +36,8 @@ export function loadS3Config(): S3Config {
     forcePathStyle:
       process.env.S3_FORCE_PATH_STYLE === undefined ||
       process.env.S3_FORCE_PATH_STYLE === "true",
-    // Placeholders; scoped per-slug by `pipelineS3Config`.
-    pipelineConfigKey: "",
     dashboardsPrefix: envOr("DASHBOARDS_PREFIX", "dashboards/"),
     queriesPrefix: envOr("QUERIES_PREFIX", "queries/"),
-    warehousePrefix: "",
     pipelinesPrefix: envOr("PIPELINES_PREFIX", "pipelines/"),
   };
 }
@@ -64,14 +53,12 @@ export function bucketForRelPath(config: S3Config, relPath: string): string {
   return config.pipelinesBucket;
 }
 
-export function pipelineS3Config(base: S3Config, slug: string): S3Config {
+function pipelineS3Config(base: S3Config, slug: string): S3Config {
   const prefix = `${base.pipelinesPrefix}${slug}/`;
   return {
     ...base,
-    pipelineConfigKey: `${prefix}pipeline.json`,
     dashboardsPrefix: `${prefix}dashboards/`,
     queriesPrefix: `${prefix}queries/`,
-    warehousePrefix: prefix,
   };
 }
 
@@ -126,3 +113,12 @@ export function withS3<T>(
   return wrapS3Error(() => fn(client, config), label);
 }
 
+/** `withS3`, with the config scoped to one pipeline. */
+export function withPipelineS3<T>(
+  pipeline: string,
+  label: string,
+  fn: (client: S3Client, config: S3Config) => Promise<T>,
+): Promise<T | Response> {
+  const config = pipelineS3Config(loadS3Config(), pipeline);
+  return wrapS3Error(() => fn(createS3Client(config), config), label);
+}

@@ -1,4 +1,4 @@
-import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import { withPipelineS3 } from "@/lib/config/s3-client";
 import { getDashboardV2, publishDashboardV2 } from "@/lib/services/document-store";
 import { fullDashboardGate } from "@/lib/services/dashboard-data";
 import { withRole } from "@/lib/auth/guard";
@@ -9,10 +9,8 @@ async function handlePost(
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
   const { pipeline, name } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
 
-  return wrapS3Error(async () => {
+  return withPipelineS3(pipeline, `POST /api/p/${pipeline}/dashboards/${name}/publish`, async (client, config) => {
     const draft = await getDashboardV2(client, config, name, { draft: true });
     if (draft === null) {
       return Response.json({ error: "draft_not_found", name }, { status: 404 });
@@ -26,7 +24,7 @@ async function handlePost(
     }
     await publishDashboardV2(client, config, name, draft.body);
     return Response.json({ ok: true, id: name });
-  }, `POST /api/p/${pipeline}/dashboards/${name}/publish`);
+  });
 }
 
 export const POST = withRole(handlePost);

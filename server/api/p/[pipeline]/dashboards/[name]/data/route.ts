@@ -1,4 +1,4 @@
-import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import { withPipelineS3 } from "@/lib/config/s3-client";
 import {
   getDashboardV2,
   getQuery,
@@ -14,13 +14,11 @@ async function handlePost(
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
   const { pipeline, name } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
   const draft = new URL(request.url).searchParams.get("draft") === "1";
 
   const body = (await request.json().catch(() => ({}))) as { params?: unknown };
 
-  return wrapS3Error(async () => {
+  return withPipelineS3(pipeline, `POST /api/p/${pipeline}/dashboards/${name}/data`, async (client, config) => {
     const [dash, pipelineCfg] = await Promise.all([
       getDashboardV2(client, config, name, { draft }),
       getLiveConfig(pipeline),
@@ -60,7 +58,7 @@ async function handlePost(
       savedQueries,
     );
     return Response.json(data);
-  }, `POST /api/p/${pipeline}/dashboards/${name}/data`);
+  });
 }
 
 export const POST = withRole(handlePost);

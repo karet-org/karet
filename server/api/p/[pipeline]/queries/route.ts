@@ -2,7 +2,7 @@
 // a unique name + SQL. Named queries can be referenced from a dashboard
 // config via `query_id`.
 
-import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import { withPipelineS3 } from "@/lib/config/s3-client";
 import {
   TargetExistsError,
   listQueries,
@@ -18,13 +18,11 @@ async function handleGet(
   context: { params: Promise<{ pipeline: string }> },
 ) {
   const { pipeline } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
 
-  return wrapS3Error(async () => {
+  return withPipelineS3(pipeline, `GET /api/p/${pipeline}/queries`, async (client, config) => {
     const queries = await listQueries(client, config);
     return Response.json({ queries });
-  }, `GET /api/p/${pipeline}/queries`);
+  });
 }
 
 async function handlePost(
@@ -32,8 +30,6 @@ async function handlePost(
   context: { params: Promise<{ pipeline: string }> },
 ) {
   const { pipeline } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
 
   const body = (await request.json().catch(() => null)) as
     | { name?: string; sql?: string }
@@ -50,7 +46,7 @@ async function handlePost(
   const id = nameToSlug(name);
   const query: SavedQuery = { id, name, sql };
 
-  return wrapS3Error(async () => {
+  return withPipelineS3(pipeline, `POST /api/p/${pipeline}/queries`, async (client, config) => {
     const pcfg = await getLiveConfig(pipeline);
     if (!pcfg) {
       return Response.json({ error: "pipeline_not_found" }, { status: 404 });
@@ -79,7 +75,7 @@ async function handlePost(
       throw err;
     }
     return Response.json(query, { status: 201 });
-  }, `POST /api/p/${pipeline}/queries`);
+  });
 }
 
 export const GET = withRole(handleGet);

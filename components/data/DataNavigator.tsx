@@ -7,6 +7,7 @@ import type { TableInfo } from "./types";
 import { ageLabel, filterNavigator, rowsLabel } from "@/lib/data/navigator";
 import { IconChevronRight, IconClose, IconMore, IconPanelLeftClose } from "@/components/icons";
 import { iconButton, toolInput } from "./toolbar";
+import { useDismiss } from "@/lib/client/use-dismiss";
 
 type View = "data" | "properties";
 
@@ -29,20 +30,7 @@ function TableMenu({
     ref.current?.querySelector("button")?.focus();
   }, []);
 
-  useEffect(() => {
-    const down = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) onClose();
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("mousedown", down);
-    document.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("mousedown", down);
-      document.removeEventListener("keydown", key);
-    };
-  }, [onClose]);
+  useDismiss(ref, true, onClose);
 
   const copy = async (label: string, text: string) => {
     await navigator.clipboard.writeText(text);

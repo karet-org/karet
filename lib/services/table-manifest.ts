@@ -7,8 +7,8 @@ import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { createS3Client, loadS3Config } from "@/lib/config/s3-client";
 import { listAllObjectKeys, readBodyToBuffer } from "@/lib/services/s3-helpers";
 
-export const CURRENT_KEY = "_current.json";
-export const MANIFEST_PREFIX = "_manifests/";
+const CURRENT_KEY = "_current.json";
+const MANIFEST_PREFIX = "_manifests/";
 
 export interface ManifestFile {
   /** Key relative to the table prefix, e.g. `v7/year=2026/month=9/m.parquet`. */
@@ -25,7 +25,7 @@ export interface TableManifest {
 }
 
 /** Warehouse prefix a table's objects live under. */
-export function tablePrefix(slug: string, tableId: string): string {
+function tablePrefix(slug: string, tableId: string): string {
   const config = loadS3Config();
   return `${config.pipelinesPrefix}${slug}/${tableId}/`;
 }

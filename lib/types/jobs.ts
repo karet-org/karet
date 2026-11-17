@@ -1,6 +1,6 @@
 /**
- * Job record at `pipelines/<pipeline>/jobs/<id>.json`. One record keeps its id
- * and key across `scheduled` (debounced webhook runs) → `running` → terminal.
+ * One pipeline run, from Postgres or the live state in Valkey. It keeps its id
+ * across `scheduled` (debounced webhook runs) → `running` → terminal.
  */
 export interface JobRecord {
   /** Which config version produced this run. */

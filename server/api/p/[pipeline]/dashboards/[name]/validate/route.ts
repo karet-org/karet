@@ -1,4 +1,4 @@
-import { createS3Client, loadS3Config, pipelineS3Config, wrapS3Error } from "@/lib/config/s3-client";
+import { withPipelineS3 } from "@/lib/config/s3-client";
 import { fullDashboardGate } from "@/lib/services/dashboard-data";
 import { withRole } from "@/lib/auth/guard";
 
@@ -11,14 +11,12 @@ async function handlePost(
   context: { params: Promise<{ pipeline: string; name: string }> },
 ) {
   const { pipeline, name } = await context.params;
-  const config = pipelineS3Config(loadS3Config(), pipeline);
-  const client = createS3Client(config);
   const body = await request.text();
 
-  return wrapS3Error(async () => {
+  return withPipelineS3(pipeline, `POST /api/p/${pipeline}/dashboards/${name}/validate`, async (client, config) => {
     const gate = await fullDashboardGate(client, config, pipeline, name, body);
     return Response.json(gate);
-  }, `POST /api/p/${pipeline}/dashboards/${name}/validate`);
+  });
 }
 
 export const POST = withRole(handlePost);
