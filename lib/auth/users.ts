@@ -93,7 +93,7 @@ export async function setRole(username: string, role: Role): Promise<User | null
 }
 
 /** End every session for a user. Returns how many were ended. */
-export async function revokeSessions(userId: string): Promise<number> {
+async function revokeSessions(userId: string): Promise<number> {
   const rows = await query<{ id: string }>(
     `DELETE FROM session WHERE "userId" = $1 RETURNING id`,
     [userId],

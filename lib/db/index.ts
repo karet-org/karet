@@ -25,7 +25,7 @@ export function databaseUrl(): string {
  * queries here are short control-plane reads, not analytics (that is DuckDB
  * over S3), so a large pool would only hold connections open.
  */
-export function db(): Pool {
+function db(): Pool {
   if (pool) return pool;
   pool = new Pool({
     connectionString: databaseUrl(),
@@ -77,15 +77,5 @@ export async function transaction<T>(fn: (client: PoolClient) => Promise<T>): Pr
     throw err;
   } finally {
     client.release();
-  }
-}
-
-/** True when the database answers. Used by the health check and startup. */
-export async function ping(): Promise<boolean> {
-  try {
-    await query("SELECT 1");
-    return true;
-  } catch {
-    return false;
   }
 }

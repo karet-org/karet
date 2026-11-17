@@ -1,11 +1,4 @@
-// Job history, in Postgres.
-//
-// The worker writes these rows; the web reads them. Before this, each run was a
-// JSON object under `pipelines/<slug>/jobs/`, listed lexicographically and
-// fetched one GET at a time — prod had 1,594 of them, so a page of history cost
-// 25 round trips and "how often did runs fail last month" meant reading all of
-// them. Now it is a query.
-//
+// Job history, in Postgres. The worker writes these rows; the web reads them.
 // Node runtime only.
 
 import { query, queryOne } from "@/lib/db";
