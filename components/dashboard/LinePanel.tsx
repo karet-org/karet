@@ -16,7 +16,8 @@ import { formatLabel, labelTimes } from "@/lib/dashboard/format";
 import { CHART_PALETTE, CHART_SURFACE } from "@/lib/dashboard/palette";
 import { hoverGuidePlugin, lineHoverOptions } from "./line-hover";
 import { pivotSeries } from "./series";
-import { chartAreaProps, panelCardClass, type PanelProps } from "./types";
+import { type PanelProps } from "./types";
+import { ChartCard } from "./ChartCard";
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Title, Tooltip, Legend);
 
@@ -80,18 +81,9 @@ function LinePanel({ config, data }: PanelProps<LineConfig>) {
   };
 
   return (
-    <div data-testid="line-panel" className={panelCardClass()}>
-      <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
-      <div {...chartAreaProps(config)}>
-        {labels.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-[color:var(--color-ink-3)]">
-            No data
-          </div>
-        ) : (
-          <Line data={chartData} options={options} plugins={[hoverGuidePlugin]} />
-        )}
-      </div>
-    </div>
+    <ChartCard testId="line-panel" config={config} empty={labels.length === 0}>
+      <Line data={chartData} options={options} plugins={[hoverGuidePlugin]} />
+    </ChartCard>
   );
 }
 

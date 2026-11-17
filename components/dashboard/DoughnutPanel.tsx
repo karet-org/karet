@@ -6,7 +6,8 @@ import type { PanelV2 } from "@/lib/types/dashboard-v2";
 import { CHART_ACCENT, CHART_PALETTE, CHART_SURFACE } from "@/lib/dashboard/palette";
 import type { Params } from "@/lib/services/dashboard-data";
 import { toNum } from "@/lib/dashboard/format";
-import { chartAreaProps, panelCardClass, type PanelProps } from "./types";
+import { type PanelProps } from "./types";
+import { ChartCard, emitOptions } from "./ChartCard";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -43,33 +44,16 @@ function DoughnutPanel({
   const options = {
     responsive: true,
     maintainAspectRatio: false,
-    onClick: (_e: unknown, elements: { index: number }[]) => {
-      if (!emit || !onEmit || elements.length === 0) return;
-      const label = labels[elements[0].index];
-      if (label) onEmit(emit.param, label);
-    },
-    onHover: (event: { native: Event | null }, elements: unknown[]) => {
-      const target = event.native?.target as HTMLElement | null;
-      if (target && emit) target.style.cursor = elements.length > 0 ? "pointer" : "default";
-    },
+    ...emitOptions(labels, emit, onEmit),
     plugins: {
       legend: { position: "bottom" as const, labels: { boxWidth: 12, font: { size: 10 } } },
     },
   };
 
   return (
-    <div data-testid="doughnut-panel" className={panelCardClass()}>
-      <h3 className="text-sm font-semibold text-[color:var(--color-leaf-deep)]">{config.title}</h3>
-      <div {...chartAreaProps(config)}>
-        {labels.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-[color:var(--color-ink-3)]">
-            No data
-          </div>
-        ) : (
-          <Doughnut data={chartData} options={options} />
-        )}
-      </div>
-    </div>
+    <ChartCard testId="doughnut-panel" config={config} empty={labels.length === 0}>
+      <Doughnut data={chartData} options={options} />
+    </ChartCard>
   );
 }
 
