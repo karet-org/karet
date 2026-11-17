@@ -15,10 +15,9 @@ import {
   PlusIcon,
   Section,
   Switch,
-  TrashIcon,
+  ColumnEditCard,
 } from "./inspector";
 import { InlineErrorList } from "./editorPrimitives";
-import { KNOWN_COLUMN_TYPES } from "./validation";
 
 const ANALYTIC_TABLE_EDITOR_ERROR_TESTID = "analytic-table-editor-error";
 const PARTITION_KEYS_TESTID = "partition-keys-section";
@@ -239,86 +238,52 @@ function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProps) {
             const numeric = col.type === "int64" || col.type === "float64" || col.type === "number";
             if (editingRow === i) {
               return (
-                <div
+                <ColumnEditCard
                   key={i}
-                  className="my-1 rounded-lg bg-[color:var(--color-surface-2)] p-2"
-                  data-testid="schema-column-editing"
-                >
-                  <div className="flex items-end gap-1.5">
-                    <EditField label="name" className="flex-1">
-                      <input
-                        aria-label={`column ${i} name`}
-                        className={editInputClass("font-mono")}
-                        value={col.name}
-                        onChange={(e) => renameColumn(i, e.target.value)}
-                      />
-                    </EditField>
-                    <EditField label="type">
-                      <select
-                        aria-label={`column ${i} type`}
-                        className={editInputClass("w-[86px]")}
-                        value={col.type}
-                        onChange={(e) => retypeColumn(i, e.target.value)}
-                      >
-                        {!KNOWN_COLUMN_TYPES.includes(col.type as (typeof KNOWN_COLUMN_TYPES)[number]) && (
-                          <option value={col.type}>{col.type}</option>
-                        )}
-                        {KNOWN_COLUMN_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </EditField>
-                    <button
-                      type="button"
-                      aria-label={`delete column ${i}`}
-                      title="Delete column"
-                      onClick={() => deleteColumn(i)}
-                      className="mb-[3px] grid h-6 w-6 flex-none place-items-center rounded-md text-[color:var(--color-ink-3)] hover:bg-white/5 hover:text-[color:var(--color-rose-deep)]"
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
-                  {numeric && (
-                    <div className="mt-2 flex gap-1.5">
-                      <EditField label="min" className="flex-1">
-                        <input
-                          aria-label={`column ${i} min`}
-                          type="number"
-                          className={editInputClass("font-mono")}
-                          value={col.assertions?.min ?? ""}
-                          onChange={(e) =>
-                            setAssertion(i, {
-                              min: e.target.value === "" ? undefined : Number(e.target.value),
-                            })
-                          }
-                        />
-                      </EditField>
-                      <EditField label="max" className="flex-1">
-                        <input
-                          aria-label={`column ${i} max`}
-                          type="number"
-                          className={editInputClass("font-mono")}
-                          value={col.assertions?.max ?? ""}
-                          onChange={(e) =>
-                            setAssertion(i, {
-                              max: e.target.value === "" ? undefined : Number(e.target.value),
-                            })
-                          }
-                        />
-                      </EditField>
-                      <span className="w-6 flex-none" />
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setEditingRow(null)}
-                    className="mt-2 text-[10.5px] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
-                  >
-                    Done
-                  </button>
-                </div>
+                  index={i}
+                  column={col}
+                  testId="schema-column-editing"
+                  deleteLabel="delete"
+                  onChange={(patch) => {
+                    if (patch.name !== undefined) renameColumn(i, patch.name);
+                    if (patch.type !== undefined) retypeColumn(i, patch.type);
+                  }}
+                  onDelete={() => deleteColumn(i)}
+                  onDone={() => setEditingRow(null)}
+                  below={
+                    numeric && (
+                      <div className="mt-2 flex gap-1.5">
+                        <EditField label="min" className="flex-1">
+                          <input
+                            aria-label={`column ${i} min`}
+                            type="number"
+                            className={editInputClass("font-mono")}
+                            value={col.assertions?.min ?? ""}
+                            onChange={(e) =>
+                              setAssertion(i, {
+                                min: e.target.value === "" ? undefined : Number(e.target.value),
+                              })
+                            }
+                          />
+                        </EditField>
+                        <EditField label="max" className="flex-1">
+                          <input
+                            aria-label={`column ${i} max`}
+                            type="number"
+                            className={editInputClass("font-mono")}
+                            value={col.assertions?.max ?? ""}
+                            onChange={(e) =>
+                              setAssertion(i, {
+                                max: e.target.value === "" ? undefined : Number(e.target.value),
+                              })
+                            }
+                          />
+                        </EditField>
+                        <span className="w-6 flex-none" />
+                      </div>
+                    )
+                  }
+                />
               );
             }
             return (

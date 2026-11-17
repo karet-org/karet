@@ -4,7 +4,9 @@
 // chrome (chips, inline edit rows, inputs) appears only on interaction.
 // Visual language follows the approved redesign mock.
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { useDismiss } from "@/lib/client/use-dismiss";
+import { KNOWN_COLUMN_TYPES } from "./validation";
 
 /** Section: quiet label row (optional action button) over content. */
 export function Section({
@@ -216,14 +218,7 @@ export function AddChip({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
+  useDismiss(ref, open, () => setOpen(false));
 
   return (
     <div ref={ref} className="relative inline-flex">
@@ -261,6 +256,79 @@ export function AddChip({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** The open card for one schema column: name, type, delete and Done, with
+ * room for editor-specific fields beside the name and below the row. */
+export function ColumnEditCard({
+  index,
+  column,
+  testId,
+  deleteLabel,
+  onChange,
+  onDelete,
+  onDone,
+  beside,
+  below,
+}: {
+  index: number;
+  column: { name: string; type: string };
+  testId: string;
+  deleteLabel: string;
+  onChange: (patch: { name?: string; type?: string }) => void;
+  onDelete: () => void;
+  onDone: () => void;
+  beside?: ReactNode;
+  below?: ReactNode;
+}) {
+  const known = (KNOWN_COLUMN_TYPES as readonly string[]).includes(column.type);
+  return (
+    <div className="my-1 rounded-lg bg-[color:var(--color-surface-2)] p-2" data-testid={testId}>
+      <div className="flex items-end gap-1.5">
+        <EditField label="name" className="flex-1">
+          <input
+            aria-label={`column ${index} name`}
+            className={editInputClass("font-mono")}
+            value={column.name}
+            onChange={(e) => onChange({ name: e.target.value })}
+          />
+        </EditField>
+        {beside}
+        <EditField label="type">
+          <select
+            aria-label={`column ${index} type`}
+            className={editInputClass("w-[86px]")}
+            value={column.type}
+            onChange={(e) => onChange({ type: e.target.value })}
+          >
+            {!known && <option value={column.type}>{column.type}</option>}
+            {KNOWN_COLUMN_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </EditField>
+        <button
+          type="button"
+          aria-label={`${deleteLabel} column ${index}`}
+          title="Delete column"
+          onClick={onDelete}
+          className="mb-[3px] grid h-6 w-6 flex-none place-items-center rounded-md text-[color:var(--color-ink-3)] hover:bg-white/5 hover:text-[color:var(--color-rose-deep)]"
+        >
+          <TrashIcon />
+        </button>
+      </div>
+      {below}
+      <button
+        type="button"
+        onClick={onDone}
+        className="mt-2 text-[10.5px] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
+      >
+        Done
+      </button>
     </div>
   );
 }

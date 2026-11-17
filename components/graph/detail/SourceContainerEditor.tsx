@@ -5,19 +5,15 @@ import type { ColumnSchema, SourceContainer, SourceFormat } from "@/lib/types/co
 import { InlineErrorList } from "./editorPrimitives";
 import LakeFolderField from "./LakeFolderField";
 import {
+  ColumnEditCard,
   EditField,
   kvInputClass,
   editInputClass,
   LabelButton,
   PlusIcon,
   Section,
-  TrashIcon,
 } from "./inspector";
-import {
-  KNOWN_COLUMN_TYPES,
-  validateSourceContainer,
-  type ValidationResult,
-} from "./validation";
+import { validateSourceContainer, type ValidationResult } from "./validation";
 
 interface SourceContainerEditorProps {
   value: SourceContainer;
@@ -118,21 +114,17 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
           <div className="-mx-1.5 flex flex-col">
             {value.schema.map((col, i) =>
               editingRow === i ? (
-                <div
+                <ColumnEditCard
                   key={i}
-                  data-testid="source-container-editor-column-row"
-                  className="my-1 rounded-lg bg-[color:var(--color-surface-2)] p-2"
-                >
-                  <div className="flex items-end gap-1.5">
-                    <EditField label="name" className="flex-1">
-                      <input
-                        aria-label={`column ${i} name`}
-                        className={editInputClass("font-mono")}
-                        value={col.name}
-                        onChange={(e) => setColumn(i, { name: e.target.value })}
-                      />
-                    </EditField>
-                    {isJson && (
+                  index={i}
+                  column={col}
+                  testId="source-container-editor-column-row"
+                  deleteLabel="remove"
+                  onChange={(patch) => setColumn(i, patch)}
+                  onDelete={() => removeColumn(i)}
+                  onDone={() => setEditingRow(null)}
+                  beside={
+                    isJson && (
                       <EditField label="path" className="flex-1">
                         <input
                           aria-label={`column ${i} path`}
@@ -147,42 +139,9 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
                           }
                         />
                       </EditField>
-                    )}
-                    <EditField label="type">
-                      <select
-                        aria-label={`column ${i} type`}
-                        className={editInputClass("w-[86px]")}
-                        value={col.type}
-                        onChange={(e) => setColumn(i, { type: e.target.value })}
-                      >
-                        {!KNOWN_COLUMN_TYPES.includes(col.type as (typeof KNOWN_COLUMN_TYPES)[number]) && (
-                          <option value={col.type}>{col.type}</option>
-                        )}
-                        {KNOWN_COLUMN_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </EditField>
-                    <button
-                      type="button"
-                      aria-label={`remove column ${i}`}
-                      title="Delete column"
-                      onClick={() => removeColumn(i)}
-                      className="mb-[3px] grid h-6 w-6 flex-none place-items-center rounded-md text-[color:var(--color-ink-3)] hover:bg-white/5 hover:text-[color:var(--color-rose-deep)]"
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditingRow(null)}
-                    className="mt-2 text-[10.5px] text-[color:var(--color-ink-3)] hover:text-[color:var(--color-ink)]"
-                  >
-                    Done
-                  </button>
-                </div>
+                    )
+                  }
+                />
               ) : (
                 <div
                   key={i}
@@ -212,7 +171,5 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
     </div>
   );
 }
-
-/** Folder input with a /api/lake browse dropdown; free text always works. */
 
 export default SourceContainerEditor;
