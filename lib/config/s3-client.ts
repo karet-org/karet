@@ -3,7 +3,7 @@
 import { S3Client, S3ServiceException } from "@aws-sdk/client-s3";
 
 export interface S3Config {
-  /** Dashboards, saved queries and UI settings. */
+  /** Dashboards, saved queries, seeds, UI settings, and any imported file that is not source data or Parquet. */
   pipelinesBucket: string;
   /** Uploaded source files: CSV and JSON lines. */
   lakeBucket: string;
@@ -53,7 +53,7 @@ export function bucketForRelPath(config: S3Config, relPath: string): string {
   return config.pipelinesBucket;
 }
 
-export function pipelineS3Config(base: S3Config, slug: string): S3Config {
+function pipelineS3Config(base: S3Config, slug: string): S3Config {
   const prefix = `${base.pipelinesPrefix}${slug}/`;
   return {
     ...base,
@@ -112,7 +112,6 @@ export function withS3<T>(
   const client = createS3Client(config);
   return wrapS3Error(() => fn(client, config), label);
 }
-
 
 /** `withS3`, with the config scoped to one pipeline. */
 export function withPipelineS3<T>(
