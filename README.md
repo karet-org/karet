@@ -34,12 +34,13 @@ The app refuses to start if a required variable is missing; see
 | `REDIS_URL` | *(required)* | Valkey connection string. Jobs are enqueued onto the stream the worker consumes. |
 | `S3_BUCKET_PIPELINES` | *(required)* | Bucket for dashboards and saved queries. |
 | `S3_BUCKET_LAKE` | *(required)* | Bucket for uploaded source files. |
-| `S3_BUCKET_WAREHOUSE` | *(required)* | Bucket for the Parquet tables runs write. |
+| `S3_BUCKET_WAREHOUSE` | *(required)* | Bucket for the Parquet files of the analytic tables, under `lake/`. |
 | `AWS_ENDPOINT_URL` | *(required)* | S3 endpoint, `http://rustfs:9000` locally. |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | *(required)* | S3 credentials. |
 | `KARET_SESSION_SECRET` | *(required)* | Signs session cookies. `openssl rand -base64 48`. |
 | `KARET_ADMIN_PASSWORD_HASH` | *(required)* | scrypt hash of the bootstrap admin's password, re-asserted on every start. `npm run hash-password` prints it, and the compose-escaped form. |
 | `KARET_WORKER_TOKEN` | *(required)* | Bearer token this app sends to the worker; must match the worker's. `openssl rand -hex 32`. |
+| `KARET_LAKE_READER_PASSWORD` | *(required)* | Password of `karet_lake_reader`, the read-only Postgres role this app reads the DuckLake catalog as. Startup creates the role with it. `openssl rand -hex 24`. |
 | `KARET_ADMIN_USERNAME` | `admin` | Username of that bootstrap admin. |
 | `KARET_PUBLIC_URL` | `http://localhost:3000` | The URL people reach this instance on. An `https:` value turns on secure cookies. |
 | `S3_FORCE_PATH_STYLE` | unset | `true` for S3 implementations without virtual-host addressing, RustFS included. |
@@ -48,6 +49,7 @@ The app refuses to start if a required variable is missing; see
 | `DUCKDB_MEMORY_LIMIT` | `512MB` | Memory cap for the server-side DuckDB session. |
 | `DUCKDB_THREADS` | `2` | Thread cap for that session. |
 | `DATABASE_POOL_MAX` | `8` app, `4` auth | Cap per connection pool: the app's queries and better-auth keep separate pools. |
+| `LAKE_DATABASE` | `karet_lake` | Postgres database holding the DuckLake catalog, on the `DATABASE_URL` server. Startup creates it. |
 | `PORT` | `3000` | Port to serve on. |
 
 Accounts live in Postgres and admins manage them in Settings. The bootstrap admin

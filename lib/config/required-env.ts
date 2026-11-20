@@ -19,6 +19,7 @@ export const REQUIRED_ENV_VARS = [
   "KARET_ADMIN_PASSWORD_HASH",
   "REDIS_URL",
   "DATABASE_URL",
+  "KARET_LAKE_READER_PASSWORD",
 ] as const;
 
 /** Parameterized so tests can inject a fixture without mutating `process.env`. */

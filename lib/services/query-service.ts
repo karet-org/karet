@@ -20,7 +20,7 @@ export async function relationsForConfig(
   const out: QueryRelation[] = [];
   const seen = new Set<string>();
   for (const t of config.analytic_tables) {
-    // One manifest read per table, not per alias.
+    // One lookup per table, not per alias.
     const source = await warehouseSource(pipeline, t.id, versions[t.id]);
     if (!source) continue;
     for (const slug of new Set([nameToSlug(t.name), t.id])) {
@@ -71,7 +71,7 @@ export async function runPipelineQuery(
     values?: (string | null)[];
     /** Per-table version to read as of; omitted tables read what is live. */
     versions?: Record<string, number>;
-    /** Relations already resolved, so a batch of queries reads the manifests once. */
+    /** Relations already resolved, so a batch of queries looks the tables up once. */
     relations?: QueryRelation[];
   } = {},
 ): ReturnType<typeof executeUserQuery> {
