@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Bring the database up to date, then assert the bootstrap admin.
+// Bring the database up to date, create the DuckLake catalog and its
+// read-only role, then assert the bootstrap admin.
 //
 // Runs before the server starts, and can be run by hand against any environment.
 //
@@ -14,6 +15,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
+import { ensureLake } from "./lake-setup.mjs";
 
 const LOCK_ID = 4726501;
 const MIGRATIONS_DIR = join(process.cwd(), "migrations");
@@ -140,6 +142,7 @@ async function upsertBootstrapAdmin() {
 try {
   await connectWithRetry();
   await migrate();
+  await ensureLake(client);
   await upsertBootstrapAdmin();
 } catch (err) {
   console.error(`[db-setup] ${err.message}`);
