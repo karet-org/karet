@@ -89,6 +89,40 @@ export async function listTableVersions(slug: string, tableId: string): Promise<
   );
 }
 
+/** POST to a worker endpoint with the shared token. */
+async function callWorker(
+  path: string,
+  body: unknown,
+  env: Record<string, string | undefined>,
+): Promise<{ res: Response; body: { ok?: boolean; version?: number; error?: { kind?: string; message?: string } } }> {
+  const res = await fetch(`${env.WORKER_URL ?? "http://worker:8080"}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${env.KARET_WORKER_TOKEN ?? ""}`,
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(120_000),
+  });
+  return { res, body: await res.json().catch(() => ({})) };
+}
+
+/**
+ * Ask the worker to drop a deleted pipeline's tables. Null on success, or
+ * the error to report; the caller deletes nothing else when it fails.
+ */
+export async function dropPipelineTables(
+  slug: string,
+  env: Record<string, string | undefined> = process.env,
+): Promise<{ status: number; body: Record<string, unknown> } | null> {
+  const { res, body } = await callWorker("/pipelines/drop", { pipeline: slug }, env);
+  if (res.ok && body.ok) return null;
+  return {
+    status: res.status === 409 ? 409 : 502,
+    body: { error: body.error?.kind ?? "drop_failed", message: body.error?.message ?? `worker answered ${res.status}` },
+  };
+}
+
 /**
  * Ask the worker to make an older version current. The worker holds the
  * pipeline's run lock while it does, so a restore cannot interleave with a
@@ -100,20 +134,7 @@ export async function restoreTableVersion(
   version: number,
   env: Record<string, string | undefined> = process.env,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  const res = await fetch(`${env.WORKER_URL ?? "http://worker:8080"}/tables/restore`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.KARET_WORKER_TOKEN ?? ""}`,
-    },
-    body: JSON.stringify({ pipeline: slug, table: tableId, version }),
-    signal: AbortSignal.timeout(120_000),
-  });
-  const body = (await res.json().catch(() => ({}))) as {
-    ok?: boolean;
-    version?: number;
-    error?: { kind?: string; message?: string };
-  };
+  const { res, body } = await callWorker("/tables/restore", { pipeline: slug, table: tableId, version }, env);
   if (res.ok && body.ok) return { status: 200, body: { ok: true, version: body.version, restoredFrom: version } };
   return {
     status: res.status === 404 || res.status === 409 ? res.status : 502,
