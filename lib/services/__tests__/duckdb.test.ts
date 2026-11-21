@@ -69,6 +69,38 @@ describe("executeUserQuery sandbox", () => {
   });
 });
 
+describe("blocked functions", () => {
+  // The postgres extension is not loaded in unit tests; the check rejects the
+  // names when parsing, before DuckDB looks them up.
+  it.each([
+    "SELECT * FROM postgres_scan('host=example port=5432', 'public', 'user')",
+    "SELECT * FROM main.POSTGRES_QUERY('lake', 'SELECT pg_sleep(60)')",
+    "SELECT 1 WHERE 1 IN (SELECT * FROM postgres_attach('host=x'))",
+    "SELECT * FROM postgres_configure_pool(max_connections => 0)",
+    "SELECT * FROM query('SELECT * FROM postgres_scan(''x'', ''y'', ''z'')')",
+    "SELECT * FROM query_table('t')",
+    "SELECT * FROM json_execute_serialized_sql('{}')",
+    "SELECT * FROM lake.\"p-1\".table_changes('t', 1, 2)",
+    "SELECT * FROM ducklake_table_insertions('lake', 'p-1', 't', 1, 2)",
+    "SELECT * FROM lake.snapshots()",
+  ])("rejects %s", async (sql) => {
+    const result = await executeUserQuery([], sql);
+    expect((result as { error: string }).error).toMatch(/is not allowed/);
+  });
+
+  it.each([
+    'SELECT * FROM lake."p-1".t AT (VERSION => 3)',
+    "SELECT 1 FROM (SELECT * FROM t AT (TIMESTAMP => now() - INTERVAL 1 DAY))",
+  ])("rejects AT in %s", async (sql) => {
+    const result = await executeUserQuery([], sql);
+    expect((result as { error: string }).error).toMatch(/AT is not allowed/);
+  });
+
+  it("allows ordinary functions", async () => {
+    expect(await executeUserQuery([], "SELECT upper('a') AS a")).toEqual({ columns: ["a"], rows: [{ a: "A" }] });
+  });
+});
+
 describe("lakeSourceSql", () => {
   it("reads the table without the worker's mapping column", () => {
     expect(lakeSourceSql("demo", "transactions")).toBe(

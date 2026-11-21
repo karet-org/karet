@@ -44,6 +44,8 @@ export async function ensureLake(client, settings = lakeSettings()) {
   await client.query(
     `ALTER ROLE ${ident(reader)} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD ${lit(readerPassword)}`,
   );
+  // Bounds any catalog query the app runs as this role.
+  await client.query(`ALTER ROLE ${ident(reader)} SET statement_timeout = '30s'`);
 
   const url = new URL(settings.databaseUrl);
   const owner = decodeURIComponent(url.username);

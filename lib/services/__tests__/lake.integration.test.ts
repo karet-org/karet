@@ -114,11 +114,27 @@ describe.skipIf(!url)("DuckLake catalog", () => {
       "SELECT * FROM ducklake_flush_inlined_data('lake')",
       "SELECT * FROM ducklake_expire_snapshots('lake', versions => [1])",
       "SELECT * FROM postgres_execute('__ducklake_metadata_lake', 'CREATE TABLE ducklake.x (i int)')",
+      "SELECT * FROM postgres_scan('host=127.0.0.1 dbname=postgres', 'public', 'pg_user')",
+      "SELECT * FROM postgres_query('__ducklake_metadata_lake', 'SELECT pg_sleep(5)')",
+      "SELECT * FROM postgres_attach('host=127.0.0.1 dbname=postgres')",
+      "SELECT * FROM postgres_configure_pool(catalog_name => '__ducklake_metadata_lake', max_connections => 0)",
+      "SELECT * FROM query('SELECT 1 FROM postgres_scan(''x'', ''y'', ''z'')')",
     ]) {
       expect(await duckdb.executeUserQuery([], sql), sql).toHaveProperty("error");
     }
     const after = await versions.listTableVersions("p-1", "t");
     expect(after).toHaveLength(2);
+  });
+
+  it("still reads older versions through the app's versions option, but not with AT in user SQL", async () => {
+    const list = await versions.listTableVersions("p-1", "t");
+    const at = await duckdb.executeUserQuery([], `SELECT count(*) FROM lake."p-1".t AT (VERSION => ${list[1].version})`);
+    expect(at).toHaveProperty("error");
+    const old = await duckdb.warehouseSource("p-1", "t", list[1].version);
+    expect(await duckdb.executeUserQuery([{ slug: "t", source: old! }], "SELECT count(*) AS n FROM t")).toEqual({
+      columns: ["n"],
+      rows: [{ n: 2 }],
+    });
   });
 
   it("does not show the reader's password", async () => {

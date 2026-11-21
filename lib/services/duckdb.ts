@@ -264,7 +264,62 @@ async function checkReadOnly(sql: string): Promise<string | null> {
     return err instanceof Error ? err.message : String(err);
   }
   const parsed = JSON.parse(rows[0]?.ast ?? "{}") as { error?: boolean };
-  return parsed.error ? "Only SELECT queries are allowed" : null;
+  if (parsed.error) return "Only SELECT queries are allowed";
+  const blocked = functionNames(parsed).find(isBlockedFunction);
+  if (blocked) return `The function ${blocked} is not allowed`;
+  if (hasAtClause(parsed)) return "AT is not allowed; read an older version with the versions option";
+  return null;
+}
+
+/**
+ * Functions user SQL may not call. The postgres extension is loaded for the
+ * lake catalog, and its functions would let a SELECT connect to any Postgres
+ * server, create views other users see, or change the catalog's connection
+ * pool. `query`, `query_table` and `json_execute_serialized_sql` run SQL given
+ * as a string, which this check cannot see into. The DuckLake functions and
+ * the change feed read older snapshots, which still hold the tables of
+ * deleted pipelines until those snapshots expire.
+ */
+const BLOCKED_FUNCTIONS = new Set([
+  "query",
+  "query_table",
+  "json_execute_serialized_sql",
+  "table_changes",
+  "table_insertions",
+  "table_deletions",
+  "snapshots",
+  "current_snapshot",
+  "last_committed_snapshot",
+  "table_info",
+  "options",
+]);
+
+function isBlockedFunction(name: string): boolean {
+  return name.startsWith("postgres_") || name.startsWith("ducklake_") || BLOCKED_FUNCTIONS.has(name);
+}
+
+/**
+ * True when the SQL reads a table `AT` a version or time. User SQL cannot,
+ * for the same reason as the DuckLake functions above; the app adds `AT`
+ * itself for the `versions` option, outside the SQL this check sees.
+ */
+function hasAtClause(node: unknown): boolean {
+  if (Array.isArray(node)) return node.some(hasAtClause);
+  if (!node || typeof node !== "object") return false;
+  return Object.entries(node).some(([key, value]) => (key === "at_clause" && value !== null) || hasAtClause(value));
+}
+
+/** Every function name in a `json_serialize_sql` tree, lowercased. */
+function functionNames(node: unknown, out: string[] = []): string[] {
+  if (Array.isArray(node)) {
+    for (const item of node) functionNames(item, out);
+  } else if (node && typeof node === "object") {
+    for (const [key, value] of Object.entries(node)) {
+      if (key === "function_name" && typeof value === "string") out.push(value.toLowerCase());
+      else functionNames(value, out);
+    }
+  }
+  return out;
 }
 
 /** The identifier the user types (`slug`) and the subquery it maps to. */
