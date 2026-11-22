@@ -3,7 +3,7 @@
 // writes the catalog and keeps the last 10 versions of each table, so restore
 // goes through the worker too.
 
-import { LAKE, lakeTable, query } from "@/lib/services/duckdb";
+import { LAKE, lakeTable, lit, query } from "@/lib/services/duckdb";
 
 const METADATA = `"__ducklake_metadata_${LAKE}"."ducklake"`;
 /** Keys of a snapshot's `changes` map that mean a table's rows changed. */
@@ -17,10 +17,6 @@ export interface TableVersionMeta {
   bytes: number;
   /** True for the version readers are currently scanning. */
   live: boolean;
-}
-
-function lit(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
 }
 
 /** Snapshots that changed the table's rows, newest first. */
@@ -89,38 +85,43 @@ export async function listTableVersions(slug: string, tableId: string): Promise<
   );
 }
 
-/** POST to a worker endpoint with the shared token. */
-async function callWorker(
-  path: string,
-  body: unknown,
-  env: Record<string, string | undefined>,
-): Promise<{ res: Response; body: { ok?: boolean; version?: number; error?: { kind?: string; message?: string } } }> {
-  const res = await fetch(`${env.WORKER_URL ?? "http://worker:8080"}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.KARET_WORKER_TOKEN ?? ""}`,
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(120_000),
-  });
-  return { res, body: await res.json().catch(() => ({})) };
-}
+export type WorkerReply =
+  | { ok: true; version?: number }
+  | { ok: false; status: number; error: string; message: string };
 
 /**
- * Ask the worker to drop a deleted pipeline's tables. Null on success, or
- * the error to report; the caller deletes nothing else when it fails.
+ * POST to a worker endpoint with the shared token. The worker's 404 and 409
+ * pass through; any other failure is a 502.
  */
-export async function dropPipelineTables(
-  slug: string,
-  env: Record<string, string | undefined> = process.env,
-): Promise<{ status: number; body: Record<string, unknown> } | null> {
-  const { res, body } = await callWorker("/pipelines/drop", { pipeline: slug }, env);
-  if (res.ok && body.ok) return null;
-  return {
-    status: res.status === 409 ? 409 : 502,
-    body: { error: body.error?.kind ?? "drop_failed", message: body.error?.message ?? `worker answered ${res.status}` },
+async function callWorker(
+  path: string,
+  payload: unknown,
+  failure: string,
+  env: Record<string, string | undefined>,
+): Promise<WorkerReply> {
+  const res = await fetch(`${env.WORKER_URL ?? "http://worker:8080"}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.KARET_WORKER_TOKEN ?? ""}` },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(120_000),
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    version?: number;
+    error?: { kind?: string; message?: string };
   };
+  if (res.ok && body.ok) return { ok: true, version: body.version };
+  return {
+    ok: false,
+    status: res.status === 404 || res.status === 409 ? res.status : 502,
+    error: body.error?.kind ?? failure,
+    message: body.error?.message ?? `worker answered ${res.status}`,
+  };
+}
+
+/** Ask the worker to drop a deleted pipeline's tables. */
+export function dropPipelineTables(slug: string, env = process.env): Promise<WorkerReply> {
+  return callWorker("/pipelines/drop", { pipeline: slug }, "drop_failed", env);
 }
 
 /**
@@ -128,16 +129,6 @@ export async function dropPipelineTables(
  * pipeline's run lock while it does, so a restore cannot interleave with a
  * run; it answers 409 while a run holds the lock.
  */
-export async function restoreTableVersion(
-  slug: string,
-  tableId: string,
-  version: number,
-  env: Record<string, string | undefined> = process.env,
-): Promise<{ status: number; body: Record<string, unknown> }> {
-  const { res, body } = await callWorker("/tables/restore", { pipeline: slug, table: tableId, version }, env);
-  if (res.ok && body.ok) return { status: 200, body: { ok: true, version: body.version, restoredFrom: version } };
-  return {
-    status: res.status === 404 || res.status === 409 ? res.status : 502,
-    body: { error: body.error?.kind ?? "restore_failed", message: body.error?.message ?? `worker answered ${res.status}` },
-  };
+export function restoreTableVersion(slug: string, tableId: string, version: number, env = process.env): Promise<WorkerReply> {
+  return callWorker("/tables/restore", { pipeline: slug, table: tableId, version }, "restore_failed", env);
 }

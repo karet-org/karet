@@ -38,13 +38,13 @@ async function handleDelete(
   const prefix = `${config.pipelinesPrefix}${safeSlug}/`;
 
   return wrapS3Error(async () => {
-    let dropped: Awaited<ReturnType<typeof dropPipelineTables>>;
-    try {
-      dropped = await dropPipelineTables(safeSlug);
-    } catch (err) {
-      return Response.json({ error: "worker_unreachable", message: (err as Error).message }, { status: 502 });
-    }
-    if (dropped) return Response.json(dropped.body, { status: dropped.status });
+    const dropped = await dropPipelineTables(safeSlug).catch((err: Error) => ({
+      ok: false as const,
+      status: 502,
+      error: "worker_unreachable",
+      message: err.message,
+    }));
+    if (!dropped.ok) return Response.json({ error: dropped.error, message: dropped.message }, { status: dropped.status });
 
     let totalDeleted = 0;
 

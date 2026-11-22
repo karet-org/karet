@@ -9,7 +9,6 @@ import { eventsChannel, getRedis, indexKey, liveKey, STREAM_KEY, STREAM_MAXLEN }
 export interface JobMessage {
   job_id: string;
   pipeline: string;
-  prefix: string;
   /** The config version this run must use; null resolves the live one. */
   config_version_id: number | null;
   clean_run: boolean;

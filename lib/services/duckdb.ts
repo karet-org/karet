@@ -64,13 +64,13 @@ function getPool(): Promise<DuckDBConnection[]> {
       // shown redacted.
       `CREATE SECRET karet_s3 (${[
         "TYPE s3",
-        `KEY_ID '${sqlLit(process.env.AWS_ACCESS_KEY_ID ?? "")}'`,
-        `SECRET '${sqlLit(process.env.AWS_SECRET_ACCESS_KEY ?? "")}'`,
-        `REGION '${sqlLit(config.region)}'`,
+        `KEY_ID ${lit(process.env.AWS_ACCESS_KEY_ID ?? "")}`,
+        `SECRET ${lit(process.env.AWS_SECRET_ACCESS_KEY ?? "")}`,
+        `REGION ${lit(config.region)}`,
         "URL_STYLE 'path'",
         ...(config.endpoint
           ? [
-              `ENDPOINT '${sqlLit(config.endpoint.replace(/^https?:\/\//, ""))}'`,
+              `ENDPOINT ${lit(config.endpoint.replace(/^https?:\/\//, ""))}`,
               `USE_SSL ${config.endpoint.startsWith("https") ? "true" : "false"}`,
             ]
           : []),
@@ -148,11 +148,11 @@ function lakeStatements(lake: ReturnType<typeof lakeConnection>): string[] {
     // accounts or configs through the attached metadata database.
     `CREATE SECRET karet_lake_pg (${[
       "TYPE postgres",
-      `HOST '${sqlLit(lake.host)}'`,
+      `HOST ${lit(lake.host)}`,
       `PORT ${lake.port}`,
-      `DATABASE '${sqlLit(lake.database)}'`,
-      `USER '${sqlLit(lake.user)}'`,
-      `PASSWORD '${sqlLit(lake.password)}'`,
+      `DATABASE ${lit(lake.database)}`,
+      `USER ${lit(lake.user)}`,
+      `PASSWORD ${lit(lake.password)}`,
     ].join(", ")})`,
     `ATTACH 'ducklake:postgres:' AS ${LAKE} (READ_ONLY, METADATA_SCHEMA 'ducklake', META_SECRET 'karet_lake_pg')`,
   ];
@@ -189,9 +189,9 @@ export async function query<T extends Record<string, unknown> = Record<string, u
   }) as T[];
 }
 
-/** Escape a value for embedding in a single-quoted SQL string literal. */
-function sqlLit(value: string): string {
-  return value.replace(/'/g, "''");
+/** A single-quoted SQL string literal. */
+export function lit(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
 }
 
 function ident(name: string): string {
@@ -232,12 +232,6 @@ export function lakeSourceSql(slug: string, tableId: string, version?: number): 
   return `(SELECT * EXCLUDE (${ident(MAPPING_COLUMN)}) FROM ${lakeTable(slug, tableId)}${at})`;
 }
 
-/** Rows in a source. */
-export async function countSource(source: string): Promise<number> {
-  const rows = await query<{ n: number }>(`SELECT count(*) AS n FROM ${source}`);
-  return Number(rows[0]?.n ?? 0);
-}
-
 /** Column names and DuckDB types of a source. */
 export async function describeSource(
   source: string,
@@ -265,9 +259,13 @@ async function checkReadOnly(sql: string): Promise<string | null> {
   }
   const parsed = JSON.parse(rows[0]?.ast ?? "{}") as { error?: boolean };
   if (parsed.error) return "Only SELECT queries are allowed";
-  const blocked = functionNames(parsed).find(isBlockedFunction);
-  if (blocked) return `The function ${blocked} is not allowed`;
-  if (hasAtClause(parsed)) return "AT is not allowed; read an older version with the versions option";
+  const nodes = [...entries(parsed)];
+  const blocked = nodes.find(([k, v]) => k === "function_name" && typeof v === "string" && isBlockedFunction(v));
+  if (blocked) return `The function ${String(blocked[1]).toLowerCase()} is not allowed`;
+  // The app adds `AT` itself for the `versions` option, outside this check.
+  if (nodes.some(([k, v]) => k === "at_clause" && v !== null)) {
+    return "AT is not allowed; read an older version with the versions option";
+  }
   return null;
 }
 
@@ -276,8 +274,8 @@ async function checkReadOnly(sql: string): Promise<string | null> {
  * lake catalog, and its functions would let a SELECT connect to any Postgres
  * server, create views other users see, or change the catalog's connection
  * pool. `query`, `query_table` and `json_execute_serialized_sql` run SQL given
- * as a string, which this check cannot see into. The DuckLake functions and
- * the change feed read older snapshots, which still hold the tables of
+ * as a string, which this check cannot see into. The DuckLake functions, the
+ * change feed and `AT` read older snapshots, which still hold the tables of
  * deleted pipelines until those snapshots expire.
  */
 const BLOCKED_FUNCTIONS = new Set([
@@ -295,31 +293,20 @@ const BLOCKED_FUNCTIONS = new Set([
 ]);
 
 function isBlockedFunction(name: string): boolean {
-  return name.startsWith("postgres_") || name.startsWith("ducklake_") || BLOCKED_FUNCTIONS.has(name);
+  const n = name.toLowerCase();
+  return n.startsWith("postgres_") || n.startsWith("ducklake_") || BLOCKED_FUNCTIONS.has(n);
 }
 
-/**
- * True when the SQL reads a table `AT` a version or time. User SQL cannot,
- * for the same reason as the DuckLake functions above; the app adds `AT`
- * itself for the `versions` option, outside the SQL this check sees.
- */
-function hasAtClause(node: unknown): boolean {
-  if (Array.isArray(node)) return node.some(hasAtClause);
-  if (!node || typeof node !== "object") return false;
-  return Object.entries(node).some(([key, value]) => (key === "at_clause" && value !== null) || hasAtClause(value));
-}
-
-/** Every function name in a `json_serialize_sql` tree, lowercased. */
-function functionNames(node: unknown, out: string[] = []): string[] {
+/** Every key and value in a `json_serialize_sql` tree, at any depth. */
+function* entries(node: unknown): Generator<[string, unknown]> {
   if (Array.isArray(node)) {
-    for (const item of node) functionNames(item, out);
+    for (const item of node) yield* entries(item);
   } else if (node && typeof node === "object") {
     for (const [key, value] of Object.entries(node)) {
-      if (key === "function_name" && typeof value === "string") out.push(value.toLowerCase());
-      else functionNames(value, out);
+      yield [key, value];
+      yield* entries(value);
     }
   }
-  return out;
 }
 
 /** The identifier the user types (`slug`) and the subquery it maps to. */

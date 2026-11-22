@@ -16,8 +16,10 @@ async function handlePost(
     return Response.json({ error: "invalid_version" }, { status: 400 });
   }
   try {
-    const result = await restoreTableVersion(pipeline, table, n);
-    return Response.json(result.body, { status: result.status });
+    const r = await restoreTableVersion(pipeline, table, n);
+    return r.ok
+      ? Response.json({ ok: true, version: r.version, restoredFrom: n })
+      : Response.json({ error: r.error, message: r.message }, { status: r.status });
   } catch (err) {
     console.error(`POST /api/p/${pipeline}/tables/${table}/versions/${version}/restore failed:`, err);
     return Response.json({ error: "worker_unreachable", message: (err as Error).message }, { status: 502 });
