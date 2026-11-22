@@ -12,6 +12,17 @@ jobs:
   test:
     runs-on: ubuntu-latest
     services:
+      # For the DuckLake catalog tests (lib/services/__tests__/lake.integration.test.ts).
+      postgres:
+        image: postgres:17-alpine
+        ports: ["5432:5432"]
+        env:
+          POSTGRES_PASSWORD: ci
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
       valkey:
         image: valkey/valkey:8-alpine
         ports: ["6379:6379"]
@@ -30,6 +41,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+        env:
+          KARET_LAKE_TEST_DATABASE_URL: postgres://postgres:ci@127.0.0.1:5432/postgres
       - run: npm run build
         env:
           REDIS_TEST_URL: redis://127.0.0.1:6379

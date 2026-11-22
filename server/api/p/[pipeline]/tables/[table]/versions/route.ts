@@ -1,21 +1,21 @@
-import { wrapS3Error } from "@/lib/config/s3-client";
 import { withRole } from "@/lib/auth/guard";
-import { listTableVersions } from "@/lib/services/table-manifest";
+import { listTableVersions } from "@/lib/services/table-versions";
 
 /**
- * Versions of a table still on disk, newest first. This is the window the table
- * can be queried as of, or rolled back into; the worker retains a bounded
- * number and vacuums the rest.
+ * Retained versions of a table, newest first: the window the table can be
+ * queried as of, or restored from.
  */
 async function handleGet(
   _request: Request,
   context: { params: Promise<{ pipeline: string; table: string }> },
 ) {
   const { pipeline, table } = await context.params;
-  return wrapS3Error(
-    async () => Response.json({ versions: await listTableVersions(pipeline, table) }),
-    `GET /api/p/${pipeline}/tables/${table}/versions`,
-  );
+  try {
+    return Response.json({ versions: await listTableVersions(pipeline, table) });
+  } catch (err) {
+    console.error(`GET /api/p/${pipeline}/tables/${table}/versions failed:`, err);
+    return Response.json({ error: "lake_error", message: (err as Error).message }, { status: 503 });
+  }
 }
 
 export const GET = withRole(handleGet);

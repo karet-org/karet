@@ -16,8 +16,14 @@ import {
   pipelineExists,
   renamePipeline,
   } from "@/lib/services/pipeline-store";
+import { dropPipelineTables } from "@/lib/services/table-versions";
 
-/** Removes every object under `pipelines/<slug>/` in the pipelines and warehouse bucket. */
+/**
+ * Drops the pipeline's tables from the lake, through the worker, then removes
+ * every object under `pipelines/<slug>/` and the registry row. Nothing is
+ * deleted when the worker cannot drop the tables, so the pipeline is never
+ * left half deleted with its data still readable.
+ */
 async function handleDelete(
   _request: Request,
   context: { params: Promise<{ slug: string }> },
@@ -32,6 +38,14 @@ async function handleDelete(
   const prefix = `${config.pipelinesPrefix}${safeSlug}/`;
 
   return wrapS3Error(async () => {
+    const dropped = await dropPipelineTables(safeSlug).catch((err: Error) => ({
+      ok: false as const,
+      status: 502,
+      error: "worker_unreachable",
+      message: err.message,
+    }));
+    if (!dropped.ok) return Response.json({ error: dropped.error, message: dropped.message }, { status: dropped.status });
+
     let totalDeleted = 0;
 
     for (const bucket of [config.pipelinesBucket, config.warehouseBucket]) {

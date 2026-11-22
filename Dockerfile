@@ -17,6 +17,14 @@ FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
+# The DuckDB extensions the server and db-setup load, installed by the same
+# @duckdb/node-api build they run with, so startup never downloads one.
+RUN node -e "(async () => { \
+      const { DuckDBInstance } = await import('@duckdb/node-api'); \
+      const c = await (await DuckDBInstance.create(':memory:')).connect(); \
+      await c.run(\"SET extension_directory = '/app/duckdb-extensions'\"); \
+      for (const e of ['httpfs', 'ducklake', 'postgres']) await c.run('INSTALL ' + e); \
+    })()"
 
 # Production image
 FROM base AS runner
@@ -24,14 +32,14 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Give the runtime user a real home so DuckDB can install/cache its httpfs
-# extension there.
+# Give the runtime user a real home; DuckDB looks for its extensions under it.
 RUN addgroup --system --gid 1001 karet && \
     adduser --system --uid 1001 --home /home/karet karet && \
     mkdir -p /home/karet/.duckdb/extensions && \
     chown -R karet:karet /home/karet
 
 COPY --from=deps --chown=karet:karet /app/node_modules ./node_modules
+COPY --from=deps --chown=karet:karet /app/duckdb-extensions /home/karet/.duckdb/extensions
 COPY --from=builder --chown=karet:karet /app/package.json ./package.json
 COPY --from=builder --chown=karet:karet /app/dist ./dist
 # `db-setup.mjs` applies `migrations/` under an advisory lock before the server

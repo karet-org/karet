@@ -1,9 +1,4 @@
-import {
-  describeSource,
-  executeUserQuery,
-  isVanishedFileError,
-  warehouseSource,
-} from "@/lib/services/duckdb";
+import { describeSource, executeUserQuery, warehouseSource } from "@/lib/services/duckdb";
 import { BROWSE_ALIAS, buildBrowseSql, parseBrowseParams } from "@/lib/services/table-browse";
 import { withRole } from "@/lib/auth/guard";
 
@@ -30,13 +25,7 @@ async function handleGet(
     const source = await warehouseSource(pipeline, table, version);
     if (!source) return Response.json(empty);
 
-    let columns: { name: string; type: string }[];
-    try {
-      columns = await describeSource(source);
-    } catch (err) {
-      if (isVanishedFileError(err)) return Response.json(empty);
-      throw err;
-    }
+    const columns = await describeSource(source);
 
     const req = parseBrowseParams(params, columns.map((c) => c.name));
     if ("error" in req) {

@@ -163,7 +163,6 @@ describe.skipIf(!TEST_URL)("enqueueJob (integration)", () => {
     const jobRecord = await enqueueJob({
       job_id: "job-web-int-1",
       pipeline: "web-int",
-      prefix: "pipelines/web-int/",
       config_version_id: null,
       clean_run: true,
       trigger: "manual",
@@ -179,7 +178,6 @@ describe.skipIf(!TEST_URL)("enqueueJob (integration)", () => {
     expect(payload).toEqual({
       job_id: "job-web-int-1",
       pipeline: "web-int",
-      prefix: "pipelines/web-int/",
       // Serialised even when null. The worker's `JobMessage` takes it as
       // `Option<i64>` with `#[serde(default)]`, so present-and-null and absent
       // both mean "resolve the live version at execution time".

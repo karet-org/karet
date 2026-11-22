@@ -1,7 +1,6 @@
 // Enqueue-only job start: the web app writes onto the Redis stream and returns;
 // the worker fleet owns claiming, locking, progress, retries and the S3 record.
 
-import { loadS3Config } from "@/lib/config/s3-client";
 import { newId } from "@/lib/config/id";
 import { enqueueJob } from "@/lib/services/live-jobs";
 import type { JobRecord } from "@/lib/types/jobs";
@@ -17,7 +16,6 @@ export interface StartJobOptions {
 
 /** Enqueue a job for the worker fleet and return its initial (queued) record. */
 export async function startJob(opts: StartJobOptions): Promise<JobRecord> {
-  const config = loadS3Config();
   const jobId = newId("job");
   const enqueuedAt = Date.now();
 
@@ -37,7 +35,6 @@ export async function startJob(opts: StartJobOptions): Promise<JobRecord> {
   return enqueueJob({
     job_id: jobId,
     pipeline: opts.pipeline,
-    prefix: `${config.pipelinesPrefix}${opts.pipeline}/`,
     config_version_id: live?.id ?? null,
     clean_run: opts.cleanRun,
     trigger: opts.trigger ?? "manual",

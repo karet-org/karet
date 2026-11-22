@@ -103,6 +103,9 @@ services:
       KARET_WORKER_TOKEN: ${KARET_WORKER_TOKEN:?set KARET_WORKER_TOKEN (e.g. openssl rand -hex 32)}
       REDIS_URL: redis://valkey:6379
       DATABASE_URL: ${DATABASE_URL:-postgres://karet:${POSTGRES_PASSWORD}@postgres:5432/karet}
+      # The web app reads the DuckLake catalog as this role; db-setup creates
+      # it with this password.
+      KARET_LAKE_READER_PASSWORD: ${KARET_LAKE_READER_PASSWORD:?set KARET_LAKE_READER_PASSWORD (e.g. openssl rand -hex 24)}
       KARET_PUBLIC_URL: ${KARET_PUBLIC_URL:-http://localhost:3000}
     depends_on:
       rustfs:

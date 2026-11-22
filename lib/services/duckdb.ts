@@ -1,11 +1,16 @@
-// Server-side Parquet querying over S3 via DuckDB (httpfs). One in-memory
-// database is shared across requests; queries read straight from S3. A query
-// runs on one of a few connections, since a connection runs one query at a
-// time and a dashboard or two users would otherwise wait in line.
+// Server-side querying of the analytic tables via DuckDB. The tables are a
+// DuckLake catalog in Postgres, attached read-only, with Parquet in S3. One
+// in-memory database is shared across requests. A query runs on one of a few
+// connections, since a connection runs one query at a time and a dashboard or
+// two users would otherwise wait in line.
 
 import type { DuckDBConnection } from "@duckdb/node-api";
 import { loadS3Config } from "@/lib/config/s3-client";
-import { manifestUrls, readManifest } from "@/lib/services/table-manifest";
+
+/** Name the DuckLake catalog is attached under. */
+export const LAKE = "lake";
+/** The column naming the mapping that wrote a row; internal to the worker. */
+const MAPPING_COLUMN = "_karet_mapping";
 
 const POOL_SIZE = Number(process.env.DUCKDB_CONNECTIONS) > 0 ? Number(process.env.DUCKDB_CONNECTIONS) : 4;
 
@@ -41,6 +46,8 @@ function getPool(): Promise<DuckDBConnection[]> {
     // home may be unset, so point it at a writable path.
     const home = process.env.DUCKDB_HOME || process.env.HOME || "/tmp";
 
+    // Unset only in unit tests: the server refuses to start without it.
+    const lake = process.env.KARET_LAKE_READER_PASSWORD ? lakeConnection() : null;
     const stmts = [
       `SET GLOBAL home_directory = '${home}'`,
       `SET GLOBAL extension_directory = '${home}/.duckdb/extensions'`,
@@ -57,13 +64,13 @@ function getPool(): Promise<DuckDBConnection[]> {
       // shown redacted.
       `CREATE SECRET karet_s3 (${[
         "TYPE s3",
-        `KEY_ID '${sqlLit(process.env.AWS_ACCESS_KEY_ID ?? "")}'`,
-        `SECRET '${sqlLit(process.env.AWS_SECRET_ACCESS_KEY ?? "")}'`,
-        `REGION '${sqlLit(config.region)}'`,
+        `KEY_ID ${lit(process.env.AWS_ACCESS_KEY_ID ?? "")}`,
+        `SECRET ${lit(process.env.AWS_SECRET_ACCESS_KEY ?? "")}`,
+        `REGION ${lit(config.region)}`,
         "URL_STYLE 'path'",
         ...(config.endpoint
           ? [
-              `ENDPOINT '${sqlLit(config.endpoint.replace(/^https?:\/\//, ""))}'`,
+              `ENDPOINT ${lit(config.endpoint.replace(/^https?:\/\//, ""))}`,
               `USE_SSL ${config.endpoint.startsWith("https") ? "true" : "false"}`,
             ]
           : []),
@@ -74,6 +81,7 @@ function getPool(): Promise<DuckDBConnection[]> {
       `SET GLOBAL s3_access_key_id = ''`,
       `SET GLOBAL s3_secret_access_key = ''`,
       `SET GLOBAL s3_session_token = ''`,
+      ...(lake ? lakeStatements(lake) : []),
       // Table files never change once written (a new version gets new keys),
       // so their Parquet footers can be kept instead of fetched per query.
       `SET GLOBAL parquet_metadata_cache = true`,
@@ -127,8 +135,43 @@ function toJson(value: unknown): unknown {
   return value;
 }
 
+/** The secret and the attach for the catalog. */
+function lakeStatements(lake: ReturnType<typeof lakeConnection>): string[] {
+  return [
+    `INSTALL ducklake`,
+    `LOAD ducklake`,
+    `INSTALL postgres`,
+    `LOAD postgres`,
+    // The catalog, read-only twice over: the attach refuses writes, and the
+    // role it connects as only has SELECT on the catalog tables. The role has
+    // no grants in the control-plane database, so user SQL cannot read
+    // accounts or configs through the attached metadata database.
+    `CREATE SECRET karet_lake_pg (${[
+      "TYPE postgres",
+      `HOST ${lit(lake.host)}`,
+      `PORT ${lake.port}`,
+      `DATABASE ${lit(lake.database)}`,
+      `USER ${lit(lake.user)}`,
+      `PASSWORD ${lit(lake.password)}`,
+    ].join(", ")})`,
+    `ATTACH 'ducklake:postgres:' AS ${LAKE} (READ_ONLY, METADATA_SCHEMA 'ducklake', META_SECRET 'karet_lake_pg')`,
+  ];
+}
+
+/** The Postgres server holding the catalog, and the read-only role. */
+export function lakeConnection(env: Record<string, string | undefined> = process.env) {
+  const url = new URL(env.DATABASE_URL ?? "postgres://localhost:5432/karet");
+  return {
+    host: url.hostname,
+    port: Number(url.port) || 5432,
+    database: env.LAKE_DATABASE || "karet_lake",
+    user: env.KARET_LAKE_READER_USER || "karet_lake_reader",
+    password: env.KARET_LAKE_READER_PASSWORD ?? "",
+  };
+}
+
 /** Run a read-only query and return the rows as JSON-safe plain objects. */
-async function query<T extends Record<string, unknown> = Record<string, unknown>>(
+export async function query<T extends Record<string, unknown> = Record<string, unknown>>(
   sql: string,
   values: (string | null)[] = [],
 ): Promise<T[]> {
@@ -146,53 +189,50 @@ async function query<T extends Record<string, unknown> = Record<string, unknown>
   }) as T[];
 }
 
-/** Escape a value for embedding in a single-quoted SQL string literal. */
-function sqlLit(value: string): string {
-  return value.replace(/'/g, "''");
+/** A single-quoted SQL string literal. */
+export function lit(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+function ident(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
+}
+
+/** The DuckLake table holding a pipeline's analytic table. */
+export function lakeTable(slug: string, tableId: string): string {
+  return `${LAKE}.${ident(slug)}.${ident(tableId)}`;
+}
+
+/** True once a run has written the table. */
+export async function lakeTableExists(slug: string, tableId: string): Promise<boolean> {
+  const rows = await query(
+    "SELECT 1 FROM duckdb_tables() WHERE database_name = ? AND schema_name = ? AND table_name = ?",
+    [LAKE, slug, tableId],
+  );
+  return rows.length > 0;
 }
 
 /**
- * A `read_parquet(...)` table function over the files a table's manifest lists,
- * or null when the table has no published version yet.
- *
- * An explicit file list, not a glob over the table prefix: the prefix also
- * holds the versions the worker retains for rollback, so a glob would union
- * every version of every row.
+ * A subquery over the table's rows, live or as of a retained `version`, or
+ * null when no run has written the table yet.
  */
 export async function warehouseSource(
   slug: string,
   tableId: string,
   version?: number,
 ): Promise<string | null> {
-  const manifest = await readManifest(slug, tableId, version);
-  if (!manifest || manifest.files.length === 0) return null;
-  const urls = manifestUrls(slug, tableId, manifest);
-  // `slug`/`tableId` reach here from the URL, and manifest keys from S3:
-  // escape every literal so none can break out of the string (SQL injection).
-  const list = urls.map((u) => `'${sqlLit(u)}'`).join(", ");
-  return `read_parquet([${list}], union_by_name = true, hive_partitioning = true)`;
+  if (!(await lakeTableExists(slug, tableId))) return null;
+  return lakeSourceSql(slug, tableId, version);
 }
 
-/**
- * True for errors that mean a manifest outlived the objects it names (vacuum
- * retired a version between resolving it and reading it).
- */
-export function isVanishedFileError(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err);
-  return (
-    msg.includes("No files found") ||
-    msg.includes("HTTP Error") ||
-    msg.includes("Could not read")
-  );
+/** [`warehouseSource`] without the existence check. */
+export function lakeSourceSql(slug: string, tableId: string, version?: number): string {
+  if (version !== undefined && !Number.isInteger(version)) throw new Error("version must be an integer");
+  const at = version === undefined ? "" : ` AT (VERSION => ${version})`;
+  return `(SELECT * EXCLUDE (${ident(MAPPING_COLUMN)}) FROM ${lakeTable(slug, tableId)}${at})`;
 }
 
-/** Rows in a `read_parquet(...)` source, from the Parquet footers. */
-export async function countSource(source: string): Promise<number> {
-  const rows = await query<{ n: number }>(`SELECT count(*) AS n FROM ${source}`);
-  return Number(rows[0]?.n ?? 0);
-}
-
-/** Column names and DuckDB types of a `read_parquet(...)` source. */
+/** Column names and DuckDB types of a source. */
 export async function describeSource(
   source: string,
 ): Promise<{ name: string; type: string }[]> {
@@ -218,10 +258,58 @@ async function checkReadOnly(sql: string): Promise<string | null> {
     return err instanceof Error ? err.message : String(err);
   }
   const parsed = JSON.parse(rows[0]?.ast ?? "{}") as { error?: boolean };
-  return parsed.error ? "Only SELECT queries are allowed" : null;
+  if (parsed.error) return "Only SELECT queries are allowed";
+  const nodes = [...entries(parsed)];
+  const blocked = nodes.find(([k, v]) => k === "function_name" && typeof v === "string" && isBlockedFunction(v));
+  if (blocked) return `The function ${String(blocked[1]).toLowerCase()} is not allowed`;
+  // The app adds `AT` itself for the `versions` option, outside this check.
+  if (nodes.some(([k, v]) => k === "at_clause" && v !== null)) {
+    return "AT is not allowed; read an older version with the versions option";
+  }
+  return null;
 }
 
-/** The identifier the user types (`slug`) and the `read_parquet(...)` expression it maps to. */
+/**
+ * Functions user SQL may not call. The postgres extension is loaded for the
+ * lake catalog, and its functions would let a SELECT connect to any Postgres
+ * server, create views other users see, or change the catalog's connection
+ * pool. `query`, `query_table` and `json_execute_serialized_sql` run SQL given
+ * as a string, which this check cannot see into. The DuckLake functions, the
+ * change feed and `AT` read older snapshots, which still hold the tables of
+ * deleted pipelines until those snapshots expire.
+ */
+const BLOCKED_FUNCTIONS = new Set([
+  "query",
+  "query_table",
+  "json_execute_serialized_sql",
+  "table_changes",
+  "table_insertions",
+  "table_deletions",
+  "snapshots",
+  "current_snapshot",
+  "last_committed_snapshot",
+  "table_info",
+  "options",
+]);
+
+function isBlockedFunction(name: string): boolean {
+  const n = name.toLowerCase();
+  return n.startsWith("postgres_") || n.startsWith("ducklake_") || BLOCKED_FUNCTIONS.has(n);
+}
+
+/** Every key and value in a `json_serialize_sql` tree, at any depth. */
+function* entries(node: unknown): Generator<[string, unknown]> {
+  if (Array.isArray(node)) {
+    for (const item of node) yield* entries(item);
+  } else if (node && typeof node === "object") {
+    for (const [key, value] of Object.entries(node)) {
+      yield [key, value];
+      yield* entries(value);
+    }
+  }
+}
+
+/** The identifier the user types (`slug`) and the subquery it maps to. */
 export interface QueryRelation {
   slug: string;
   source: string;
