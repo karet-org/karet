@@ -145,4 +145,38 @@ describe("SourceContainerEditor", () => {
     expect(harness.value.schema.length).toBe(2);
     cleanup();
   });
+
+  it("shows an error when raw file retention is under 1 day or not whole", () => {
+    for (const retention_days of [0, 1.5]) {
+      const { container } = makeHarness({
+        id: "a",
+        name: "Valid",
+        path_prefix: "raw/a/",
+        schema: [{ name: "x", type: "string" }],
+        retention_days,
+      });
+      expect(
+        container.querySelector(`[data-testid="${SOURCE_CONTAINER_EDITOR_ERROR_TESTID}"]`),
+      ).not.toBeNull();
+      cleanup();
+    }
+  });
+
+  it("sets raw file retention from the days field and unsets it when cleared", () => {
+    const harness = makeHarness({
+      id: "a",
+      name: "Valid",
+      path_prefix: "raw/a/",
+      schema: [{ name: "x", type: "string" }],
+    });
+    const days = harness.getByLabelText("raw file retention days");
+    fireEvent.change(days, { target: { value: "30" } });
+    expect(harness.value.retention_days).toBe(30);
+    expect(
+      harness.container.querySelector(`[data-testid="${SOURCE_CONTAINER_EDITOR_ERROR_TESTID}"]`),
+    ).toBeNull();
+    fireEvent.change(days, { target: { value: "" } });
+    expect(harness.value.retention_days).toBeUndefined();
+    cleanup();
+  });
 });

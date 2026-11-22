@@ -93,6 +93,32 @@ function SourceContainerEditor({ value, onChange, onValidate }: SourceContainerE
         </select>
       </Section>
 
+      <Section label="Raw file retention">
+        <div className="flex items-center gap-2">
+          <div className="w-24">
+            <input
+              aria-label="raw file retention days"
+              type="number"
+              min={1}
+              placeholder="forever"
+              className={kvInputClass("font-mono")}
+              value={value.retention_days ?? ""}
+              onChange={(e) =>
+                onChange({
+                  ...value,
+                  retention_days: e.target.value === "" ? undefined : Number(e.target.value),
+                })
+              }
+            />
+          </div>
+          <span className="text-xs text-[color:var(--color-ink-2)]">days</span>
+        </div>
+        <p className="mt-1.5 text-[10.5px] text-[color:var(--color-ink-3)]">
+          Deletes raw files this many days after upload, once every mapping has loaded
+          them. Rows already in tables are kept. Empty keeps files forever.
+        </p>
+      </Section>
+
       <Section
         label={
           <>
