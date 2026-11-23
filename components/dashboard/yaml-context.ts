@@ -18,7 +18,7 @@ const PANEL_BINDINGS: Record<string, string[]> = {
   symbol_map: ["lat", "lon", "value", "label", "max_radius"],
   summary: [],
 };
-const FILTER_KEYS = ["name", "kind", "label", "options_sql"];
+const FILTER_KEYS = ["name", "kind", "label", "options_sql", "default_days"];
 const GRID_KEYS = ["span", "aspect", "maxHeight"];
 const LAYOUT_KEYS = ["columns", "gap"];
 

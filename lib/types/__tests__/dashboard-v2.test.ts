@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractParams,
   filterParams,
+  initialParams,
   validateDashboardV2,
 } from "@/lib/types/dashboard-v2";
 
@@ -137,6 +138,56 @@ describe("filterParams", () => {
   it("expands date_range into _from/_to", () => {
     expect(filterParams({ name: "p", kind: "date_range" })).toEqual(["p_from", "p_to"]);
     expect(filterParams({ name: "a", kind: "dropdown" })).toEqual(["a"]);
+  });
+});
+
+describe("default_days", () => {
+  const doc = (filter: string) => `
+version: 2
+id: x
+name: X
+filters:
+${filter}
+panels:
+  - kind: kpi
+    title: T
+    query: SELECT 1 AS n
+    value: n
+`;
+
+  it("accepts a whole number of days on a date_range", () => {
+    expect(validateDashboardV2(doc("  - { name: period, kind: date_range, default_days: 30 }")).ok).toBe(true);
+  });
+
+  it("rejects days under 1, fractions, and dropdown filters", () => {
+    for (const filter of [
+      "  - { name: period, kind: date_range, default_days: 0 }",
+      "  - { name: period, kind: date_range, default_days: 1.5 }",
+      "  - { name: a, kind: dropdown, options_sql: SELECT 1, default_days: 30 }",
+    ]) {
+      expect(validateDashboardV2(doc(filter)).ok, filter).toBe(false);
+    }
+  });
+
+  it("opens with _from set that many days before today, across a month boundary", () => {
+    const params = initialParams(
+      {
+        filters: [
+          { name: "period", kind: "date_range", default_days: 30 },
+          { name: "other", kind: "date_range" },
+          { name: "service", kind: "dropdown", options_sql: "SELECT 1" },
+        ],
+        panels: [],
+      },
+      new Date(2026, 2, 15),
+    );
+    expect(params).toEqual({
+      period_from: "2026-02-13",
+      period_to: null,
+      other_from: null,
+      other_to: null,
+      service: null,
+    });
   });
 });
 

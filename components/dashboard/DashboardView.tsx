@@ -4,20 +4,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DashboardConfigV2, PanelV2 } from "@/lib/types/dashboard-v2";
 import type { DashboardData, Params } from "@/lib/services/dashboard-data";
-import { filterParams } from "@/lib/types/dashboard-v2";
+import { filterParams, initialParams } from "@/lib/types/dashboard-v2";
 import FilterBar from "./FilterBar";
 import PanelRenderer from "./PanelRenderer";
 
 const DEBOUNCE_MS = 250;
-
-function emptyParams(config: DashboardConfigV2): Params {
-  const params: Params = {};
-  for (const f of config.filters) for (const p of filterParams(f)) params[p] = null;
-  for (const panel of config.panels) {
-    if ("emit" in panel && panel.emit) params[panel.emit.param] = null;
-  }
-  return params;
-}
 
 /** Params set by emits with no filter control of their own. */
 function emitOnlyParams(config: DashboardConfigV2): string[] {
@@ -49,7 +40,7 @@ function DashboardView({
   config: DashboardConfigV2;
   draft?: boolean;
 }) {
-  const [params, setParams] = useState<Params>(() => emptyParams(config));
+  const [params, setParams] = useState<Params>(() => initialParams(config, new Date()));
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
