@@ -337,6 +337,9 @@ filters:
     options_sql: |
       SELECT DISTINCT service FROM requests
       WHERE service IS NOT NULL ORDER BY 1
+  - name: period
+    kind: date_range
+    label: Date range
 
 panels:
   - kind: kpi
@@ -344,6 +347,8 @@ panels:
     query: |
       SELECT count(*) AS n FROM requests
       WHERE service = coalesce($service, service)
+      AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                   AND coalesce($period_to, DATE '9999-12-31')
     value: n
     icon: chart
     grid: { span: 2 }
@@ -353,6 +358,8 @@ panels:
     query: |
       SELECT count(*) AS n FROM requests
       WHERE status >= 500 AND service = coalesce($service, service)
+      AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                   AND coalesce($period_to, DATE '9999-12-31')
     value: n
     icon: chart
     grid: { span: 2 }
@@ -362,6 +369,8 @@ panels:
     query: |
       SELECT round(avg(duration_ms), 1) AS ms FROM requests
       WHERE service = coalesce($service, service)
+      AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                   AND coalesce($period_to, DATE '9999-12-31')
     value: ms
     icon: chart
     grid: { span: 2 }
@@ -371,6 +380,8 @@ panels:
     query: |
       SELECT date, count(*) AS requests FROM requests
       WHERE service = coalesce($service, service)
+      AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                   AND coalesce($period_to, DATE '9999-12-31')
       GROUP BY 1 ORDER BY 1
     x: date
     y: requests
@@ -381,6 +392,8 @@ panels:
     query: |
       SELECT date, count(*) AS crawlers FROM requests
       WHERE crawler IS NOT NULL AND service = coalesce($service, service)
+      AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                   AND coalesce($period_to, DATE '9999-12-31')
       GROUP BY 1 ORDER BY 1
     x: date
     y: crawlers
@@ -390,6 +403,8 @@ panels:
     title: Bytes By Region
     query: |
       SELECT region, sum(bytes) AS bytes FROM requests
+      WHERE date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                     AND coalesce($period_to, DATE '9999-12-31')
       GROUP BY 1 ORDER BY bytes DESC
     x: region
     y: bytes
@@ -401,6 +416,8 @@ panels:
       SELECT path, count(*) AS hits, round(median(duration_ms), 1) AS p50_ms
       FROM requests
       WHERE service = coalesce($service, service)
+      AND date BETWEEN coalesce($period_from, DATE '0001-01-01')
+                   AND coalesce($period_to, DATE '9999-12-31')
       GROUP BY 1 ORDER BY p50_ms DESC
     page_size: 10
     grid: { span: full }

@@ -12,6 +12,8 @@ export interface DashboardFilterV2 {
   label?: string;
   /** Dropdown option source; single-column SELECT. */
   options_sql?: string;
+  /** date_range only: the dashboard opens with `$name_from` set this many days before today. */
+  default_days?: number;
 }
 
 /** Click-to-filter: clicking a mark sets the named dropdown param. */
@@ -104,6 +106,29 @@ export function filterParams(f: DashboardFilterV2): string[] {
   return f.kind === "date_range" ? [`${f.name}_from`, `${f.name}_to`] : [f.name];
 }
 
+/**
+ * Parameter values a dashboard opens with: every parameter null, except the
+ * `_from` of a date_range with `default_days`, which is that many days before
+ * `today` as a local YYYY-MM-DD date.
+ */
+export function initialParams(
+  config: Pick<DashboardConfigV2, "filters" | "panels">,
+  today: Date,
+): Record<string, string | null> {
+  const params: Record<string, string | null> = {};
+  for (const f of config.filters) for (const p of filterParams(f)) params[p] = null;
+  for (const panel of config.panels) {
+    if ("emit" in panel && panel.emit) params[panel.emit.param] = null;
+  }
+  for (const f of config.filters) {
+    if (f.kind !== "date_range" || f.default_days === undefined) continue;
+    const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - f.default_days);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    params[`${f.name}_from`] = `${from.getFullYear()}-${pad(from.getMonth() + 1)}-${pad(from.getDate())}`;
+  }
+  return params;
+}
+
 export type V2ValidationResult =
   | { ok: true; config: DashboardConfigV2; panelCount: number }
   | { ok: false; errors: string[] };
@@ -170,6 +195,13 @@ export function validateDashboardV2Detailed(source: string): V2DetailedResult {
       }
       if (filter.kind === "dropdown" && typeof filter.options_sql !== "string") {
         err(`filters[${i}] (dropdown) requires options_sql`, ["filters", i]);
+      }
+      if (filter.default_days !== undefined) {
+        if (filter.kind !== "date_range") {
+          err(`filters[${i}].default_days is only for date_range filters`, ["filters", i, "default_days"]);
+        } else if (!Number.isInteger(filter.default_days) || (filter.default_days as number) < 1) {
+          err(`filters[${i}].default_days must be a whole number, at least 1`, ["filters", i, "default_days"]);
+        }
       }
       for (const p of filterParams(filter as unknown as DashboardFilterV2)) {
         if (seenParams.has(p)) err(`filter parameter $${p} declared twice`, ["filters", i, "name"]);
