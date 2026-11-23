@@ -29,13 +29,21 @@ export interface ValidationResult {
   errors: string[];
 }
 
-/** Requires a name and a schema with unique names and known types. */
+/** Retention periods are whole days, at least 1. */
+export function isWholeDays(days: number): boolean {
+  return Number.isInteger(days) && days >= 1;
+}
+
+/** Requires a name, a schema with unique names and known types, and a retention of at least 1 day. */
 export function validateSourceContainer(
-  entity: Pick<SourceContainer, "name" | "schema">,
+  entity: Pick<SourceContainer, "name" | "schema" | "retention_days">,
 ): ValidationResult {
   const errors: string[] = [];
   if (!entity.name || entity.name.trim() === "") {
     errors.push("Name is required");
+  }
+  if (entity.retention_days !== undefined && !isWholeDays(entity.retention_days)) {
+    errors.push("Raw file retention must be a whole number of days, at least 1");
   }
   if (!entity.schema || entity.schema.length === 0) {
     errors.push("Schema must have at least one column");

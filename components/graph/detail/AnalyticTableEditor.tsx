@@ -18,8 +18,9 @@ import {
   ColumnEditCard,
 } from "./inspector";
 import { InlineErrorList } from "./editorPrimitives";
+import { isWholeDays } from "./validation";
 
-const ANALYTIC_TABLE_EDITOR_ERROR_TESTID = "analytic-table-editor-error";
+export const ANALYTIC_TABLE_EDITOR_ERROR_TESTID = "analytic-table-editor-error";
 const PARTITION_KEYS_TESTID = "partition-keys-section";
 const DEDUP_KEYS_TESTID = "dedup-keys-section";
 
@@ -39,6 +40,13 @@ function validate(t: AnalyticTable): string[] {
     if (seen.has(c.name)) errors.push(`Duplicate column name: ${c.name}`);
     seen.add(c.name);
     if (c.name.trim() === "") errors.push("Column names cannot be empty");
+  }
+  if (t.retention) {
+    const column = t.schema.find((c) => c.name === t.retention!.column);
+    if (column?.type !== "date") errors.push("Row retention needs a date column");
+    if (!isWholeDays(t.retention.days)) {
+      errors.push("Row retention must be a whole number of days, at least 1");
+    }
   }
   return errors;
 }
@@ -74,8 +82,8 @@ function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProps) {
 
   const typeOf = (name: string) => value.schema.find((c) => c.name === name)?.type;
 
-  // Renames/deletes cascade through both key lists; the parent cascades
-  // further into mapping columns.
+  // Renames/deletes cascade through both key lists and the retention column;
+  // the parent cascades further into mapping columns.
   const renameColumn = (index: number, name: string) => {
     const prev = value.schema[index].name;
     const schema = value.schema.map((c, i) => (i === index ? { ...c, name } : c));
@@ -84,6 +92,8 @@ function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProps) {
       schema,
       partition_keys: partitionKeys.map((k) => (k === prev ? name : k)),
       dedup_keys: dedupKeys.map((k) => (k === prev ? name : k)),
+      retention:
+        value.retention?.column === prev ? { ...value.retention, column: name } : value.retention,
     });
   };
   const retypeColumn = (index: number, type: string) => {
@@ -105,6 +115,7 @@ function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProps) {
       schema: value.schema.filter((_, i) => i !== index),
       partition_keys: partitionKeys.filter((k) => k !== name),
       dedup_keys: dedupKeys.filter((k) => k !== name),
+      retention: value.retention?.column === name ? undefined : value.retention,
     });
   };
   const addColumn = () => {
@@ -219,6 +230,56 @@ function AnalyticTableEditor({ value, onChange }: AnalyticTableEditorProps) {
             <InspRow label="Keys">{dedupKeys.length ? dedupKeys.join(", ") : "none"}</InspRow>
           )}
         </div>
+      </Section>
+
+      <Section label="Row retention">
+        <div className="flex items-center gap-2">
+          <select
+            aria-label="row retention column"
+            className={kvInputClass("flex-1")}
+            value={value.retention?.column ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                retention: e.target.value
+                  ? { column: e.target.value, days: value.retention?.days ?? 365 }
+                  : undefined,
+              })
+            }
+          >
+            <option value="">Keep rows forever</option>
+            {value.schema
+              .filter((c) => c.type === "date" || c.name === value.retention?.column)
+              .map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+          </select>
+          {value.retention && (
+            <>
+              <div className="w-20">
+                <input
+                  aria-label="row retention days"
+                  type="number"
+                  min={1}
+                  className={kvInputClass("font-mono")}
+                  value={value.retention.days}
+                  onChange={(e) =>
+                    onChange({
+                      ...value,
+                      retention: { ...value.retention!, days: Number(e.target.value) },
+                    })
+                  }
+                />
+              </div>
+              <span className="text-xs text-[color:var(--color-ink-2)]">days</span>
+            </>
+          )}
+        </div>
+        <p className="mt-1.5 text-[10.5px] text-[color:var(--color-ink-3)]">
+          Deletes rows whose date is older than this each time the table is written.
+        </p>
       </Section>
 
       <Section

@@ -66,6 +66,11 @@ export interface SourceContainer {
   schema: ColumnSchema[];
   /** JSON only: records failing this predicate are skipped. */
   record_filter?: AstNode;
+  /**
+   * Raw files are deleted from the lake this many days after upload, once
+   * every mapping reading them has loaded them. Their rows are kept.
+   */
+  retention_days?: number;
 }
 
 /** How a dimension matches an input against its row patterns. */
@@ -145,6 +150,13 @@ export interface AnalyticTable {
   partition_keys?: string[];
   /** Row-identity columns; duplicate tuples collapse at write time. */
   dedup_keys?: string[];
+  /** Rows whose `date` column is more than `days` days old are deleted on each commit. */
+  retention?: RowRetention;
+}
+
+export interface RowRetention {
+  column: string;
+  days: number;
 }
 
 export interface LayoutPosition {
